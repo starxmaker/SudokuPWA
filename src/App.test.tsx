@@ -1,0 +1,125 @@
+import React from 'react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import App from './App'
+import { saveGame } from './utils/gameStorage'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+
+const GRID: number[][] = [
+  [5, 3, 4, 6, 7, 8, 9, 1, 2],
+  [6, 7, 2, 1, 9, 5, 3, 4, 8],
+  [1, 9, 8, 3, 4, 2, 5, 6, 7],
+  [8, 5, 9, 7, 6, 1, 4, 2, 3],
+  [4, 2, 6, 8, 5, 3, 7, 9, 1],
+  [7, 1, 3, 9, 2, 4, 8, 5, 6],
+  [9, 6, 1, 5, 3, 7, 2, 8, 4],
+  [2, 8, 7, 4, 1, 9, 6, 3, 5],
+  [3, 4, 5, 2, 8, 6, 1, 7, 9],
+]
+
+beforeEach(() => {
+  localStorage.clear()
+  document.documentElement.classList.remove('dark')
+})
+
+afterEach(() => {
+  document.documentElement.classList.remove('dark')
+})
+
+describe('App', () => {
+  it('shows Home page on first load', () => {
+    render(<App />)
+    expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /new game/i })).toBeInTheDocument()
+  })
+
+  it('does not show Continue when no saved game', () => {
+    render(<App />)
+    expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
+  })
+
+  it('shows Continue button when a saved game exists', () => {
+    saveGame(GRID, GRID, GRID)
+    render(<App />)
+    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument()
+  })
+
+  it('opens settings dialog when settings button clicked', async () => {
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText('Settings')).toBeInTheDocument()
+  })
+
+  it('closes settings dialog when Close clicked', async () => {
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('applies dark mode when toggled in settings', async () => {
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    await user.click(screen.getByRole('switch', { name: /dark mode/i }))
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('opens new game modal when New Game clicked', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /new game/i }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // modal heading is an h2 inside the dialog
+    expect(screen.getByRole('heading', { name: /^new game$/i })).toBeInTheDocument()
+  })
+
+  it('cancels new game modal on Cancel click', async () => {
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /new game/i }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('navigates to board when Continue clicked with saved game', async () => {
+    saveGame(GRID, GRID, GRID)
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }))
+    const cells = await screen.findAllByRole('gridcell')
+    expect(cells.length).toBe(81)
+    expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument()
+  })
+
+  it('navigates back to Home when Back clicked', async () => {
+    saveGame(GRID, GRID, GRID)
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /continue/i }))
+    await screen.findAllByRole('gridcell')
+    await user.click(screen.getByRole('button', { name: /back/i }))
+    expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
+  })
+
+  it('saves autoCheck preference to localStorage via settings', async () => {
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+    const toggle = screen.getByRole('switch', { name: /auto-check/i })
+    // default is true (enabled), clicking turns it off
+    await user.click(toggle)
+    expect(localStorage.getItem('autoCheck')).toBe('false')
+  })
+
+  it('saves theme preference to localStorage', async () => {
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('switch', { name: /dark mode/i }))
+    expect(localStorage.getItem('theme')).toBe('dark')
+  })
+})

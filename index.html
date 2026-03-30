@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Sudoku PWA</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#0b6cff">
+    <link rel="icon" href="/icons/icon-192.svg">
+    <!-- Apply saved or system theme before React mounts to avoid flash -->
+    <script>
+      (function(){
+        try {
+          const saved = localStorage.getItem('theme')
+          if(saved === 'dark') { document.documentElement.classList.add('dark'); return }
+          if(saved === 'light') { document.documentElement.classList.remove('dark'); return }
+        } catch(e){}
+        try {
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          if(prefersDark) document.documentElement.classList.add('dark')
+        } catch(e){}
+      })();
+    </script>
+
+    <!-- In dev, immediately unregister service workers and clear PWA cache to avoid stale HTML/CSS being served -->
+    <script>
+      (function(){
+        try{
+          const host = location.hostname
+          const isLocal = host === 'localhost' || host === '127.0.0.1' || host === ''
+          if(isLocal && 'serviceWorker' in navigator){
+            navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(r=>r.unregister())).catch(()=>{})
+            if(window.caches){ caches.delete('sudoku-pwa-v1').catch(()=>{}) }
+          }
+        }catch(e){}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
