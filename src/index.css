@@ -289,6 +289,10 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   line-height:1;
   color:var(--muted);
 }
+.cell-note--highlight{
+  font-weight:700;
+  color:var(--accent);
+}
 
 /* Slightly stronger 3×3 box boundaries (grey) */
 .board > .cell:nth-child(9n+3),

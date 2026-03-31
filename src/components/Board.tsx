@@ -327,7 +327,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           {hasNotes ? (
             <div className="cell-notes">
               {[1,2,3,4,5,6,7,8,9].map(d => (
-                <span key={d} className="cell-note">{cellNotes.includes(d) ? d : ''}</span>
+                <span key={d} className={`cell-note${selectedDigit !== 0 && cellNotes.includes(d) && d === selectedDigit ? ' cell-note--highlight' : ''}`}>{cellNotes.includes(d) ? d : ''}</span>
               ))}
             </div>
           ) : (
