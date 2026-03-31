@@ -347,21 +347,23 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       )}
       <div className="timer-row">
         <span className="difficulty-label">{difficulty ?? 'Custom'}</span>
-        <span className="timer-display">
-          {formatTime(elapsed)}
-        </span>
-        <button
-          type="button"
-          className="timer-pause"
-          aria-label={paused ? 'Resume' : 'Pause'}
-          onClick={() => {
-            const next = !paused
-            setManualPause(next)
-            setPaused(next)
-          }}
-        >
-          {paused ? <MdPlayArrow size={22} /> : <MdPause size={22} />}
-        </button>
+        <div className="timer-group">
+          <span className="timer-display">
+            {formatTime(elapsed)}
+          </span>
+          <button
+            type="button"
+            className="timer-pause"
+            aria-label={paused ? 'Resume' : 'Pause'}
+            onClick={() => {
+              const next = !paused
+              setManualPause(next)
+              setPaused(next)
+            }}
+          >
+            {paused ? <MdPlayArrow size={22} /> : <MdPause size={22} />}
+          </button>
+        </div>
       </div>
       <div className="board-wrapper">
         <div className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label="Sudoku grid">
