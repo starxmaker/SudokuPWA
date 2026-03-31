@@ -1,6 +1,8 @@
 import React from 'react'
+import { FaGithub } from 'react-icons/fa'
 
 declare const __APP_VERSION__: string
+declare const __REPO_URL__: string
 
 type Props = {
   hasSaved: boolean
@@ -23,6 +25,15 @@ export default function Home({ hasSaved, onNew, onContinue, error }: Props){
       </div>
       {error && <p style={{color:'#e53935',fontWeight:600}}>{error}</p>}
       {!hasSaved && !error && <p style={{color:'#666'}}>No saved game found — start a new puzzle.</p>}
+      <a
+        href={__REPO_URL__}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="View on GitHub"
+        style={{color:'#999',display:'flex',alignItems:'center',textDecoration:'none'}}
+      >
+        <FaGithub size={36} />
+      </a>
       <p style={{color:'#999',fontSize:'0.75rem',margin:0}}>v{__APP_VERSION__}</p>
     </div>
   )

@@ -33,7 +33,7 @@ export default defineConfig(async () => {
         }
       })
     ],
-    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+    define: { __APP_VERSION__: JSON.stringify(pkg.version), __REPO_URL__: JSON.stringify(pkg.homepage) },
     server: { port: 5173 }
   }
 })
