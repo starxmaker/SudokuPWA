@@ -1,11 +1,12 @@
 import React from 'react'
 import type { Difficulty } from '../utils/sudoku'
 
-const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard', 'expert']
+const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard', 'very-hard', 'expert']
 const LABELS: Record<Difficulty, string> = {
   easy: 'Easy',
   medium: 'Medium',
   hard: 'Hard',
+  'very-hard': 'Very Hard',
   expert: 'Expert',
 }
 const STORAGE_KEY = 'lastDifficulty'

@@ -12,12 +12,13 @@ describe('NewGameModal', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('renders all four difficulty buttons when open', () => {
+  it('renders all five difficulty buttons when open', () => {
     render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /easy/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /medium/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /hard/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^hard$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /very hard/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /expert/i })).toBeInTheDocument()
   })
 
@@ -28,8 +29,8 @@ describe('NewGameModal', () => {
 
   it('changes selected difficulty on click', async () => {
     render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /hard/i }))
-    expect(screen.getByRole('button', { name: /hard/i }).getAttribute('aria-pressed')).toBe('true')
+    await userEvent.click(screen.getByRole('button', { name: /^hard$/i }))
+    expect(screen.getByRole('button', { name: /^hard$/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /medium/i }).getAttribute('aria-pressed')).toBe('false')
   })
 
