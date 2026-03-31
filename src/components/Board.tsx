@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { MdPlayArrow, MdPause, MdUndo } from 'react-icons/md'
 import { FaEraser, FaPencilAlt } from 'react-icons/fa'
 import { generateGame, solveGrid, Grid } from '../utils/sudoku'
-import { loadSaved, saveGame } from '../utils/gameStorage'
+import { loadSaved, saveGame, saveElapsed, loadElapsed, clearElapsed } from '../utils/gameStorage'
 
 type Props = {
   puzzle?: Grid | null
@@ -71,7 +71,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const [history, setHistory] = useState<{puzzle: Grid; notes: number[][][]}[]>([])
   // Guards against touch ghost-click: onPointerDown sets this, onClick checks and clears it.
   const touchFiredRef = React.useRef(false)
-  const [elapsed, setElapsed] = useState(0)
+  const [elapsed, setElapsed] = useState(() => loadElapsed())
   const [paused, setPaused] = useState(false)
   const [manualPause, setManualPause] = useState(false)
   const [won, setWon] = useState(false)
@@ -95,7 +95,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   useEffect(() => {
     if (paused) return
-    const id = setInterval(() => setElapsed(s => s + 1), 1000)
+    const id = setInterval(() => setElapsed(s => { saveElapsed(s + 1); return s + 1 }), 1000)
     return () => clearInterval(id)
   }, [paused])
 
@@ -193,6 +193,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setHistory([])
     setElapsed(0)
+    clearElapsed()
     setPaused(false)
     setManualPause(false)
     setWon(false)
@@ -207,6 +208,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setHistory([])
     setElapsed(0)
+    clearElapsed()
     setPaused(false)
     setManualPause(false)
     setWon(false)

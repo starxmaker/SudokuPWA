@@ -54,6 +54,24 @@ export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | nu
   }
 }
 
+export const ELAPSED_KEY = 'sudoku-pwa-elapsed'
+
+export function saveElapsed(seconds: number): void {
+  try { localStorage.setItem(ELAPSED_KEY, String(seconds)) } catch { /* ignore */ }
+}
+
+export function loadElapsed(): number {
+  try {
+    const s = localStorage.getItem(ELAPSED_KEY)
+    if (s !== null) { const n = parseInt(s, 10); if (!isNaN(n) && n >= 0) return n }
+  } catch { /* ignore */ }
+  return 0
+}
+
+export function clearElapsed(): void {
+  try { localStorage.removeItem(ELAPSED_KEY) } catch { /* ignore */ }
+}
+
 export function saveGame(initial: Grid, current: Grid, solution: Grid | null = null, notes: number[][][] = emptyNotes()): void {
   try {
     const payload: SavedV4 = {
