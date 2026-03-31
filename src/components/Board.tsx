@@ -421,6 +421,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${notesMode ? ' num-key--notes' : ''}`}
             onClick={() => applyDigit(d)}
             aria-label={`${d}, ${remaining[d]} remaining`}
+            data-digit={d}
           >
             <span className="num-key__digit">{remaining[d] === 0 ? '\u00a0' : d}</span>
             <span className="num-key__remaining">{remaining[d] > 0 ? remaining[d] : '\u00a0'}</span>

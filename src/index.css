@@ -227,6 +227,8 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   border-radius:0;box-shadow:none;font-weight:400;
   margin:0;
   position:relative;
+  user-select:none;
+  -webkit-user-select:none;
 }
 .board > .cell:nth-child(9n){ border-right:none }
 .board > .cell:nth-child(n+73){ border-bottom:none }
@@ -354,6 +356,35 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   color:var(--cell-user-text) !important;
   box-shadow:none !important;
   border:1px solid var(--cell-inner) !important;
+  position:relative;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.number-pad .num-key::before{
+  content:attr(data-digit);
+  position:absolute;
+  bottom:calc(100% + 6px);
+  left:0;
+  width:100%;
+  background:#fff;
+  border:1px solid var(--cell-inner);
+  border-radius:10px;
+  font-size:clamp(2.4rem, 9vw, 4.5rem);
+  font-weight:300;
+  color:var(--cell-user-text);
+  line-height:1;
+  padding:6px 0;
+  text-align:center;
+  pointer-events:none;
+  opacity:0;
+  z-index:10;
+}
+.number-pad .num-key:active::before{
+  opacity:1;
+}
+.dark .number-pad .num-key::before{
+  background:#181818;
+  border-color:#555;
 }
 .dark .number-pad .num-key{
   background:#181818 !important;
@@ -362,6 +393,9 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .number-pad .num-key.num-key--notes{
   font-size:clamp(1.2rem, 4.5vw, 2rem);
   color:#a0aec0 !important;
+}
+.number-pad .num-key.num-key--notes::before{
+  color:#a0aec0;
 }
 .num-key__digit{
   display:flex;

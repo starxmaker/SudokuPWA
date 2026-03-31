@@ -49,7 +49,9 @@ describe('Board component', () => {
     await waitForBoard()
     for (let d = 1; d <= 9; d++) {
       // aria-label is e.g. "3, 7 remaining" — anchor with leading digit + comma
-      expect(screen.getByRole('button', { name: new RegExp(`^${d},`) })).toBeInTheDocument()
+      const btn = screen.getByRole('button', { name: new RegExp(`^${d},`) })
+      expect(btn).toBeInTheDocument()
+      expect(btn.getAttribute('data-digit')).toBe(String(d))
     }
   })
 
