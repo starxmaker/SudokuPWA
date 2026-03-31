@@ -18,6 +18,76 @@ body{background:var(--bg);color:var(--text)}
 .topbar .title{margin:0;font-size:1.1rem}
 .topbar button{background:transparent;border:0;font-size:1.1rem}
 
+/* Sidebar backdrop overlay */
+.sidebar-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0);
+  z-index:1199;
+  pointer-events:none;
+  transition:background 0.28s ease;
+}
+.sidebar-backdrop.open{
+  background:rgba(0,0,0,0.38);
+  pointer-events:all;
+}
+
+/* Sidebar panel */
+.sidebar{
+  position:fixed;
+  top:0;
+  right:0;
+  height:100%;
+  width:240px;
+  background:var(--card);
+  z-index:1200;
+  display:flex;
+  flex-direction:column;
+  padding:8px;
+  transform:translateX(100%);
+  box-shadow:-4px 0 32px rgba(0,0,0,0);
+  transition:transform 0.28s ease, box-shadow 0.28s ease;
+}
+.sidebar.open{
+  transform:translateX(0);
+  box-shadow:-4px 0 32px rgba(0,0,0,0.22);
+}
+.sidebar-header{
+  display:flex;
+  justify-content:flex-end;
+  padding:4px 0 8px;
+  border-bottom:1px solid rgba(0,0,0,0.07);
+  margin-bottom:8px;
+}
+.sidebar-close{
+  background:transparent !important;
+  border:0;
+  box-shadow:none !important;
+  color:var(--text) !important;
+  padding:6px !important;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+.sidebar-close:hover{ background:var(--accent-soft) !important }
+.sidebar button[role="menuitem"]{
+  width:100%;
+  text-align:left;
+  padding:12px 16px;
+  border-radius:10px;
+  background:transparent !important;
+  color:var(--text) !important;
+  box-shadow:none !important;
+  font-size:1rem;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  cursor:pointer;
+}
+.sidebar button[role="menuitem"]:hover{ background:var(--accent-soft) !important }
+
 /* Rounded blue primary buttons */
 button{
   appearance:none;

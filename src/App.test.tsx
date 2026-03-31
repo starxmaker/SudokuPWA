@@ -47,15 +47,17 @@ describe('App', () => {
   it('opens settings dialog when settings button clicked', async () => {
     render(<App />)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText('Settings')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^settings$/i })).toBeInTheDocument()
   })
 
   it('closes settings dialog when Close clicked', async () => {
     render(<App />)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
     await user.click(screen.getByRole('button', { name: /close/i }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
@@ -63,7 +65,8 @@ describe('App', () => {
   it('applies dark mode when toggled in settings', async () => {
     render(<App />)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
     expect(document.documentElement.classList.contains('dark')).toBe(false)
     await user.click(screen.getByRole('switch', { name: /dark mode/i }))
     expect(document.documentElement.classList.contains('dark')).toBe(true)
@@ -108,7 +111,8 @@ describe('App', () => {
   it('saves autoCheck preference to localStorage via settings', async () => {
     render(<App />)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
     const toggle = screen.getByRole('switch', { name: /auto-check/i })
     // default is true (enabled), clicking turns it off
     await user.click(toggle)
@@ -118,7 +122,8 @@ describe('App', () => {
   it('saves theme preference to localStorage', async () => {
     render(<App />)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
     await user.click(screen.getByRole('switch', { name: /dark mode/i }))
     expect(localStorage.getItem('theme')).toBe('dark')
   })
