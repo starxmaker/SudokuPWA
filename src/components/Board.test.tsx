@@ -380,7 +380,7 @@ describe('Board numpad touch handling', () => {
     await user.click(cells[2])
 
     const btn4 = screen.getByRole('button', { name: /^4,/ })
-    // Simulate one touch tap (sets and clears touchFiredRef)
+    // Simulate one touch tap (pointerdown applies + stores result, ghost click fires haptic + clears ref)
     touchThenGhostClick(btn4)
     await waitFor(() => expect(cells[2].querySelector('.cell-notes')).not.toBeNull())
 

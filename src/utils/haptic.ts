@@ -21,9 +21,16 @@ export function triggerHaptic(): void {
   } catch { /* ignore */ }
 }
 
-/** Fire a buzz haptic for error feedback. */
+/** Fire a buzz haptic for error feedback.
+ *  On Android: navigator.vibrate triple-burst pattern.
+ *  On iOS: trigger a 300ms pattern — fires one synchronous click + RAF clicks every ~16ms
+ *  for the duration of the pattern, producing a distinctive sustained buzz. */
 export function triggerErrorHaptic(): void {
   try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate([50, 30, 50, 30, 50])
+      return
+    }
     getInstance().trigger([{ duration: 300, intensity: 1 }])
   } catch { /* ignore */ }
 }

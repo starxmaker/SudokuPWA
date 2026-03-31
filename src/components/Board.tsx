@@ -69,8 +69,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const notesRef = React.useRef(notes)
   notesRef.current = notes
   const [history, setHistory] = useState<{puzzle: Grid; notes: number[][][]}[]>([])
-  // Guards against touch ghost-click: onPointerDown sets this, onClick checks and clears it.
-  const touchFiredRef = React.useRef(false)
+  // Guards against touch ghost-click: onPointerDown stores 'ok'|'error', onClick fires haptic then skips apply.
+  const touchFiredRef = React.useRef<'ok' | 'error' | null>(null)
   const [elapsed, setElapsed] = useState(() => loadElapsed())
   const [paused, setPaused] = useState(false)
   const [manualPause, setManualPause] = useState(false)
@@ -224,10 +224,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setSelected(prev => (prev?.r === r && prev?.c === c ? null : { r, c }))
   }
 
-  function applyDigit(d: number) {
-    if (!selected) return
+  function applyDigit(d: number): boolean {
+    if (!selected) return false
     const { r, c } = selected
-    if (isClue(r, c)) return
+    if (isClue(r, c)) return false
     if (notesMode) {
       setHistory(h => [...h.slice(-50), {
         puzzle: internalPuzzle.map(row => [...row]),
@@ -263,10 +263,11 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         return next
       })
       onInput(r, c, d)
-      if (haptic && autoCheck && solutionGrid !== null && d !== solutionGrid[r][c]) {
-        onTriggerErrorHaptic?.()
+      if (autoCheck && solutionGrid !== null && d !== solutionGrid[r][c]) {
+        return true
       }
     }
+    return false
   }
 
   function clearCell() {
@@ -435,16 +436,29 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${notesMode ? ' num-key--notes' : ''}`}
             onPointerDown={(e) => {
               if (e.pointerType === 'touch') {
-                touchFiredRef.current = true
-                applyDigit(d)
-                if (haptic) onTriggerHaptic?.()
+                // Apply digit now (instant feedback), but defer haptic to onClick.
+                // iOS only honors haptic triggered inside a click/tap event handler.
+                const isError = applyDigit(d)
+                touchFiredRef.current = isError ? 'error' : 'ok'
               }
             }}
             onClick={() => {
-              // iOS fires a ghost click after pointerdown — skip it if touch already handled this.
-              if (touchFiredRef.current) { touchFiredRef.current = false; return }
-              applyDigit(d)
-              if (haptic) onTriggerHaptic?.()
+              if (touchFiredRef.current !== null) {
+                // iOS ghost click — fire the haptic here (valid iOS haptic context).
+                const result = touchFiredRef.current
+                touchFiredRef.current = null
+                if (haptic) {
+                  if (result === 'error') onTriggerErrorHaptic?.()
+                  else onTriggerHaptic?.()
+                }
+                return
+              }
+              // Mouse / keyboard path
+              const isError = applyDigit(d)
+              if (haptic) {
+                if (isError) onTriggerErrorHaptic?.()
+                else onTriggerHaptic?.()
+              }
             }}
             aria-label={`${d}, ${remaining[d]} remaining`}
             data-digit={d}
