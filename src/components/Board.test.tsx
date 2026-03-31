@@ -336,3 +336,56 @@ describe('Board haptic callbacks', () => {
     expect(onTriggerErrorHaptic).not.toHaveBeenCalled()
   })
 })
+
+describe('Board numpad touch handling', () => {
+  // Simulate what iOS does: fire pointerdown (touch) then a ghost click on the same button.
+  function touchThenGhostClick(btn: HTMLElement) {
+    fireEvent.pointerDown(btn, { pointerType: 'touch', bubbles: true })
+    fireEvent.click(btn)
+  }
+
+  it('applies a note exactly once when a touch pointerdown + ghost click arrive', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2]) // select blank cell
+
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    touchThenGhostClick(btn4)
+
+    // Note should be present (added once, not toggled off by ghost click)
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).not.toBeNull())
+  })
+
+  it('toggling same note twice via touch removes it', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2])
+
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    touchThenGhostClick(btn4) // first touch: adds note
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).not.toBeNull())
+    touchThenGhostClick(btn4) // second touch: removes note
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).toBeNull())
+  })
+
+  it('mouse click still works after a touch interaction', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2])
+
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    // Simulate one touch tap (sets and clears touchFiredRef)
+    touchThenGhostClick(btn4)
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).not.toBeNull())
+
+    // Now a plain mouse click (from userEvent) should toggle it off
+    await user.click(btn4)
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).toBeNull())
+  })
+})

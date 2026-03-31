@@ -66,7 +66,11 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     if (saved?.notes) return saved.notes
     return Array.from({length: 9}, () => Array.from({length: 9}, () => []))
   })
+  const notesRef = React.useRef(notes)
+  notesRef.current = notes
   const [history, setHistory] = useState<{puzzle: Grid; notes: number[][][]}[]>([])
+  // Guards against touch ghost-click: onPointerDown sets this, onClick checks and clears it.
+  const touchFiredRef = React.useRef(false)
   const [elapsed, setElapsed] = useState(0)
   const [paused, setPaused] = useState(false)
   const [manualPause, setManualPause] = useState(false)
@@ -106,13 +110,6 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       setFinalTime(prev => elapsed) // capture current elapsed
     }
   }, [internalPuzzle, solutionGrid, won, elapsed])
-
-  function pushHistory(puzzle: Grid, notes: number[][][]) {
-    setHistory(prev => [...prev.slice(-50), {
-      puzzle: puzzle.map(r => [...r]),
-      notes: notes.map(r => r.map(c => [...c]))
-    }])
-  }
 
   // determine whether to use external setter or internal
   const setPuzzle = (p: Grid) => {
@@ -230,7 +227,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     const { r, c } = selected
     if (isClue(r, c)) return
     if (notesMode) {
-      pushHistory(internalPuzzle, notes)
+      setHistory(h => [...h.slice(-50), {
+        puzzle: internalPuzzle.map(row => [...row]),
+        notes: notesRef.current.map(row => row.map(cell => [...cell]))
+      }])
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         const cell = next[r][c]
@@ -240,7 +240,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         return next
       })
     } else {
-      pushHistory(internalPuzzle, notes)
+      setHistory(h => [...h.slice(-50), {
+        puzzle: internalPuzzle.map(row => [...row]),
+        notes: notesRef.current.map(row => row.map(cell => [...cell]))
+      }])
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         next[r][c] = []
@@ -268,7 +271,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     if (!selected) return
     const { r, c } = selected
     if (isClue(r, c)) return
-    pushHistory(internalPuzzle, notes)
+    setHistory(h => [...h.slice(-50), {
+      puzzle: internalPuzzle.map(row => [...row]),
+      notes: notesRef.current.map(row => row.map(cell => [...cell]))
+    }])
     setNotes(prev => {
       const next = prev.map(row => row.map(cell => [...cell]))
       next[r][c] = []
@@ -425,7 +431,19 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             key={d}
             type="button"
             className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${notesMode ? ' num-key--notes' : ''}`}
-            onClick={() => { if (haptic) onTriggerHaptic?.(); applyDigit(d) }}
+            onPointerDown={(e) => {
+              if (e.pointerType === 'touch') {
+                touchFiredRef.current = true
+                applyDigit(d)
+                if (haptic) onTriggerHaptic?.()
+              }
+            }}
+            onClick={() => {
+              // iOS fires a ghost click after pointerdown — skip it if touch already handled this.
+              if (touchFiredRef.current) { touchFiredRef.current = false; return }
+              applyDigit(d)
+              if (haptic) onTriggerHaptic?.()
+            }}
             aria-label={`${d}, ${remaining[d]} remaining`}
             data-digit={d}
           >

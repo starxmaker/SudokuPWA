@@ -158,6 +158,9 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   color:transparent !important;
   pointer-events:none;
 }
+.board--paused .cell-notes{
+  visibility:hidden;
+}
 .board-pause-overlay{
   position:absolute;
   inset:0;
@@ -227,6 +230,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   border-radius:0;box-shadow:none;font-weight:400;
   margin:0;
   position:relative;
+  touch-action:manipulation;
   user-select:none;
   -webkit-user-select:none;
 }
@@ -357,6 +361,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   box-shadow:none !important;
   border:1px solid var(--cell-inner) !important;
   position:relative;
+  touch-action:manipulation;
   user-select:none;
   -webkit-user-select:none;
 }
