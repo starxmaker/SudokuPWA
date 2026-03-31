@@ -229,4 +229,46 @@ describe('Board with fixed puzzle', () => {
     expect(screen.queryByText('Puzzle Complete!')).toBeNull()
     expect(cells[80].textContent).toBe('\u00a0')
   })
+
+  it('applies cross class to cells in the same row and column as selected', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    // Select cell [0][0] (flat index 0)
+    await user.click(cells[0])
+    // Same row: [0][1..8] → flat indices 1-8
+    expect(cells[1].classList.contains('cross')).toBe(true)
+    expect(cells[8].classList.contains('cross')).toBe(true)
+    // Same column: [1][0] → flat index 9, [8][0] → flat index 72
+    expect(cells[9].classList.contains('cross')).toBe(true)
+    expect(cells[72].classList.contains('cross')).toBe(true)
+    // Selected cell itself should NOT have cross
+    expect(cells[0].classList.contains('cross')).toBe(false)
+  })
+
+  it('applies cross class to cells in the same 3×3 box as selected', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    // Select cell [0][0] (flat index 0) — top-left box: rows 0-2, cols 0-2
+    await user.click(cells[0])
+    // [1][1] → flat index 10, [2][2] → flat index 20 — both in same box, same neither row nor col
+    expect(cells[10].classList.contains('cross')).toBe(true)
+    expect(cells[20].classList.contains('cross')).toBe(true)
+    // [3][3] → flat index 30 — different box, different row & col → no cross
+    expect(cells[30].classList.contains('cross')).toBe(false)
+  })
+
+  it('does not apply cross class to same-digit cells (they get same-digit instead)', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    // Select cell [0][0] which contains 5; other 5s should be same-digit, not cross
+    await user.click(cells[0])
+    // Find a cell with digit 5 that is not in same row/col/box
+    // SOLUTION has 5 at [1][0]→index 9 (same col, so cross anyway), [3][1]→index 28
+    // [3][1] has 5 in SOLUTION: different row/col/box from [0][0]
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+    expect(cells[28].classList.contains('cross')).toBe(false)
+  })
 })

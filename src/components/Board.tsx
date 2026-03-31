@@ -311,7 +311,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         selected !== null &&
         !selectedHere &&
         !sameDigit &&
-        (r === selected.r || c === selected.c)
+        (r === selected.r || c === selected.c ||
+          (Math.floor(r / 3) === Math.floor(selected.r / 3) && Math.floor(c / 3) === Math.floor(selected.c / 3)))
       const isError = autoCheck && solutionGrid !== null && userEntry && n !== solutionGrid[r][c]
       const cellNotes = notes[r][c]
       const hasNotes = cellNotes.length > 0 && n === 0
