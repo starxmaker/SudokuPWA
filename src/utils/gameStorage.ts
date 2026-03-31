@@ -2,16 +2,24 @@ import type { Grid } from './sudoku_types'
 
 export const STORAGE_KEY = 'sudoku-pwa-state'
 
-const V = 3 as const
+const V = 4 as const
 
-type SavedV3 = { v: typeof V; initial: Grid; current: Grid; solution: Grid | null }
+type SavedV4 = { v: typeof V; initial: Grid; current: Grid; solution: Grid | null; notes: number[][][] }
 
 function cloneGrid(g: Grid): Grid {
   return g.map(row => [...row])
 }
 
+function cloneNotes(n: number[][][]): number[][][] {
+  return n.map(row => row.map(cell => [...cell]))
+}
+
+function emptyNotes(): number[][][] {
+  return Array.from({length: 9}, () => Array.from({length: 9}, () => []))
+}
+
 /** Read saved game. Returns null solution for legacy saves that predate V3. */
-export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | null } | null {
+export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | null; notes: number[][][] } | null {
   try {
     const s = localStorage.getItem(STORAGE_KEY)
     if (!s) return null
@@ -19,14 +27,24 @@ export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | nu
     if (Array.isArray(parsed)) {
       const g = parsed as Grid
       if (g.length !== 9) return null
-      return { initial: cloneGrid(g), current: cloneGrid(g), solution: null }
+      return { initial: cloneGrid(g), current: cloneGrid(g), solution: null, notes: emptyNotes() }
     }
     if (parsed && typeof parsed === 'object') {
+      if ((parsed.v === 4) && parsed.initial && parsed.current) {
+        return {
+          initial: cloneGrid(parsed.initial),
+          current: cloneGrid(parsed.current),
+          solution: parsed.solution ? cloneGrid(parsed.solution) : null,
+          notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
+        }
+      }
+      // Legacy V2/V3 saves — no notes
       if ((parsed.v === 3 || parsed.v === 2) && parsed.initial && parsed.current) {
         return {
           initial: cloneGrid(parsed.initial),
           current: cloneGrid(parsed.current),
           solution: parsed.solution ? cloneGrid(parsed.solution) : null,
+          notes: emptyNotes(),
         }
       }
     }
@@ -36,13 +54,14 @@ export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | nu
   }
 }
 
-export function saveGame(initial: Grid, current: Grid, solution: Grid | null = null): void {
+export function saveGame(initial: Grid, current: Grid, solution: Grid | null = null, notes: number[][][] = emptyNotes()): void {
   try {
-    const payload: SavedV3 = {
+    const payload: SavedV4 = {
       v: V,
       initial: cloneGrid(initial),
       current: cloneGrid(current),
       solution: solution ? cloneGrid(solution) : null,
+      notes: cloneNotes(notes),
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
   } catch { /* ignore */ }

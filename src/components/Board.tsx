@@ -58,9 +58,11 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null)
   const [notesMode, setNotesMode] = useState(false)
-  const [notes, setNotes] = useState<number[][][]>(() =>
-    Array.from({length: 9}, () => Array.from({length: 9}, () => []))
-  )
+  const [notes, setNotes] = useState<number[][][]>(() => {
+    const saved = loadSaved()
+    if (saved?.notes) return saved.notes
+    return Array.from({length: 9}, () => Array.from({length: 9}, () => []))
+  })
   const [history, setHistory] = useState<{puzzle: Grid; notes: number[][][]}[]>([])
   const [elapsed, setElapsed] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -117,8 +119,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   useEffect(() => {
     if (internalPuzzle.length !== 9 || !initialGrid) return
-    saveGame(initialGrid, internalPuzzle, solutionGrid)
-  }, [internalPuzzle, initialGrid, solutionGrid])
+    saveGame(initialGrid, internalPuzzle, solutionGrid, notes)
+  }, [internalPuzzle, initialGrid, solutionGrid, notes])
 
   useEffect(() => {
     if (solutionProp != null) setSolutionGrid(solutionProp)
@@ -140,7 +142,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     const frozen = cloneGrid(internalPuzzle)
     setInitialGrid(frozen)
     if (setPuzzleProp) setPuzzleProp(internalPuzzle)
-    saveGame(frozen, internalPuzzle, solutionGrid)
+    saveGame(frozen, internalPuzzle, solutionGrid, notes)
   }, [internalPuzzle, initialGrid, setPuzzleProp, solutionGrid])
 
   useEffect(() => {
