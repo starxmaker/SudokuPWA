@@ -11,6 +11,9 @@ type Props = {
   solution?: Grid | null
   autoCheck?: boolean
   autoRemove?: boolean
+  haptic?: boolean
+  onTriggerHaptic?: () => void
+  onTriggerErrorHaptic?: () => void
   onNew?: () => void
   onShare?: () => void
   difficulty?: string | null
@@ -28,7 +31,7 @@ function formatTime(s: number): string {
   return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
 }
 
-export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, onBack, solution: solutionProp, autoCheck, autoRemove, onNew, onShare, difficulty }: Props){
+export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, onBack, solution: solutionProp, autoCheck, autoRemove, haptic, onTriggerHaptic, onTriggerErrorHaptic, onNew, onShare, difficulty }: Props){
   const [internalPuzzle, setInternalPuzzle] = useState<Grid>(() => {
     const saved = loadSaved()
     if (saved?.current && saved.current.length === 9) return saved.current
@@ -255,6 +258,9 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         return next
       })
       onInput(r, c, d)
+      if (haptic && autoCheck && solutionGrid !== null && d !== solutionGrid[r][c]) {
+        onTriggerErrorHaptic?.()
+      }
     }
   }
 
@@ -325,7 +331,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           aria-selected={selectedHere}
           aria-disabled={clue}
           className={`cell ${clue ? 'given' : ''} ${userEntry ? 'user' : ''} ${selectedHere ? 'selected' : ''} ${sameDigit ? 'same-digit' : ''} ${inCross ? 'cross' : ''} ${isError ? 'error' : ''}`}
-          onClick={() => selectCell(r, c)}
+          onClick={() => { if (haptic) onTriggerHaptic?.(); selectCell(r, c) }}
         >
           {hasNotes ? (
             <div className="cell-notes">
@@ -419,7 +425,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             key={d}
             type="button"
             className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${notesMode ? ' num-key--notes' : ''}`}
-            onClick={() => applyDigit(d)}
+            onClick={() => { if (haptic) onTriggerHaptic?.(); applyDigit(d) }}
             aria-label={`${d}, ${remaining[d]} remaining`}
             data-digit={d}
           >

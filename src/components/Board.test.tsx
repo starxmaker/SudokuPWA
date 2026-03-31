@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Board from './Board'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 beforeEach(() => localStorage.clear())
 
@@ -272,5 +272,67 @@ describe('Board with fixed puzzle', () => {
     // [3][1] has 5 in SOLUTION: different row/col/box from [0][0]
     expect(cells[28].classList.contains('same-digit')).toBe(true)
     expect(cells[28].classList.contains('cross')).toBe(false)
+  })
+})
+
+describe('Board haptic callbacks', () => {
+  it('calls onTriggerHaptic when haptic=true and a cell is clicked', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onTriggerHaptic when haptic=true and a numpad button is clicked', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    onTriggerHaptic.mockClear()
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call onTriggerHaptic when haptic=false', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic={false} onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    expect(onTriggerHaptic).not.toHaveBeenCalled()
+  })
+
+  it('calls onTriggerErrorHaptic when haptic=true, autoCheck=true, and a wrong digit is entered', async () => {
+    const onTriggerErrorHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic autoCheck onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2]) // blank cell, answer = 4
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit
+    expect(onTriggerErrorHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call onTriggerErrorHaptic for a correct digit', async () => {
+    const onTriggerErrorHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic autoCheck onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2]) // blank cell, answer = 4
+    await user.click(screen.getByRole('button', { name: /^4,/ })) // correct digit
+    expect(onTriggerErrorHaptic).not.toHaveBeenCalled()
+  })
+
+  it('does not call onTriggerErrorHaptic when autoCheck=false even if digit is wrong', async () => {
+    const onTriggerErrorHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic autoCheck={false} onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong, but autoCheck off
+    expect(onTriggerErrorHaptic).not.toHaveBeenCalled()
   })
 })
