@@ -389,3 +389,74 @@ describe('Board numpad touch handling', () => {
     await waitFor(() => expect(cells[2].querySelector('.cell-notes')).toBeNull())
   })
 })
+
+describe('Board pause display', () => {
+  it('removes user class from cells with user entries when paused', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit, no auto-win
+    expect(cells[2].classList.contains('user')).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    expect(cells[2].classList.contains('user')).toBe(false)
+  })
+
+  it('removes selected class when paused', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(cells[2])
+    expect(cells[2].classList.contains('selected')).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    expect(cells[2].classList.contains('selected')).toBe(false)
+  })
+
+  it('removes same-digit class when paused', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    // Select cell [0][0] which has digit 5; other 5s get same-digit
+    await user.click(cells[0])
+    // cells[28] = [3][1] has digit 5, not in same row/col/box → same-digit
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    expect(cells[28].classList.contains('same-digit')).toBe(false)
+  })
+
+  it('removes cross class when paused', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(cells[0])
+    expect(cells[1].classList.contains('cross')).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    expect(cells[1].classList.contains('cross')).toBe(false)
+  })
+
+  it('removes error class when paused', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} autoCheck />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit
+    expect(cells[2].classList.contains('error')).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    expect(cells[2].classList.contains('error')).toBe(false)
+  })
+
+  it('restores classes after resuming', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit, no auto-win
+    expect(cells[2].classList.contains('user')).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    expect(cells[2].classList.contains('user')).toBe(false)
+    const resumeBtns = screen.getAllByRole('button', { name: 'Resume' })
+    const timerResumeBtn = resumeBtns.find(btn => btn.classList.contains('timer-pause'))
+    await user.click(timerResumeBtn ?? resumeBtns[0])
+    expect(cells[2].classList.contains('user')).toBe(true)
+  })
+})

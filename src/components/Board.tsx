@@ -339,7 +339,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           tabIndex={0}
           aria-selected={selectedHere}
           aria-disabled={clue}
-          className={`cell ${clue ? 'given' : ''} ${userEntry ? 'user' : ''} ${selectedHere ? 'selected' : ''} ${sameDigit ? 'same-digit' : ''} ${inCross ? 'cross' : ''} ${isError ? 'error' : ''}`}
+          className={`cell ${clue ? 'given' : ''} ${!paused && userEntry ? 'user' : ''} ${!paused && selectedHere ? 'selected' : ''} ${!paused && sameDigit ? 'same-digit' : ''} ${!paused && inCross ? 'cross' : ''} ${!paused && isError ? 'error' : ''}`}
           onClick={() => { if (haptic) onTriggerHaptic?.(); selectCell(r, c) }}
         >
           {hasNotes ? (
