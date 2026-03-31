@@ -59,4 +59,21 @@ describe('Home', () => {
     render(<Home {...base} />)
     expect(screen.getByText(/^v\d/)).toBeInTheDocument()
   })
+
+  it('renders GitHub link with correct href', () => {
+    render(<Home {...base} />)
+    const link = screen.getByRole('link', { name: /view on github/i })
+    expect(link).toBeInTheDocument()
+    expect(link.getAttribute('href')).toBe('https://github.com/starxmaker/SudokuPWA/')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toContain('noopener')
+  })
+
+  it('GitHub link appears above the version string', () => {
+    render(<Home {...base} />)
+    const link = screen.getByRole('link', { name: /view on github/i })
+    const version = screen.getByText(/^v\d/)
+    // compareDocumentPosition: DOCUMENT_POSITION_FOLLOWING = 4 means link comes before version
+    expect(link.compareDocumentPosition(version) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 })
