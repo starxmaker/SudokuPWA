@@ -423,7 +423,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 }
 .number-pad .num-key--done{
   opacity:0.25;
-  pointer-events:none;
+  cursor:default;
 }
 .cell-notes{
   position:absolute;
