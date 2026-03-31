@@ -127,4 +127,45 @@ describe('App', () => {
     await user.click(screen.getByRole('switch', { name: /dark mode/i }))
     expect(localStorage.getItem('theme')).toBe('dark')
   })
+
+  it('restores dark theme from localStorage on mount', () => {
+    localStorage.setItem('theme', 'dark')
+    render(<App />)
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('restores light theme from localStorage even when system prefers dark', () => {
+    // Simulate system preferring dark but user explicitly saved 'light'
+    localStorage.setItem('theme', 'light')
+    // Override matchMedia to return prefers-dark = true
+    const original = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: query === '(prefers-color-scheme: dark)',
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    })
+    render(<App />)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    Object.defineProperty(window, 'matchMedia', { writable: true, value: original })
+  })
+
+  it('toggling dark off persists light to localStorage', async () => {
+    localStorage.setItem('theme', 'dark')
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
+    // Currently dark — toggle off
+    await user.click(screen.getByRole('switch', { name: /dark mode/i }))
+    expect(localStorage.getItem('theme')).toBe('light')
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+  })
 })

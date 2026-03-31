@@ -34,7 +34,7 @@ export default function App(){
   const [theme, setTheme] = useState<'light'|'dark'>(() => {
     try {
       const saved = localStorage.getItem('theme')
-      if(saved === 'dark') return 'dark'
+      if(saved === 'dark' || saved === 'light') return saved
     } catch {}
     const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
     return prefersDark ? 'dark' : 'light'
@@ -105,9 +105,21 @@ export default function App(){
   const [newGameOpen, setNewGameOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [gameId, setGameId] = useState(0)
-  const [difficulty, setDifficulty] = useState<string | null>(() =>
-    urlGame.type === 'game' ? null : (loadSaved() ? null : null)
-  )
+  const [difficulty, setDifficulty] = useState<string | null>(() => {
+    if (urlGame.type === 'game') return null
+    try {
+      const saved = localStorage.getItem('difficulty')
+      if (saved) return saved
+    } catch {}
+    return null
+  })
+
+  useEffect(() => {
+    try {
+      if (difficulty) localStorage.setItem('difficulty', difficulty)
+      else localStorage.removeItem('difficulty')
+    } catch {}
+  }, [difficulty])
 
   // Clean the URL after loading (safe to run twice in StrictMode)
   useEffect(() => {
