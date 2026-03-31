@@ -17,7 +17,5 @@ import { initSudoku } from './utils/sudoku'
     </React.StrictMode>
   )
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch((e) => console.warn('SW register failed', e));
-  }
+  // Service worker is registered automatically by vite-plugin-pwa (injectRegister: 'auto')
 })()

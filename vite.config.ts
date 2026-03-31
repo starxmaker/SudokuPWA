@@ -1,11 +1,38 @@
 import { defineConfig } from 'vite'
+import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json'
 
 export default defineConfig(async () => {
   const react = (await import('@vitejs/plugin-react')).default
   return {
     base: '/SudokuPWA/',
-    plugins: [react()],
+    plugins: [
+      react(),
+      VitePWA({
+        strategies: 'generateSW',
+        registerType: 'autoUpdate',
+        injectRegister: 'auto',
+        includeAssets: ['icons/*.svg'],
+        manifest: {
+          name: 'Sudoku PWA',
+          short_name: 'Sudoku',
+          start_url: '/SudokuPWA/',
+          scope: '/SudokuPWA/',
+          display: 'standalone',
+          background_color: '#ffffff',
+          theme_color: '#0b6cff',
+          icons: [
+            { src: 'icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
+            { src: 'icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' }
+          ]
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+          navigateFallback: 'index.html',
+          cleanupOutdatedCaches: true,
+        }
+      })
+    ],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     server: { port: 5173 }
   }

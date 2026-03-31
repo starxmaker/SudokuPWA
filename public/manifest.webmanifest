@@ -1,7 +1,8 @@
 {
   "name": "Sudoku PWA",
   "short_name": "Sudoku",
-  "start_url": "/",
+  "start_url": "/SudokuPWA/",
+  "scope": "/SudokuPWA/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0b6cff",
