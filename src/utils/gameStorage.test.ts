@@ -15,6 +15,18 @@ const SAMPLE: Grid = [
   [3,4,5,2,8,6,1,7,9],
 ]
 
+function emptyNotes(): number[][][] {
+  return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []))
+}
+
+function sampleNotes(): number[][][] {
+  const n = emptyNotes()
+  n[0][0] = [1, 2, 3]
+  n[4][4] = [5, 9]
+  n[8][8] = [7]
+  return n
+}
+
 beforeEach(() => localStorage.clear())
 
 describe('encodeGrid / decodeGrid', () => {
@@ -56,13 +68,27 @@ describe('encodeGrid / decodeGrid', () => {
 })
 
 describe('saveGame / loadSaved', () => {
-  it('saves and loads a game', () => {
+  it('saves and loads a game without notes', () => {
     saveGame(SAMPLE, BLANK, SAMPLE)
     const saved = loadSaved()
     expect(saved).not.toBeNull()
     expect(saved!.initial).toEqual(SAMPLE)
     expect(saved!.current).toEqual(BLANK)
     expect(saved!.solution).toEqual(SAMPLE)
+    expect(saved!.notes).toEqual(emptyNotes())
+  })
+
+  it('saves and loads notes correctly', () => {
+    const notes = sampleNotes()
+    saveGame(SAMPLE, BLANK, SAMPLE, notes)
+    const saved = loadSaved()
+    expect(saved!.notes).toEqual(notes)
+  })
+
+  it('notes default to empty when not provided', () => {
+    saveGame(SAMPLE, BLANK, null)
+    const saved = loadSaved()
+    expect(saved!.notes).toEqual(emptyNotes())
   })
 
   it('returns null when nothing is saved', () => {
@@ -86,5 +112,45 @@ describe('saveGame / loadSaved', () => {
     initial[0][0] = 99
     const saved = loadSaved()
     expect(saved!.initial[0][0]).toBe(5) // original value preserved
+  })
+
+  it('does not mutate notes after saving', () => {
+    const notes = sampleNotes()
+    saveGame(SAMPLE, BLANK, null, notes)
+    notes[0][0] = [9, 9, 9]
+    const saved = loadSaved()
+    expect(saved!.notes[0][0]).toEqual([1, 2, 3]) // original value preserved
+  })
+
+  it('loads legacy V3 saves with empty notes', () => {
+    const legacy = { v: 3, initial: SAMPLE, current: BLANK, solution: null }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy))
+    const saved = loadSaved()
+    expect(saved).not.toBeNull()
+    expect(saved!.initial).toEqual(SAMPLE)
+    expect(saved!.notes).toEqual(emptyNotes())
+  })
+
+  it('loads legacy V2 saves with empty notes', () => {
+    const legacy = { v: 2, initial: SAMPLE, current: BLANK, solution: SAMPLE }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy))
+    const saved = loadSaved()
+    expect(saved).not.toBeNull()
+    expect(saved!.solution).toEqual(SAMPLE)
+    expect(saved!.notes).toEqual(emptyNotes())
+  })
+
+  it('loads legacy array-format saves with empty notes', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(SAMPLE))
+    const saved = loadSaved()
+    expect(saved).not.toBeNull()
+    expect(saved!.initial).toEqual(SAMPLE)
+    expect(saved!.notes).toEqual(emptyNotes())
+  })
+
+  it('stores V4 version tag', () => {
+    saveGame(SAMPLE, BLANK, null)
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
+    expect(raw.v).toBe(4)
   })
 })

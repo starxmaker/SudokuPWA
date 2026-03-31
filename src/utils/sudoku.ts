@@ -1,5 +1,6 @@
 import type { Grid } from './sudoku_types'
 import { generate, solve as libSolve } from '@starxmaker/sudoku.js'
+import type { Difficulty as LibDifficulty } from '@starxmaker/sudoku.js'
 
 /** Solve a puzzle and return the completed grid, or null if unsolvable. Synchronous. */
 export function solveGrid(puzzle: Grid): Grid | null {
@@ -8,17 +9,20 @@ export function solveGrid(puzzle: Grid): Grid | null {
 
 export type { Grid }
 
-export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert'
+/** Our app difficulty names. */
+export type Difficulty = 'easy' | 'medium' | 'hard' | 'very-hard' | 'expert'
 
-const DIFFICULTY_GIVENS: Record<Difficulty, number> = {
-  easy: 38,
-  medium: 30,
-  hard: 28,
-  expert: 23,
+/** Maps our difficulty names to the library's named difficulty strings. */
+const LIB_DIFFICULTY: Record<Difficulty, LibDifficulty> = {
+  easy: 'easy',
+  medium: 'medium',
+  hard: 'hard',
+  'very-hard': 'very-hard',
+  expert: 'insane',
 }
 
 export async function generateGame(difficulty: Difficulty = 'medium'): Promise<{ puzzle: Grid; solution: Grid }> {
-  const puzzle = (await generate(DIFFICULTY_GIVENS[difficulty])) as Grid
+  const puzzle = (await generate(LIB_DIFFICULTY[difficulty])) as Grid
   const solution = libSolve(puzzle) as Grid | null
   if (!solution) throw new Error('Failed to solve generated puzzle')
   return { puzzle, solution }

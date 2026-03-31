@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import TopBar from './TopBar'
 import { describe, it, expect, vi } from 'vitest'
@@ -32,22 +32,66 @@ describe('TopBar', () => {
     expect(onBack).toHaveBeenCalledOnce()
   })
 
-  it('calls onOpenSettings when settings button clicked', async () => {
+  it('renders a hamburger menu button', () => {
+    render(<TopBar onOpenSettings={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument()
+  })
+
+  it('menu is closed by default — settings item not visible', () => {
+    render(<TopBar onOpenSettings={vi.fn()} />)
+    expect(screen.queryByRole('menuitem', { name: /settings/i })).toBeNull()
+  })
+
+  it('opens the menu on hamburger click', async () => {
+    render(<TopBar onOpenSettings={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument()
+  })
+
+  it('calls onOpenSettings when Settings menu item clicked', async () => {
     const onOpenSettings = vi.fn()
     render(<TopBar onOpenSettings={onOpenSettings} />)
-    await userEvent.click(screen.getByRole('button', { name: /settings/i }))
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /settings/i }))
     expect(onOpenSettings).toHaveBeenCalledOnce()
   })
 
-  it('hides share button when onShare not provided', () => {
+  it('closes the menu after settings clicked', async () => {
     render(<TopBar onOpenSettings={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: /share/i })).toBeNull()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
+    expect(screen.queryByRole('menuitem', { name: /settings/i })).toBeNull()
   })
 
-  it('shows share button and calls onShare when provided', async () => {
+  it('does not show share item when onShare not provided', async () => {
+    render(<TopBar onOpenSettings={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    expect(screen.queryByRole('menuitem', { name: /share/i })).toBeNull()
+  })
+
+  it('shows share item and calls onShare when provided', async () => {
     const onShare = vi.fn()
     render(<TopBar onOpenSettings={vi.fn()} onShare={onShare} />)
-    await userEvent.click(screen.getByRole('button', { name: /share/i }))
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /share/i }))
     expect(onShare).toHaveBeenCalledOnce()
   })
+
+  it('closes menu on Escape key', async () => {
+    render(<TopBar onOpenSettings={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('menuitem', { name: /settings/i })).toBeNull()
+  })
+
+  it('closes menu on outside click (backdrop)', async () => {
+    render(<TopBar onOpenSettings={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('sidebar-backdrop'))
+    expect(screen.queryByRole('menuitem', { name: /settings/i })).toBeNull()
+  })
 })
+

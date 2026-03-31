@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { MdPlayArrow, MdPause, MdUndo } from 'react-icons/md'
 import { FaEraser, FaPencilAlt } from 'react-icons/fa'
 import { generateGame, solveGrid, Grid } from '../utils/sudoku'
-import { loadSaved, saveGame } from '../utils/gameStorage'
+import { loadSaved, saveGame, saveElapsed, loadElapsed, clearElapsed } from '../utils/gameStorage'
 
 type Props = {
   puzzle?: Grid | null
@@ -11,6 +11,9 @@ type Props = {
   solution?: Grid | null
   autoCheck?: boolean
   autoRemove?: boolean
+  haptic?: boolean
+  onTriggerHaptic?: () => void
+  onTriggerErrorHaptic?: () => void
   onNew?: () => void
   onShare?: () => void
   difficulty?: string | null
@@ -28,7 +31,7 @@ function formatTime(s: number): string {
   return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
 }
 
-export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, onBack, solution: solutionProp, autoCheck, autoRemove, onNew, onShare, difficulty }: Props){
+export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, onBack, solution: solutionProp, autoCheck, autoRemove, haptic, onTriggerHaptic, onTriggerErrorHaptic, onNew, onShare, difficulty }: Props){
   const [internalPuzzle, setInternalPuzzle] = useState<Grid>(() => {
     const saved = loadSaved()
     if (saved?.current && saved.current.length === 9) return saved.current
@@ -58,11 +61,17 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null)
   const [notesMode, setNotesMode] = useState(false)
-  const [notes, setNotes] = useState<number[][][]>(() =>
-    Array.from({length: 9}, () => Array.from({length: 9}, () => []))
-  )
+  const [notes, setNotes] = useState<number[][][]>(() => {
+    const saved = loadSaved()
+    if (saved?.notes) return saved.notes
+    return Array.from({length: 9}, () => Array.from({length: 9}, () => []))
+  })
+  const notesRef = React.useRef(notes)
+  notesRef.current = notes
   const [history, setHistory] = useState<{puzzle: Grid; notes: number[][][]}[]>([])
-  const [elapsed, setElapsed] = useState(0)
+  // Guards against touch ghost-click: onPointerDown stores 'ok'|'error', onClick fires haptic then skips apply.
+  const touchFiredRef = React.useRef<'ok' | 'error' | null>(null)
+  const [elapsed, setElapsed] = useState(() => loadElapsed())
   const [paused, setPaused] = useState(false)
   const [manualPause, setManualPause] = useState(false)
   const [won, setWon] = useState(false)
@@ -86,7 +95,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   useEffect(() => {
     if (paused) return
-    const id = setInterval(() => setElapsed(s => s + 1), 1000)
+    const id = setInterval(() => setElapsed(s => { saveElapsed(s + 1); return s + 1 }), 1000)
     return () => clearInterval(id)
   }, [paused])
 
@@ -102,13 +111,6 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     }
   }, [internalPuzzle, solutionGrid, won, elapsed])
 
-  function pushHistory(puzzle: Grid, notes: number[][][]) {
-    setHistory(prev => [...prev.slice(-50), {
-      puzzle: puzzle.map(r => [...r]),
-      notes: notes.map(r => r.map(c => [...c]))
-    }])
-  }
-
   // determine whether to use external setter or internal
   const setPuzzle = (p: Grid) => {
     if(setPuzzleProp) setPuzzleProp(p)
@@ -117,8 +119,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   useEffect(() => {
     if (internalPuzzle.length !== 9 || !initialGrid) return
-    saveGame(initialGrid, internalPuzzle, solutionGrid)
-  }, [internalPuzzle, initialGrid, solutionGrid])
+    saveGame(initialGrid, internalPuzzle, solutionGrid, notes)
+  }, [internalPuzzle, initialGrid, solutionGrid, notes])
 
   useEffect(() => {
     if (solutionProp != null) setSolutionGrid(solutionProp)
@@ -140,7 +142,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     const frozen = cloneGrid(internalPuzzle)
     setInitialGrid(frozen)
     if (setPuzzleProp) setPuzzleProp(internalPuzzle)
-    saveGame(frozen, internalPuzzle, solutionGrid)
+    saveGame(frozen, internalPuzzle, solutionGrid, notes)
   }, [internalPuzzle, initialGrid, setPuzzleProp, solutionGrid])
 
   useEffect(() => {
@@ -191,6 +193,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setHistory([])
     setElapsed(0)
+    clearElapsed()
     setPaused(false)
     setManualPause(false)
     setWon(false)
@@ -205,6 +208,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setHistory([])
     setElapsed(0)
+    clearElapsed()
     setPaused(false)
     setManualPause(false)
     setWon(false)
@@ -220,12 +224,15 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setSelected(prev => (prev?.r === r && prev?.c === c ? null : { r, c }))
   }
 
-  function applyDigit(d: number) {
-    if (!selected) return
+  function applyDigit(d: number): boolean {
+    if (!selected) return false
     const { r, c } = selected
-    if (isClue(r, c)) return
+    if (isClue(r, c)) return false
     if (notesMode) {
-      pushHistory(internalPuzzle, notes)
+      setHistory(h => [...h.slice(-50), {
+        puzzle: internalPuzzle.map(row => [...row]),
+        notes: notesRef.current.map(row => row.map(cell => [...cell]))
+      }])
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         const cell = next[r][c]
@@ -235,7 +242,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         return next
       })
     } else {
-      pushHistory(internalPuzzle, notes)
+      setHistory(h => [...h.slice(-50), {
+        puzzle: internalPuzzle.map(row => [...row]),
+        notes: notesRef.current.map(row => row.map(cell => [...cell]))
+      }])
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         next[r][c] = []
@@ -253,14 +263,21 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         return next
       })
       onInput(r, c, d)
+      if (autoCheck && solutionGrid !== null && d !== solutionGrid[r][c]) {
+        return true
+      }
     }
+    return false
   }
 
   function clearCell() {
     if (!selected) return
     const { r, c } = selected
     if (isClue(r, c)) return
-    pushHistory(internalPuzzle, notes)
+    setHistory(h => [...h.slice(-50), {
+      puzzle: internalPuzzle.map(row => [...row]),
+      notes: notesRef.current.map(row => row.map(cell => [...cell]))
+    }])
     setNotes(prev => {
       const next = prev.map(row => row.map(cell => [...cell]))
       next[r][c] = []
@@ -309,7 +326,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         selected !== null &&
         !selectedHere &&
         !sameDigit &&
-        (r === selected.r || c === selected.c)
+        (r === selected.r || c === selected.c ||
+          (Math.floor(r / 3) === Math.floor(selected.r / 3) && Math.floor(c / 3) === Math.floor(selected.c / 3)))
       const isError = autoCheck && solutionGrid !== null && userEntry && n !== solutionGrid[r][c]
       const cellNotes = notes[r][c]
       const hasNotes = cellNotes.length > 0 && n === 0
@@ -322,12 +340,12 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           aria-selected={selectedHere}
           aria-disabled={clue}
           className={`cell ${clue ? 'given' : ''} ${userEntry ? 'user' : ''} ${selectedHere ? 'selected' : ''} ${sameDigit ? 'same-digit' : ''} ${inCross ? 'cross' : ''} ${isError ? 'error' : ''}`}
-          onClick={() => selectCell(r, c)}
+          onClick={() => { if (haptic) onTriggerHaptic?.(); selectCell(r, c) }}
         >
           {hasNotes ? (
             <div className="cell-notes">
               {[1,2,3,4,5,6,7,8,9].map(d => (
-                <span key={d} className="cell-note">{cellNotes.includes(d) ? d : ''}</span>
+                <span key={d} className={`cell-note${selectedDigit !== 0 && cellNotes.includes(d) && d === selectedDigit ? ' cell-note--highlight' : ''}`}>{cellNotes.includes(d) ? d : ''}</span>
               ))}
             </div>
           ) : (
@@ -347,21 +365,23 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       )}
       <div className="timer-row">
         <span className="difficulty-label">{difficulty ?? 'Custom'}</span>
-        <span className="timer-display">
-          {formatTime(elapsed)}
-        </span>
-        <button
-          type="button"
-          className="timer-pause"
-          aria-label={paused ? 'Resume' : 'Pause'}
-          onClick={() => {
-            const next = !paused
-            setManualPause(next)
-            setPaused(next)
-          }}
-        >
-          {paused ? <MdPlayArrow size={22} /> : <MdPause size={22} />}
-        </button>
+        <div className="timer-group">
+          <span className="timer-display">
+            {formatTime(elapsed)}
+          </span>
+          <button
+            type="button"
+            className="timer-pause"
+            aria-label={paused ? 'Resume' : 'Pause'}
+            onClick={() => {
+              const next = !paused
+              setManualPause(next)
+              setPaused(next)
+            }}
+          >
+            {paused ? <MdPlayArrow size={22} /> : <MdPause size={22} />}
+          </button>
+        </div>
       </div>
       <div className="board-wrapper">
         <div className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label="Sudoku grid">
@@ -414,8 +434,34 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             key={d}
             type="button"
             className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${notesMode ? ' num-key--notes' : ''}`}
-            onClick={() => applyDigit(d)}
+            onPointerDown={(e) => {
+              if (e.pointerType === 'touch') {
+                // Apply digit now (instant feedback), but defer haptic to onClick.
+                // iOS only honors haptic triggered inside a click/tap event handler.
+                const isError = applyDigit(d)
+                touchFiredRef.current = isError ? 'error' : 'ok'
+              }
+            }}
+            onClick={() => {
+              if (touchFiredRef.current !== null) {
+                // iOS ghost click — fire the haptic here (valid iOS haptic context).
+                const result = touchFiredRef.current
+                touchFiredRef.current = null
+                if (haptic) {
+                  if (result === 'error') onTriggerErrorHaptic?.()
+                  else onTriggerHaptic?.()
+                }
+                return
+              }
+              // Mouse / keyboard path
+              const isError = applyDigit(d)
+              if (haptic) {
+                if (isError) onTriggerErrorHaptic?.()
+                else onTriggerHaptic?.()
+              }
+            }}
             aria-label={`${d}, ${remaining[d]} remaining`}
+            data-digit={d}
           >
             <span className="num-key__digit">{remaining[d] === 0 ? '\u00a0' : d}</span>
             <span className="num-key__remaining">{remaining[d] > 0 ? remaining[d] : '\u00a0'}</span>

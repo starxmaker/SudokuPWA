@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Board from './Board'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 beforeEach(() => localStorage.clear())
 
@@ -49,7 +49,9 @@ describe('Board component', () => {
     await waitForBoard()
     for (let d = 1; d <= 9; d++) {
       // aria-label is e.g. "3, 7 remaining" — anchor with leading digit + comma
-      expect(screen.getByRole('button', { name: new RegExp(`^${d},`) })).toBeInTheDocument()
+      const btn = screen.getByRole('button', { name: new RegExp(`^${d},`) })
+      expect(btn).toBeInTheDocument()
+      expect(btn.getAttribute('data-digit')).toBe(String(d))
     }
   })
 
@@ -152,6 +154,41 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
   })
 
+  it('highlights matching note candidates when a filled cell with that digit is selected', async () => {
+    // PUZZLE has cell [0][2] blank. Add note "3" there, then select cell [0][1]
+    // which contains 3 in the puzzle — selectedDigit becomes 3, so the note should be bold.
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    // Enter note "3" in cell [0][2] (index 2)
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^3,/ }))
+    // Now select cell [0][1] which holds digit 3 → selectedDigit === 3
+    await user.click(cells[1])
+    // The "3" note span inside cell 2 should have the highlight class
+    const noteSpans = cells[2].querySelectorAll('.cell-note')
+    // noteSpans[2] is the 3rd span (digit 3, index 2)
+    expect(noteSpans[2].classList.contains('cell-note--highlight')).toBe(true)
+    // Other note spans should not be highlighted
+    expect(noteSpans[0].classList.contains('cell-note--highlight')).toBe(false)
+  })
+
+  it('removes note highlight when a non-matching cell is selected', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    // Add note "3" in the blank cell
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^3,/ }))
+    // Select a cell with digit 5 (cell [0][0]) → selectedDigit === 5
+    await user.click(cells[0])
+    const noteSpans = cells[2].querySelectorAll('.cell-note')
+    // digit-3 span should NOT be highlighted since selectedDigit is 5
+    expect(noteSpans[2].classList.contains('cell-note--highlight')).toBe(false)
+  })
+
   it('handles digit entry via keyboard', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
@@ -193,5 +230,162 @@ describe('Board with fixed puzzle', () => {
     // victory overlay gone, cell reverts to blank
     expect(screen.queryByText('Puzzle Complete!')).toBeNull()
     expect(cells[80].textContent).toBe('\u00a0')
+  })
+
+  it('applies cross class to cells in the same row and column as selected', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    // Select cell [0][0] (flat index 0)
+    await user.click(cells[0])
+    // Same row: [0][1..8] → flat indices 1-8
+    expect(cells[1].classList.contains('cross')).toBe(true)
+    expect(cells[8].classList.contains('cross')).toBe(true)
+    // Same column: [1][0] → flat index 9, [8][0] → flat index 72
+    expect(cells[9].classList.contains('cross')).toBe(true)
+    expect(cells[72].classList.contains('cross')).toBe(true)
+    // Selected cell itself should NOT have cross
+    expect(cells[0].classList.contains('cross')).toBe(false)
+  })
+
+  it('applies cross class to cells in the same 3×3 box as selected', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    // Select cell [0][0] (flat index 0) — top-left box: rows 0-2, cols 0-2
+    await user.click(cells[0])
+    // [1][1] → flat index 10, [2][2] → flat index 20 — both in same box, same neither row nor col
+    expect(cells[10].classList.contains('cross')).toBe(true)
+    expect(cells[20].classList.contains('cross')).toBe(true)
+    // [3][3] → flat index 30 — different box, different row & col → no cross
+    expect(cells[30].classList.contains('cross')).toBe(false)
+  })
+
+  it('does not apply cross class to same-digit cells (they get same-digit instead)', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    // Select cell [0][0] which contains 5; other 5s should be same-digit, not cross
+    await user.click(cells[0])
+    // Find a cell with digit 5 that is not in same row/col/box
+    // SOLUTION has 5 at [1][0]→index 9 (same col, so cross anyway), [3][1]→index 28
+    // [3][1] has 5 in SOLUTION: different row/col/box from [0][0]
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+    expect(cells[28].classList.contains('cross')).toBe(false)
+  })
+})
+
+describe('Board haptic callbacks', () => {
+  it('calls onTriggerHaptic when haptic=true and a cell is clicked', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onTriggerHaptic when haptic=true and a numpad button is clicked', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    onTriggerHaptic.mockClear()
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call onTriggerHaptic when haptic=false', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic={false} onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    expect(onTriggerHaptic).not.toHaveBeenCalled()
+  })
+
+  it('calls onTriggerErrorHaptic when haptic=true, autoCheck=true, and a wrong digit is entered', async () => {
+    const onTriggerErrorHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic autoCheck onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2]) // blank cell, answer = 4
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit
+    expect(onTriggerErrorHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call onTriggerErrorHaptic for a correct digit', async () => {
+    const onTriggerErrorHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic autoCheck onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2]) // blank cell, answer = 4
+    await user.click(screen.getByRole('button', { name: /^4,/ })) // correct digit
+    expect(onTriggerErrorHaptic).not.toHaveBeenCalled()
+  })
+
+  it('does not call onTriggerErrorHaptic when autoCheck=false even if digit is wrong', async () => {
+    const onTriggerErrorHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic autoCheck={false} onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong, but autoCheck off
+    expect(onTriggerErrorHaptic).not.toHaveBeenCalled()
+  })
+})
+
+describe('Board numpad touch handling', () => {
+  // Simulate what iOS does: fire pointerdown (touch) then a ghost click on the same button.
+  function touchThenGhostClick(btn: HTMLElement) {
+    fireEvent.pointerDown(btn, { pointerType: 'touch', bubbles: true })
+    fireEvent.click(btn)
+  }
+
+  it('applies a note exactly once when a touch pointerdown + ghost click arrive', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2]) // select blank cell
+
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    touchThenGhostClick(btn4)
+
+    // Note should be present (added once, not toggled off by ghost click)
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).not.toBeNull())
+  })
+
+  it('toggling same note twice via touch removes it', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2])
+
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    touchThenGhostClick(btn4) // first touch: adds note
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).not.toBeNull())
+    touchThenGhostClick(btn4) // second touch: removes note
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).toBeNull())
+  })
+
+  it('mouse click still works after a touch interaction', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2])
+
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    // Simulate one touch tap (pointerdown applies + stores result, ghost click fires haptic + clears ref)
+    touchThenGhostClick(btn4)
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).not.toBeNull())
+
+    // Now a plain mouse click (from userEvent) should toggle it off
+    await user.click(btn4)
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).toBeNull())
   })
 })

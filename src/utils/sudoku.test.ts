@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateGame, solveGrid, type Difficulty } from './sudoku'
 
-const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard', 'expert']
+const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard', 'very-hard', 'expert']
 
 function isValidSolution(grid: number[][]): boolean {
   const expected = new Set([1,2,3,4,5,6,7,8,9])
@@ -38,12 +38,13 @@ describe('sudoku utils', () => {
   })
 
   it.each(DIFFICULTIES)('generateGame difficulty=%s produces correct givens count', async (diff) => {
-    const EXPECTED: Record<Difficulty, number> = { easy: 38, medium: 30, hard: 28, expert: 23 }
+    // Library's named givens: easy=62, medium=53, hard=44, very-hard=35, expert(insane)=26
+    const EXPECTED: Record<Difficulty, number> = { easy: 62, medium: 53, hard: 44, 'very-hard': 35, expert: 26 }
     const { puzzle } = await generateGame(diff)
     const givens = puzzle.flat().filter(n => n !== 0).length
-    // allow ±10 variance — library may not hit the exact number every time
-    expect(givens).toBeGreaterThanOrEqual(EXPECTED[diff] - 10)
-    expect(givens).toBeLessThanOrEqual(EXPECTED[diff] + 10)
+    // allow ±5 variance
+    expect(givens).toBeGreaterThanOrEqual(EXPECTED[diff] - 5)
+    expect(givens).toBeLessThanOrEqual(EXPECTED[diff] + 5)
   })
 
   it('solveGrid solves a known easy puzzle', () => {

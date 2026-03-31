@@ -6,6 +6,7 @@ import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
 import { generateGame, solveGrid, Grid } from './utils/sudoku'
 import { loadSaved, saveGame, encodeGrid, decodeGrid } from './utils/gameStorage'
+import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 
 /** Parse ?p= once, synchronously, and solve the puzzle. */
 type ParsedUrl =
@@ -34,7 +35,7 @@ export default function App(){
   const [theme, setTheme] = useState<'light'|'dark'>(() => {
     try {
       const saved = localStorage.getItem('theme')
-      if(saved === 'dark') return 'dark'
+      if(saved === 'dark' || saved === 'light') return saved
     } catch {}
     const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
     return prefersDark ? 'dark' : 'light'
@@ -71,6 +72,20 @@ export default function App(){
     try { localStorage.setItem('autoRemove', autoRemove ? 'true' : 'false') } catch {}
   }, [autoRemove])
 
+  const [haptic, setHaptic] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('haptic')
+      if (saved !== null) return saved === 'true'
+    } catch {}
+    return true
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('haptic', haptic ? 'true' : 'false') } catch {}
+  }, [haptic])
+
+  useEffect(() => { initHaptic() }, [])
+
   // Parse URL game synchronously so StrictMode double-effects don't clobber it.
   // Also persist to localStorage immediately so Board's useState initializer reads the URL game,
   // not the previously active game.
@@ -105,9 +120,21 @@ export default function App(){
   const [newGameOpen, setNewGameOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [gameId, setGameId] = useState(0)
-  const [difficulty, setDifficulty] = useState<string | null>(() =>
-    urlGame.type === 'game' ? null : (loadSaved() ? null : null)
-  )
+  const [difficulty, setDifficulty] = useState<string | null>(() => {
+    if (urlGame.type === 'game') return null
+    try {
+      const saved = localStorage.getItem('difficulty')
+      if (saved) return saved
+    } catch {}
+    return null
+  })
+
+  useEffect(() => {
+    try {
+      if (difficulty) localStorage.setItem('difficulty', difficulty)
+      else localStorage.removeItem('difficulty')
+    } catch {}
+  }, [difficulty])
 
   // Clean the URL after loading (safe to run twice in StrictMode)
   useEffect(() => {
@@ -172,9 +199,9 @@ export default function App(){
         {showHome ? (
           <Home hasSaved={!!puzzle} onNew={handleNew} onContinue={handleContinue} error={urlError} />
         ) : (
-          <Board key={gameId} puzzle={puzzle || undefined} setPuzzle={(p)=> setPuzzle(p)} onBack={() => setShowHome(true)} solution={solution} autoCheck={autoCheck} autoRemove={autoRemove} onNew={handleNew} onShare={handleShare} difficulty={urlGame.type === 'game' ? null : difficulty} />
+          <Board key={gameId} puzzle={puzzle || undefined} setPuzzle={(p)=> setPuzzle(p)} onBack={() => setShowHome(true)} solution={solution} autoCheck={autoCheck} autoRemove={autoRemove} haptic={haptic} onTriggerHaptic={triggerHaptic} onTriggerErrorHaptic={triggerErrorHaptic} onNew={handleNew} onShare={handleShare} difficulty={urlGame.type === 'game' ? null : difficulty} />
         )}
-        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} />
+        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} />
         <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} />
       </div>
       {toast && <div className="toast">{toast}</div>}

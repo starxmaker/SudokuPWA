@@ -9,9 +9,11 @@ type Props = {
   setAutoCheck: (v: boolean) => void
   autoRemove: boolean
   setAutoRemove: (v: boolean) => void
+  haptic: boolean
+  setHaptic: (v: boolean) => void
 }
 
-export default function Settings({ open, onClose, theme, setTheme, autoCheck, setAutoCheck, autoRemove, setAutoRemove }: Props){
+export default function Settings({ open, onClose, theme, setTheme, autoCheck, setAutoCheck, autoRemove, setAutoRemove, haptic, setHaptic }: Props){
   React.useEffect(()=>{
     function onKey(e: KeyboardEvent){ if(e.key === 'Escape') onClose() }
     if(open){ window.addEventListener('keydown', onKey) }
@@ -64,6 +66,22 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
               aria-checked={autoRemove}
               checked={autoRemove}
               onChange={(e)=> setAutoRemove(e.target.checked)}
+            />
+            <span className="switch" />
+          </label>
+        </div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
+          <div>
+            <div>Haptic feedback</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Vibration when tapping cells &amp; numbers</div>
+          </div>
+          <label className="toggle-switch" aria-label="Toggle haptic feedback">
+            <input
+              type="checkbox"
+              role="switch"
+              aria-checked={haptic}
+              checked={haptic}
+              onChange={(e)=> setHaptic(e.target.checked)}
             />
             <span className="switch" />
           </label>

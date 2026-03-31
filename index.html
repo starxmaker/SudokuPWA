@@ -4,7 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Sudoku PWA</title>
-    <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#0b6cff">
     <link rel="icon" href="/icons/icon-192.svg">
     <!-- Apply saved or system theme before React mounts to avoid flash -->
@@ -22,7 +21,7 @@
       })();
     </script>
 
-    <!-- In dev, immediately unregister service workers and clear PWA cache to avoid stale HTML/CSS being served -->
+    <!-- In dev, unregister any stale service workers so dev HMR is never intercepted -->
     <script>
       (function(){
         try{
@@ -30,7 +29,6 @@
           const isLocal = host === 'localhost' || host === '127.0.0.1' || host === ''
           if(isLocal && 'serviceWorker' in navigator){
             navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(r=>r.unregister())).catch(()=>{})
-            if(window.caches){ caches.delete('sudoku-pwa-v1').catch(()=>{}) }
           }
         }catch(e){}
       })();
