@@ -54,6 +54,20 @@ export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | nu
   }
 }
 
+export const COMPLETED_KEY = 'sudoku-pwa-completed'
+
+export function saveCompleted(): void {
+  try { localStorage.setItem(COMPLETED_KEY, '1') } catch { /* ignore */ }
+}
+
+export function loadCompleted(): boolean {
+  try { return localStorage.getItem(COMPLETED_KEY) === '1' } catch { return false }
+}
+
+export function clearCompleted(): void {
+  try { localStorage.removeItem(COMPLETED_KEY) } catch { /* ignore */ }
+}
+
 export const ELAPSED_KEY = 'sudoku-pwa-elapsed'
 
 export function saveElapsed(seconds: number): void {
@@ -85,21 +99,32 @@ export function saveGame(initial: Grid, current: Grid, solution: Grid | null = n
   } catch { /* ignore */ }
 }
 
-/** Encode a 9×9 grid as 9 rows joined by '-', e.g. "120056789-..." */
+/** Encode a 9×9 grid as 81 chars with dots for empty squares, e.g. "53.6..." */
 export function encodeGrid(grid: Grid): string {
-  return grid.map(row => row.join('')).join('-')
+  return grid.flat().map(n => n === 0 ? '.' : String(n)).join('')
 }
 
-/** Decode a string produced by encodeGrid back to a 9×9 Grid, or null if invalid. */
+/** Decode a string produced by encodeGrid back to a 9×9 Grid, or null if invalid.
+ *  Supports both new format (81 chars, dots for 0) and old format (9 rows of digits joined by '-').
+ */
 export function decodeGrid(s: string): Grid | null {
-  // Must be exactly digits and dashes in the pattern NNNNNNNNN-...-NNNNNNNNN
-  if (!/^[0-9]{9}(-[0-9]{9}){8}$/.test(s)) return null
-  const rows = s.split('-')
-  const grid: Grid = []
-  for (const row of rows) {
-    const nums = row.split('').map(Number)
-    if (nums.some(n => n < 0 || n > 9)) return null
-    grid.push(nums)
+  // New format: 81 chars of digits and dots
+  if (/^[1-9.]{81}$/.test(s)) {
+    const flat = s.split('').map(ch => ch === '.' ? 0 : Number(ch))
+    const grid: Grid = []
+    for (let r = 0; r < 9; r++) grid.push(flat.slice(r * 9, r * 9 + 9))
+    return grid
   }
-  return grid
+  // Old format: 9 rows of digits joined by '-'
+  if (/^[0-9]{9}(-[0-9]{9}){8}$/.test(s)) {
+    const rows = s.split('-')
+    const grid: Grid = []
+    for (const row of rows) {
+      const nums = row.split('').map(Number)
+      if (nums.some(n => n < 0 || n > 9)) return null
+      grid.push(nums)
+    }
+    return grid
+  }
+  return null
 }

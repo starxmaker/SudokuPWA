@@ -32,9 +32,14 @@ beforeEach(() => localStorage.clear())
 describe('encodeGrid / decodeGrid', () => {
   it('round-trips a full grid', () => {
     const encoded = encodeGrid(SAMPLE)
-    expect(encoded).toMatch(/^[0-9]{9}(-[0-9]{9}){8}$/)
+    expect(encoded).toMatch(/^[1-9.]{81}$/)
     const decoded = decodeGrid(encoded)
     expect(decoded).toEqual(SAMPLE)
+  })
+
+  it('encodes zeros as dots', () => {
+    const encoded = encodeGrid(BLANK)
+    expect(encoded).toBe('.'.repeat(81))
   })
 
   it('round-trips a grid with zeros', () => {
@@ -42,20 +47,25 @@ describe('encodeGrid / decodeGrid', () => {
     expect(decoded).toEqual(BLANK)
   })
 
+  it('still decodes old dashed format (backward compat)', () => {
+    const old = SAMPLE.map(row => row.join('')).join('-')
+    expect(decodeGrid(old)).toEqual(SAMPLE)
+  })
+
   it('returns null for empty string', () => {
     expect(decodeGrid('')).toBeNull()
   })
 
-  it('returns null for wrong number of rows', () => {
+  it('returns null for wrong number of rows (old format)', () => {
     expect(decodeGrid('123456789-123456789')).toBeNull()
   })
 
-  it('returns null for rows with wrong length', () => {
+  it('returns null for rows with wrong length (old format)', () => {
     const bad = '12345678-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789'
     expect(decodeGrid(bad)).toBeNull()
   })
 
-  it('returns null for non-digit characters', () => {
+  it('returns null for non-digit/non-dot characters', () => {
     const bad = 'a23456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789'
     expect(decodeGrid(bad)).toBeNull()
   })

@@ -12,26 +12,25 @@ describe('NewGameModal', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('renders all five difficulty buttons when open', () => {
+  it('renders qqwing difficulty buttons by default', () => {
     render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /easy/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /medium/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^hard$/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /very hard/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /simple/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^easy$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /intermediate/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /expert/i })).toBeInTheDocument()
   })
 
-  it('medium is selected by default', () => {
+  it('easy is selected by default for qqwing generator', () => {
     render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
-    expect(screen.getByRole('button', { name: /medium/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /^easy$/i }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('changes selected difficulty on click', async () => {
     render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /^hard$/i }))
-    expect(screen.getByRole('button', { name: /^hard$/i }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: /medium/i }).getAttribute('aria-pressed')).toBe('false')
+    await userEvent.click(screen.getByRole('button', { name: /intermediate/i }))
+    expect(screen.getByRole('button', { name: /intermediate/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /^easy$/i }).getAttribute('aria-pressed')).toBe('false')
   })
 
   it('calls onClose directly when Cancel clicked while not generating', async () => {
@@ -41,14 +40,14 @@ describe('NewGameModal', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('calls onStart with selected difficulty and closes on success', async () => {
+  it('calls onStart with selected difficulty, generator, and signal, then closes', async () => {
     const onStart = vi.fn().mockResolvedValue(undefined)
     const onClose = vi.fn()
     render(<NewGameModal open={true} onClose={onClose} onStart={onStart} />)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /easy/i }))
+    await user.click(screen.getByRole('button', { name: /^easy$/i }))
     await user.click(screen.getByRole('button', { name: 'Start' }))
-    await waitFor(() => expect(onStart).toHaveBeenCalledWith('easy', expect.any(AbortSignal)))
+    await waitFor(() => expect(onStart).toHaveBeenCalledWith('qqwing', 'easy', expect.any(AbortSignal)))
     await waitFor(() => expect(onClose).toHaveBeenCalled())
   })
 
@@ -57,7 +56,32 @@ describe('NewGameModal', () => {
     render(<NewGameModal open={true} onClose={vi.fn()} onStart={onStart} />)
     await userEvent.click(screen.getByRole('button', { name: /expert/i }))
     await userEvent.click(screen.getByRole('button', { name: 'Start' }))
-    await waitFor(() => expect(localStorage.getItem('lastDifficulty')).toBe('expert'))
+    await waitFor(() => expect(localStorage.getItem('lastDifficulty:qqwing')).toBe('expert'))
+  })
+
+  it('renders a generator select with at least two options', () => {
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    const select = screen.getByRole('combobox', { name: /generator/i })
+    expect(select).toBeInTheDocument()
+    const options = screen.getAllByRole('option')
+    expect(options.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('persists generator selection to localStorage on start', async () => {
+    const onStart = vi.fn().mockResolvedValue(undefined)
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={onStart} />)
+    const user = userEvent.setup()
+    const select = screen.getByRole('combobox', { name: /generator/i })
+    await user.selectOptions(select, 'starxmaker')
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    await waitFor(() => expect(localStorage.getItem('lastGenerator')).toBe('starxmaker'))
+  })
+
+  it('restores last generator from localStorage', () => {
+    localStorage.setItem('lastGenerator', 'starxmaker')
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    const select = screen.getByRole('combobox', { name: /generator/i }) as HTMLSelectElement
+    expect(select.value).toBe('starxmaker')
   })
 
   it('shows generating state after Start clicked', async () => {
@@ -83,8 +107,19 @@ describe('NewGameModal', () => {
   })
 
   it('loads last difficulty from localStorage', () => {
-    localStorage.setItem('lastDifficulty', 'expert')
+    localStorage.setItem('lastDifficulty:qqwing', 'expert')
     render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
     expect(screen.getByRole('button', { name: /expert/i }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('shows starxmaker difficulties when generator is switched', async () => {
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    const user = userEvent.setup()
+    const select = screen.getByRole('combobox', { name: /generator/i })
+    await user.selectOptions(select, 'starxmaker')
+    expect(screen.getByRole('button', { name: /medium/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /very hard/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /simple/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /intermediate/i })).toBeNull()
   })
 })

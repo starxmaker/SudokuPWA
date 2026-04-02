@@ -1,46 +1,59 @@
 import React from 'react'
-import type { Difficulty } from '../utils/sudoku'
+import { GENERATORS, DEFAULT_GENERATOR_ID, getGenerator } from '../utils/generators'
 
-const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard', 'very-hard', 'expert']
-const LABELS: Record<Difficulty, string> = {
-  easy: 'Easy',
-  medium: 'Medium',
-  hard: 'Hard',
-  'very-hard': 'Very Hard',
-  expert: 'Expert',
-}
-const STORAGE_KEY = 'lastDifficulty'
+const GENERATOR_STORAGE_KEY = 'lastGenerator'
 
-function loadLast(): Difficulty {
+function loadLastGenerator(): string {
   try {
-    const v = localStorage.getItem(STORAGE_KEY) as Difficulty | null
-    if (v && DIFFICULTIES.includes(v)) return v
+    const v = localStorage.getItem(GENERATOR_STORAGE_KEY)
+    if (v && GENERATORS.some(g => g.id === v)) return v
   } catch {}
-  return 'medium'
+  return DEFAULT_GENERATOR_ID
+}
+
+function loadLastDifficulty(genId: string): string {
+  try {
+    const gen = getGenerator(genId)
+    const v = localStorage.getItem(`lastDifficulty:${genId}`)
+    if (v && gen.difficulties.some(d => d.id === v)) return v
+    return gen.defaultDifficulty
+  } catch {}
+  return getGenerator(genId).defaultDifficulty
 }
 
 type Props = {
   open: boolean
   onClose: () => void
-  onStart: (difficulty: Difficulty, signal: AbortSignal) => Promise<void>
+  onStart: (generatorId: string, difficultyId: string, signal: AbortSignal) => Promise<void>
 }
 
 export default function NewGameModal({ open, onClose, onStart }: Props){
-  const [choice, setChoice] = React.useState<Difficulty>(loadLast)
+  const [generatorId, setGeneratorId] = React.useState<string>(loadLastGenerator)
+  const [choice, setChoice] = React.useState<string>(() => loadLastDifficulty(loadLastGenerator()))
   const [generating, setGenerating] = React.useState(false)
   const controllerRef = React.useRef<AbortController | null>(null)
   const cancelledRef = React.useRef(false)
 
   if(!open) return null
 
+  const currentGen = getGenerator(generatorId)
+
+  function handleGeneratorChange(newGenId: string) {
+    setGeneratorId(newGenId)
+    setChoice(loadLastDifficulty(newGenId))
+  }
+
   async function handleStart(){
-    try { localStorage.setItem(STORAGE_KEY, choice) } catch {}
+    try {
+      localStorage.setItem(`lastDifficulty:${generatorId}`, choice)
+      localStorage.setItem(GENERATOR_STORAGE_KEY, generatorId)
+    } catch {}
     cancelledRef.current = false
     const controller = new AbortController()
     controllerRef.current = controller
     setGenerating(true)
     try {
-      await onStart(choice, controller.signal)
+      await onStart(generatorId, choice, controller.signal)
       if (!cancelledRef.current) onClose()
     } catch {
       // aborted or error — stay open
@@ -66,12 +79,26 @@ export default function NewGameModal({ open, onClose, onStart }: Props){
         <h2>New Game</h2>
         <p>Select difficulty</p>
         <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
-          {DIFFICULTIES.map(d => (
-            <button key={d} onClick={()=>{ if(!generating) setChoice(d) }} aria-pressed={choice===d} disabled={generating}
-              style={{borderRadius:12,padding:'10px 16px',textAlign:'left',background:choice===d?'var(--accent)':'var(--card)',color:choice===d?'#fff':'var(--text)'}}>
-              {LABELS[d]}
+          {currentGen.difficulties.map(d => (
+            <button key={d.id} onClick={()=>{ if(!generating) setChoice(d.id) }} aria-pressed={choice===d.id} disabled={generating}
+              style={{borderRadius:12,padding:'10px 16px',textAlign:'left',background:choice===d.id?'var(--accent)':'var(--card)',color:choice===d.id?'#fff':'var(--text)',border:choice===d.id?'none':'1px solid rgba(128,128,128,0.35)'}}>
+              {d.label}
             </button>
           ))}
+        </div>
+        <div style={{marginTop:14}}>
+          <label htmlFor="generator-select" style={{display:'block',fontSize:'0.85rem',fontWeight:600,opacity:0.6,marginBottom:4}}>Generator</label>
+          <select
+            id="generator-select"
+            className="generator-select"
+            value={generatorId}
+            disabled={generating}
+            onChange={e => handleGeneratorChange(e.target.value)}
+          >
+            {GENERATORS.map(g => (
+              <option key={g.id} value={g.id}>{g.label}</option>
+            ))}
+          </select>
         </div>
         <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}>
           <button onClick={handleCancel}>{generating ? 'Cancel' : 'Cancel'}</button>

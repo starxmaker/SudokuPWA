@@ -5,7 +5,8 @@ import TopBar from './components/TopBar'
 import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
 import { generateGame, solveGrid, Grid } from './utils/sudoku'
-import { loadSaved, saveGame, encodeGrid, decodeGrid } from './utils/gameStorage'
+import { getGenerator } from './utils/generators'
+import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 
 /** Parse ?p= once, synchronously, and solve the puzzle. */
@@ -120,6 +121,8 @@ export default function App(){
   const [newGameOpen, setNewGameOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [gameId, setGameId] = useState(0)
+  const [gameCompleted, setGameCompleted] = useState<boolean>(() => loadCompleted())
+
   const [difficulty, setDifficulty] = useState<string | null>(() => {
     if (urlGame.type === 'game') return null
     try {
@@ -165,8 +168,9 @@ export default function App(){
     setNewGameOpen(true)
   }
 
-  async function startNewWithDifficulty(difficulty: import('./utils/sudoku').Difficulty, signal?: AbortSignal){
-    const { puzzle: p, solution: s } = await generateGame(difficulty)
+  async function startNewWithDifficulty(generatorId: string, difficultyId: string, signal: AbortSignal){
+    const { puzzle: p, solution: s } = await generateGame(difficultyId, generatorId, signal)
+    const diffLabel = getGenerator(generatorId).difficulties.find(d => d.id === difficultyId)?.label ?? difficultyId
     // Yield to the event loop so any queued cancel clicks fire before we apply state
     await new Promise<void>(r => setTimeout(r, 0))
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -174,8 +178,11 @@ export default function App(){
     setPuzzle(p)
     setSolution(s)
     setInitialGrid(initial)
+    clearElapsed()
+    clearCompleted()
+    setGameCompleted(false)
     saveGame(initial, p, s)
-    setDifficulty(difficulty)
+    setDifficulty(diffLabel)
     setGameId(id => id + 1)
     setShowHome(false)
   }
@@ -197,9 +204,9 @@ export default function App(){
       <TopBar showBack={!showHome} onBack={() => setShowHome(true)} onOpenSettings={() => setSettingsOpen(true)} onShare={!showHome && !!initialGrid ? handleShare : undefined} title="Sudoku" />
       <div className="app">
         {showHome ? (
-          <Home hasSaved={!!puzzle} onNew={handleNew} onContinue={handleContinue} error={urlError} />
+          <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} error={urlError} />
         ) : (
-          <Board key={gameId} puzzle={puzzle || undefined} setPuzzle={(p)=> setPuzzle(p)} onBack={() => setShowHome(true)} solution={solution} autoCheck={autoCheck} autoRemove={autoRemove} haptic={haptic} onTriggerHaptic={triggerHaptic} onTriggerErrorHaptic={triggerErrorHaptic} onNew={handleNew} onShare={handleShare} difficulty={urlGame.type === 'game' ? null : difficulty} />
+          <Board key={gameId} puzzle={puzzle || undefined} setPuzzle={(p)=> setPuzzle(p)} onBack={() => setShowHome(true)} solution={solution} autoCheck={autoCheck} autoRemove={autoRemove} haptic={haptic} onTriggerHaptic={triggerHaptic} onTriggerErrorHaptic={triggerErrorHaptic} onNew={handleNew} onShare={handleShare} onWin={() => { setGameCompleted(true); saveCompleted() }} difficulty={urlGame.type === 'game' ? null : difficulty} />
         )}
         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} />
         <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} />

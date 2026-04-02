@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { MdPlayArrow, MdPause, MdUndo } from 'react-icons/md'
 import { FaEraser, FaPencilAlt } from 'react-icons/fa'
 import { generateGame, solveGrid, Grid } from '../utils/sudoku'
-import { loadSaved, saveGame, saveElapsed, loadElapsed, clearElapsed } from '../utils/gameStorage'
+import { loadSaved, saveGame, saveElapsed, loadElapsed, clearElapsed, saveCompleted } from '../utils/gameStorage'
 
 type Props = {
   puzzle?: Grid | null
@@ -16,6 +16,7 @@ type Props = {
   onTriggerErrorHaptic?: () => void
   onNew?: () => void
   onShare?: () => void
+  onWin?: () => void
   difficulty?: string | null
 }
 
@@ -31,7 +32,7 @@ function formatTime(s: number): string {
   return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
 }
 
-export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, onBack, solution: solutionProp, autoCheck, autoRemove, haptic, onTriggerHaptic, onTriggerErrorHaptic, onNew, onShare, difficulty }: Props){
+export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, onBack, solution: solutionProp, autoCheck, autoRemove, haptic, onTriggerHaptic, onTriggerErrorHaptic, onNew, onShare, onWin, difficulty }: Props){
   const [internalPuzzle, setInternalPuzzle] = useState<Grid>(() => {
     const saved = loadSaved()
     if (saved?.current && saved.current.length === 9) return saved.current
@@ -78,20 +79,22 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const [finalTime, setFinalTime] = useState(0)
   const [shareCopied, setShareCopied] = useState(false)
 
-  // Auto-pause when the tab/window loses focus
+  // Auto-pause when the tab/window loses focus; never auto-resume.
+  // Using focusout on document: relatedTarget is non-null for within-page
+  // focus transitions, and null when focus leaves the document entirely.
   useEffect(() => {
-    function onHide() { setPaused(true) }
-    function onShow() { setPaused(prev => prev && !manualPause ? false : prev) }
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) onHide(); else onShow()
-    })
-    window.addEventListener('blur', onHide)
-    window.addEventListener('focus', () => { if (!manualPause) setPaused(false) })
-    return () => {
-      document.removeEventListener('visibilitychange', onHide)
-      window.removeEventListener('blur', onHide)
+    function onFocusOut(e: FocusEvent) {
+      if (e.relatedTarget) return  // focus moved to another element in the page
+      setPaused(true)
     }
-  }, [manualPause])
+    function onVisibility() { if (document.hidden) setPaused(true) }
+    document.addEventListener('visibilitychange', onVisibility)
+    document.addEventListener('focusout', onFocusOut, true)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      document.removeEventListener('focusout', onFocusOut, true)
+    }
+  }, [])
 
   useEffect(() => {
     if (paused) return
@@ -108,6 +111,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       setWon(true)
       setPaused(true)
       setFinalTime(prev => elapsed) // capture current elapsed
+      saveCompleted()
+      onWin?.()
     }
   }, [internalPuzzle, solutionGrid, won, elapsed])
 
@@ -129,7 +134,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   useEffect(() => {
     if (initialProp && initialProp.length === 9) return
     if (internalPuzzle.length > 0) return
-    generateGame('medium').then(({ puzzle, solution }) => {
+    generateGame().then(({ puzzle, solution }) => {
       setInternalPuzzle(puzzle)
       setSolutionGrid(solution)
     })
@@ -185,7 +190,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   async function newGame(){
-    const { puzzle: p, solution: s } = await generateGame('medium')
+    const { puzzle: p, solution: s } = await generateGame()
     const initial = cloneGrid(p)
     setInitialGrid(initial)
     setInternalPuzzle(p)
@@ -364,25 +369,25 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         </div>
       )}
       <div className="timer-row">
-        <span className="difficulty-label">{difficulty ?? 'Custom'}</span>
-        <div className="timer-group">
-          <span className="timer-display">
-            {formatTime(elapsed)}
-          </span>
-          <button
-            type="button"
-            className="timer-pause"
-            aria-label={paused ? 'Resume' : 'Pause'}
-            onClick={() => {
-              const next = !paused
-              setManualPause(next)
-              setPaused(next)
-            }}
-          >
-            {paused ? <MdPlayArrow size={22} /> : <MdPause size={22} />}
-          </button>
+          <span className="difficulty-label">{difficulty ?? 'Custom'}</span>
+          <div className="timer-group">
+            <span className="timer-display">
+              {formatTime(elapsed)}
+            </span>
+            <button
+              type="button"
+              className="timer-pause"
+              aria-label={paused ? 'Resume' : 'Pause'}
+              onClick={() => {
+                const next = !paused
+                setManualPause(next)
+                setPaused(next)
+              }}
+            >
+              {paused ? <MdPlayArrow size={22} /> : <MdPause size={22} />}
+            </button>
+          </div>
         </div>
-      </div>
       <div className="board-wrapper">
         <div className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label="Sudoku grid">
           {cells}
@@ -405,7 +410,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           type="button"
           className="num-key clear"
           aria-label="Undo"
-          disabled={history.length === 0}
+          disabled={history.length === 0 || paused}
           onClick={undo}
         >
           <MdUndo size={24} />
@@ -414,6 +419,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           type="button"
           className="num-key clear"
           aria-label="Clear cell"
+          disabled={paused}
           onClick={clearCell}
         >
           <FaEraser size={22} />
@@ -423,6 +429,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           className={`num-key notes-toggle${notesMode ? ' notes-toggle--active' : ''}`}
           aria-label="Toggle notes mode"
           aria-pressed={notesMode}
+          disabled={paused}
           onClick={() => setNotesMode(v => !v)}
         >
           <FaPencilAlt size={20} />
@@ -434,6 +441,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             key={d}
             type="button"
             className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${notesMode ? ' num-key--notes' : ''}`}
+            disabled={paused}
             onPointerDown={(e) => {
               if (e.pointerType === 'touch') {
                 // Apply digit now (instant feedback), but defer haptic to onClick.
