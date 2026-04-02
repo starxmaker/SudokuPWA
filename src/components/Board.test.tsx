@@ -94,6 +94,39 @@ describe('Board component', () => {
     expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
   })
 
+  it('auto-pauses when window loses focus (blur)', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
+    window.dispatchEvent(new Event('blur'))
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Resume' }).length).toBeGreaterThanOrEqual(1)
+    )
+  })
+
+  it('auto-pauses when tab becomes hidden (visibilitychange)', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Resume' }).length).toBeGreaterThanOrEqual(1)
+    )
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+  })
+
+  it('does not auto-pause on focusout (mobile tap protection)', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    // The old implementation used document focusout which caused mobile taps to pause.
+    // Verify focusout alone no longer triggers pause.
+    const editableCell = screen.getAllByRole('gridcell').find(c => !c.classList.contains('given'))!
+    fireEvent.focusOut(editableCell)
+    expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
+  })
+
   it('notes toggle button changes aria-pressed state', async () => {
     render(<Board />)
     await waitForBoard()

@@ -83,16 +83,13 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   // Using focusout on document: relatedTarget is non-null for within-page
   // focus transitions, and null when focus leaves the document entirely.
   useEffect(() => {
-    function onFocusOut(e: FocusEvent) {
-      if (e.relatedTarget) return  // focus moved to another element in the page
-      setPaused(true)
-    }
+    function onBlur() { setPaused(true) }
     function onVisibility() { if (document.hidden) setPaused(true) }
     document.addEventListener('visibilitychange', onVisibility)
-    document.addEventListener('focusout', onFocusOut, true)
+    window.addEventListener('blur', onBlur)
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
-      document.removeEventListener('focusout', onFocusOut, true)
+      window.removeEventListener('blur', onBlur)
     }
   }, [])
 
