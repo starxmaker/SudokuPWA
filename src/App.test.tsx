@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
-import { saveGame } from './utils/gameStorage'
+import { saveGame, saveElapsed, ELAPSED_KEY } from './utils/gameStorage'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 const GRID: number[][] = [
@@ -106,6 +106,21 @@ describe('App', () => {
     await screen.findAllByRole('gridcell')
     await user.click(screen.getByRole('button', { name: /back/i }))
     expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
+  })
+
+  it('clears elapsed time when starting a new game so the clock resets to 0:00', async () => {
+    saveGame(GRID, GRID, GRID)
+    saveElapsed(300) // simulate 5 minutes elapsed on the previous game
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /new game/i }))
+    await user.click(screen.getByRole('button', { name: /^start$/i }))
+    await screen.findAllByRole('gridcell')
+    // clearElapsed() must have been called — localStorage key should be gone
+    expect(localStorage.getItem(ELAPSED_KEY)).toBeNull()
+    // The timer display should show 0:00 (not the previous 5:00)
+    const timerDisplay = document.querySelector('.timer-display')
+    expect(timerDisplay?.textContent).toBe('00:00')
   })
 
   it('saves autoCheck preference to localStorage via settings', async () => {

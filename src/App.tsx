@@ -5,7 +5,7 @@ import TopBar from './components/TopBar'
 import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
 import { generateGame, solveGrid, Grid } from './utils/sudoku'
-import { loadSaved, saveGame, encodeGrid, decodeGrid } from './utils/gameStorage'
+import { loadSaved, saveGame, clearElapsed, encodeGrid, decodeGrid } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 
 /** Parse ?p= once, synchronously, and solve the puzzle. */
@@ -174,6 +174,7 @@ export default function App(){
     setPuzzle(p)
     setSolution(s)
     setInitialGrid(initial)
+    clearElapsed()
     saveGame(initial, p, s)
     setDifficulty(difficulty)
     setGameId(id => id + 1)
