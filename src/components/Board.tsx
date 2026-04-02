@@ -134,7 +134,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   useEffect(() => {
     if (initialProp && initialProp.length === 9) return
     if (internalPuzzle.length > 0) return
-    generateGame('medium').then(({ puzzle, solution }) => {
+    generateGame().then(({ puzzle, solution }) => {
       setInternalPuzzle(puzzle)
       setSolutionGrid(solution)
     })
@@ -190,7 +190,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   async function newGame(){
-    const { puzzle: p, solution: s } = await generateGame('medium')
+    const { puzzle: p, solution: s } = await generateGame()
     const initial = cloneGrid(p)
     setInitialGrid(initial)
     setInternalPuzzle(p)

@@ -470,6 +470,22 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .settings-panel{background:var(--card);color:var(--text);padding:16px;border-radius:12px;min-width:280px;max-width:90%}
 .settings-panel button{min-width:84px}
 
+/* Generator selector */
+.generator-select{
+  width:100%;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid var(--cell-inner);
+  background:var(--card);
+  color:var(--text);
+  font-size:0.95rem;
+  cursor:pointer;
+  outline:none;
+}
+.generator-select:focus{ border-color:var(--accent); }
+.generator-select:disabled{ opacity:0.5; cursor:default; }
+.dark .generator-select{ border-color:#555; }
+
 /* Toggle switch */
 .toggle-switch{display:inline-block}
 .toggle-switch input{position:absolute;opacity:0;width:0;height:0}

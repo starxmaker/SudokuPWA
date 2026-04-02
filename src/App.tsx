@@ -5,6 +5,7 @@ import TopBar from './components/TopBar'
 import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
 import { generateGame, solveGrid, Grid } from './utils/sudoku'
+import { getGenerator } from './utils/generators'
 import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 
@@ -167,8 +168,9 @@ export default function App(){
     setNewGameOpen(true)
   }
 
-  async function startNewWithDifficulty(difficulty: import('./utils/sudoku').Difficulty, signal?: AbortSignal){
-    const { puzzle: p, solution: s } = await generateGame(difficulty)
+  async function startNewWithDifficulty(generatorId: string, difficultyId: string, signal: AbortSignal){
+    const { puzzle: p, solution: s } = await generateGame(difficultyId, generatorId, signal)
+    const diffLabel = getGenerator(generatorId).difficulties.find(d => d.id === difficultyId)?.label ?? difficultyId
     // Yield to the event loop so any queued cancel clicks fire before we apply state
     await new Promise<void>(r => setTimeout(r, 0))
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -180,7 +182,7 @@ export default function App(){
     clearCompleted()
     setGameCompleted(false)
     saveGame(initial, p, s)
-    setDifficulty(difficulty)
+    setDifficulty(diffLabel)
     setGameId(id => id + 1)
     setShowHome(false)
   }

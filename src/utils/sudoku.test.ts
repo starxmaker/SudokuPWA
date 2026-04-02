@@ -37,10 +37,10 @@ describe('sudoku utils', () => {
         if (puzzle[r][c] !== 0) expect(puzzle[r][c]).toBe(solution[r][c])
   })
 
-  it.each(DIFFICULTIES)('generateGame difficulty=%s produces correct givens count', async (diff) => {
-    // Library's named givens: easy=62, medium=53, hard=44, very-hard=35, expert(insane)=26
+  it.each(DIFFICULTIES)('generateGame (starxmaker) difficulty=%s produces correct givens count', async (diff) => {
+    // StarxMaker library's named givens: easy=62, medium=53, hard=44, very-hard=35, expert(insane)=26
     const EXPECTED: Record<Difficulty, number> = { easy: 62, medium: 53, hard: 44, 'very-hard': 35, expert: 26 }
-    const { puzzle } = await generateGame(diff)
+    const { puzzle } = await generateGame(diff, 'starxmaker')
     const givens = puzzle.flat().filter(n => n !== 0).length
     // allow ±5 variance
     expect(givens).toBeGreaterThanOrEqual(EXPECTED[diff] - 5)
