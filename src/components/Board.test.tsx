@@ -219,6 +219,17 @@ describe('Board with fixed puzzle', () => {
     await screen.findByText('Puzzle Complete!')
   })
 
+  it('calls onWin callback when puzzle is completed', async () => {
+    const onWin = vi.fn()
+    render(<Board puzzle={ALMOST_DONE} solution={SOLUTION} onWin={onWin} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    await user.click(cells[80])
+    await user.click(screen.getByRole('button', { name: /^9,/ }))
+    await screen.findByText('Puzzle Complete!')
+    expect(onWin).toHaveBeenCalledTimes(1)
+  })
+
   it('retry button on victory card resets the board', async () => {
     render(<Board puzzle={ALMOST_DONE} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')

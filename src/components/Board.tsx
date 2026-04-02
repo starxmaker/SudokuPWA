@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { MdPlayArrow, MdPause, MdUndo } from 'react-icons/md'
 import { FaEraser, FaPencilAlt } from 'react-icons/fa'
 import { generateGame, solveGrid, Grid } from '../utils/sudoku'
-import { loadSaved, saveGame, saveElapsed, loadElapsed, clearElapsed } from '../utils/gameStorage'
+import { loadSaved, saveGame, saveElapsed, loadElapsed, clearElapsed, saveCompleted } from '../utils/gameStorage'
 
 type Props = {
   puzzle?: Grid | null
@@ -16,6 +16,7 @@ type Props = {
   onTriggerErrorHaptic?: () => void
   onNew?: () => void
   onShare?: () => void
+  onWin?: () => void
   difficulty?: string | null
 }
 
@@ -31,7 +32,7 @@ function formatTime(s: number): string {
   return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
 }
 
-export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, onBack, solution: solutionProp, autoCheck, autoRemove, haptic, onTriggerHaptic, onTriggerErrorHaptic, onNew, onShare, difficulty }: Props){
+export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, onBack, solution: solutionProp, autoCheck, autoRemove, haptic, onTriggerHaptic, onTriggerErrorHaptic, onNew, onShare, onWin, difficulty }: Props){
   const [internalPuzzle, setInternalPuzzle] = useState<Grid>(() => {
     const saved = loadSaved()
     if (saved?.current && saved.current.length === 9) return saved.current
@@ -108,6 +109,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       setWon(true)
       setPaused(true)
       setFinalTime(prev => elapsed) // capture current elapsed
+      saveCompleted()
+      onWin?.()
     }
   }, [internalPuzzle, solutionGrid, won, elapsed])
 

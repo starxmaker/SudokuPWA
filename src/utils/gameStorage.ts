@@ -54,6 +54,20 @@ export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | nu
   }
 }
 
+export const COMPLETED_KEY = 'sudoku-pwa-completed'
+
+export function saveCompleted(): void {
+  try { localStorage.setItem(COMPLETED_KEY, '1') } catch { /* ignore */ }
+}
+
+export function loadCompleted(): boolean {
+  try { return localStorage.getItem(COMPLETED_KEY) === '1' } catch { return false }
+}
+
+export function clearCompleted(): void {
+  try { localStorage.removeItem(COMPLETED_KEY) } catch { /* ignore */ }
+}
+
 export const ELAPSED_KEY = 'sudoku-pwa-elapsed'
 
 export function saveElapsed(seconds: number): void {

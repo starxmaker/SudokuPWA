@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
-import { saveGame, saveElapsed, ELAPSED_KEY } from './utils/gameStorage'
+import { saveGame, saveElapsed, saveCompleted, ELAPSED_KEY, COMPLETED_KEY } from './utils/gameStorage'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 const GRID: number[][] = [
@@ -182,5 +182,24 @@ describe('App', () => {
     await user.click(screen.getByRole('switch', { name: /dark mode/i }))
     expect(localStorage.getItem('theme')).toBe('light')
     expect(document.documentElement.classList.contains('dark')).toBe(false)
+  })
+
+  it('does not show Continue when saved game is marked as completed', () => {
+    saveGame(GRID, GRID, GRID)
+    saveCompleted()
+    render(<App />)
+    expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
+  })
+
+  it('shows Continue again after starting a new game clears the completed flag', async () => {
+    saveGame(GRID, GRID, GRID)
+    saveCompleted()
+    render(<App />)
+    expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
+    // Start a new game — clears the completed flag
+    await userEvent.click(screen.getByRole('button', { name: /new game/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^start$/i }))
+    await screen.findAllByRole('gridcell')
+    expect(localStorage.getItem(COMPLETED_KEY)).toBeNull()
   })
 })
