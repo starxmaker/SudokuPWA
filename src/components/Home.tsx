@@ -19,8 +19,8 @@ export default function Home({ hasSaved, onNew, onContinue, error }: Props){
       </div>
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>
         <div style={{display:'flex',flexDirection:'column',gap:20,alignItems:'stretch',width:'100%',maxWidth:240}}>
-          <button className="home-btn" onClick={onNew}>New Game</button>
-          {hasSaved && <button className="home-btn" onClick={onContinue}>Continue</button>}
+          <button onClick={onNew}>New Game</button>
+          {hasSaved && <button onClick={onContinue}>Continue</button>}
         </div>
       </div>
       {error && <p style={{color:'#e53935',fontWeight:600}}>{error}</p>}

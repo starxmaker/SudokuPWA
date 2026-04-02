@@ -106,8 +106,6 @@ button{
 button:active{ transform:translateY(1px) }
 button[disabled]{ background:var(--card); color:var(--muted); cursor:default; box-shadow:none; opacity:0.75 }
 
-.home-btn{ padding:14px 14px; font-size:1.05rem; }
-
 /* Small round icon buttons in the topbar */
 .topbar button{
   width:40px;height:40px;padding:6px;border-radius:9999px;background:transparent;color:var(--text);display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;box-shadow:none;
@@ -195,7 +193,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   flex-direction:column;
   align-items:center;
   gap:8px;
-  padding:8px 0 16px;
+  padding:8px 0 48px;
 }
 .board-wrapper{
   width:100%;
@@ -468,24 +466,6 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:1600}
 .settings-panel{background:var(--card);color:var(--text);padding:16px;border-radius:12px;min-width:280px;max-width:90%}
 .settings-panel button{min-width:84px}
-
-/* Difficulty picker buttons */
-.diff-btn{
-  border-radius:12px;
-  padding:10px 16px;
-  text-align:left;
-  background:var(--card);
-  color:var(--text);
-  box-shadow:none;
-  outline:1px solid var(--muted);
-  outline-offset:2px;
-  width:100%;
-}
-.diff-btn--selected{
-  background:var(--accent);
-  color:#fff;
-  outline:none;
-}
 
 /* Toggle switch */
 .toggle-switch{display:inline-block}

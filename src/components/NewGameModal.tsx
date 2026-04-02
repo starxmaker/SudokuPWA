@@ -68,7 +68,7 @@ export default function NewGameModal({ open, onClose, onStart }: Props){
         <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
           {DIFFICULTIES.map(d => (
             <button key={d} onClick={()=>{ if(!generating) setChoice(d) }} aria-pressed={choice===d} disabled={generating}
-              className={`diff-btn${choice===d ? ' diff-btn--selected' : ''}`}>
+              style={{borderRadius:12,padding:'10px 16px',textAlign:'left',background:choice===d?'var(--accent)':'var(--card)',color:choice===d?'#fff':'var(--text)'}}>
               {LABELS[d]}
             </button>
           ))}

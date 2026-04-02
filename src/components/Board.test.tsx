@@ -126,7 +126,7 @@ describe('Board with fixed puzzle', () => {
     const undoBtn = screen.getByRole('button', { name: /undo/i })
     expect(undoBtn).toBeDisabled()
     await user.click(cells[2])
-    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit, won't complete puzzle
     expect(undoBtn).not.toBeDisabled()
     await user.click(undoBtn)
     expect(undoBtn).toBeDisabled()
@@ -138,8 +138,8 @@ describe('Board with fixed puzzle', () => {
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
-    await user.click(screen.getByRole('button', { name: /^4,/ }))
-    expect(cells[2].textContent?.trim()).toBe('4')
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit, won't complete puzzle
+    expect(cells[2].textContent?.trim()).toBe('7')
     await user.click(screen.getByRole('button', { name: /clear cell/i }))
     expect(cells[2].textContent).toBe('\u00a0')
   })
