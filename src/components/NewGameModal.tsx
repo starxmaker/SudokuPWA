@@ -81,7 +81,7 @@ export default function NewGameModal({ open, onClose, onStart }: Props){
         <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
           {currentGen.difficulties.map(d => (
             <button key={d.id} onClick={()=>{ if(!generating) setChoice(d.id) }} aria-pressed={choice===d.id} disabled={generating}
-              style={{borderRadius:12,padding:'10px 16px',textAlign:'left',background:choice===d.id?'var(--accent)':'var(--card)',color:choice===d.id?'#fff':'var(--text)'}}>
+              style={{borderRadius:12,padding:'10px 16px',textAlign:'left',background:choice===d.id?'var(--accent)':'var(--card)',color:choice===d.id?'#fff':'var(--text)',border:choice===d.id?'none':'1px solid rgba(128,128,128,0.35)'}}>
               {d.label}
             </button>
           ))}

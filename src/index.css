@@ -125,6 +125,10 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .difficulty-label{
   font-size:0.85rem;font-weight:600;opacity:0.6;text-transform:capitalize;
 }
+.home-btn{
+  font-size:1.1rem;
+  padding:14px 20px;
+}
 .timer-display{
   font-size:1rem;
   font-weight:600;
