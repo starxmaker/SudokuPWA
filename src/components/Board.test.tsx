@@ -215,6 +215,38 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
   })
 
+  it('keeps peer candidates on wrong entry when auto-check and auto-remove are enabled', async () => {
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} autoCheck autoRemove />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[4]) // [0][4]
+    await user.click(screen.getByRole('button', { name: /^7,/ }))
+    expect(cells[4].querySelector('.cell-notes')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2]) // [0][2], correct digit is 4
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit
+    expect(cells[4].querySelector('.cell-notes')).not.toBeNull()
+  })
+
+  it('removes peer candidates on correct entry when auto-check and auto-remove are enabled', async () => {
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} autoCheck autoRemove />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[4]) // [0][4]
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    expect(cells[4].querySelector('.cell-notes')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2]) // [0][2], correct digit is 4
+    await user.click(screen.getByRole('button', { name: /^4,/ })) // correct digit
+    expect(cells[4].querySelector('.cell-notes')).toBeNull()
+  })
+
   it('disables exhausted digit buttons', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')

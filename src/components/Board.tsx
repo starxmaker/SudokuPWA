@@ -245,6 +245,9 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         return next
       })
     } else {
+      const canValidateEntry = autoCheck && solutionGrid !== null
+      const isCorrectEntry = solutionGrid !== null && d === solutionGrid[r][c]
+      const shouldAutoRemove = autoRemove && (!canValidateEntry || isCorrectEntry)
       setHistory(h => [...h.slice(-50), {
         puzzle: internalPuzzle.map(row => [...row]),
         notes: notesRef.current.map(row => row.map(cell => [...cell]))
@@ -252,7 +255,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         next[r][c] = []
-        if (autoRemove) {
+        if (shouldAutoRemove) {
           const boxR = Math.floor(r / 3) * 3
           const boxC = Math.floor(c / 3) * 3
           for (let i = 0; i < 9; i++) {
