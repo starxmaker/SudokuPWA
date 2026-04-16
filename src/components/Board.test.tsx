@@ -4,6 +4,29 @@ import userEvent from '@testing-library/user-event'
 import Board from './Board'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
+// Mock generateGame so Board tests don't run the real (slow) hodoku generator
+vi.mock('../utils/sudoku', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/sudoku')>()
+  const SOLUTION = [
+    [5, 3, 4, 6, 7, 8, 9, 1, 2],
+    [6, 7, 2, 1, 9, 5, 3, 4, 8],
+    [1, 9, 8, 3, 4, 2, 5, 6, 7],
+    [8, 5, 9, 7, 6, 1, 4, 2, 3],
+    [4, 2, 6, 8, 5, 3, 7, 9, 1],
+    [7, 1, 3, 9, 2, 4, 8, 5, 6],
+    [9, 6, 1, 5, 3, 7, 2, 8, 4],
+    [2, 8, 7, 4, 1, 9, 6, 3, 5],
+    [3, 4, 5, 2, 8, 6, 1, 7, 9],
+  ]
+  const PUZZLE = SOLUTION.map((row, r) =>
+    r === 0 ? [5, 3, 0, 6, 7, 8, 9, 1, 2] : [...row]
+  )
+  return {
+    ...actual,
+    generateGame: vi.fn().mockResolvedValue({ puzzle: PUZZLE, solution: SOLUTION }),
+  }
+})
+
 beforeEach(() => localStorage.clear())
 
 // A valid, fully-solved sudoku grid (Wikipedia example)
