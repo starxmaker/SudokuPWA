@@ -230,6 +230,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     if (!selected) return false
     const { r, c } = selected
     if (isClue(r, c)) return false
+    if (!notesMode && remaining[d] === 0) return false
     if (notesMode) {
       setHistory(h => [...h.slice(-50), {
         puzzle: internalPuzzle.map(row => [...row]),
@@ -244,6 +245,9 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         return next
       })
     } else {
+      const canValidateEntry = autoCheck && solutionGrid !== null
+      const isCorrectEntry = solutionGrid !== null && d === solutionGrid[r][c]
+      const shouldAutoRemove = autoRemove && (!canValidateEntry || isCorrectEntry)
       setHistory(h => [...h.slice(-50), {
         puzzle: internalPuzzle.map(row => [...row]),
         notes: notesRef.current.map(row => row.map(cell => [...cell]))
@@ -251,7 +255,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         next[r][c] = []
-        if (autoRemove) {
+        if (shouldAutoRemove) {
           const boxR = Math.floor(r / 3) * 3
           const boxC = Math.floor(c / 3) * 3
           for (let i = 0; i < 9; i++) {
@@ -407,7 +411,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           type="button"
           className="num-key clear"
           aria-label="Undo"
-          disabled={history.length === 0 || paused}
+          disabled={history.length === 0 || paused || won}
           onClick={undo}
         >
           <MdUndo size={24} />
@@ -416,7 +420,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           type="button"
           className="num-key clear"
           aria-label="Clear cell"
-          disabled={paused}
+          disabled={paused || won}
           onClick={clearCell}
         >
           <FaEraser size={22} />
@@ -426,7 +430,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           className={`num-key notes-toggle${notesMode ? ' notes-toggle--active' : ''}`}
           aria-label="Toggle notes mode"
           aria-pressed={notesMode}
-          disabled={paused}
+          disabled={paused || won}
           onClick={() => setNotesMode(v => !v)}
         >
           <FaPencilAlt size={20} />
@@ -438,7 +442,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             key={d}
             type="button"
             className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${notesMode ? ' num-key--notes' : ''}`}
-            disabled={paused}
+            disabled={paused || won || (!notesMode && remaining[d] === 0)}
             onPointerDown={(e) => {
               if (e.pointerType === 'touch') {
                 // Apply digit now (instant feedback), but defer haptic to onClick.

@@ -10,7 +10,7 @@ export function solveGrid(puzzle: Grid): Grid | null {
 }
 
 export async function generateGame(
-  difficulty: string = 'easy',
+  difficulty: string = 'MEDIUM',
   generatorId: string = DEFAULT_GENERATOR_ID,
   signal?: AbortSignal,
 ): Promise<{ puzzle: Grid; solution: Grid }> {

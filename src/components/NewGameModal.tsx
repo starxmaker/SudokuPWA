@@ -1,24 +1,16 @@
 import React from 'react'
-import { GENERATORS, DEFAULT_GENERATOR_ID, getGenerator } from '../utils/generators'
+import { DEFAULT_GENERATOR_ID, getGenerator } from '../utils/generators'
 
-const GENERATOR_STORAGE_KEY = 'lastGenerator'
+const GENERATOR_ID = DEFAULT_GENERATOR_ID
 
-function loadLastGenerator(): string {
+function loadLastDifficulty(): string {
   try {
-    const v = localStorage.getItem(GENERATOR_STORAGE_KEY)
-    if (v && GENERATORS.some(g => g.id === v)) return v
-  } catch {}
-  return DEFAULT_GENERATOR_ID
-}
-
-function loadLastDifficulty(genId: string): string {
-  try {
-    const gen = getGenerator(genId)
-    const v = localStorage.getItem(`lastDifficulty:${genId}`)
+    const gen = getGenerator()
+    const v = localStorage.getItem(`lastDifficulty:${GENERATOR_ID}`)
     if (v && gen.difficulties.some(d => d.id === v)) return v
     return gen.defaultDifficulty
   } catch {}
-  return getGenerator(genId).defaultDifficulty
+  return getGenerator().defaultDifficulty
 }
 
 type Props = {
@@ -28,32 +20,25 @@ type Props = {
 }
 
 export default function NewGameModal({ open, onClose, onStart }: Props){
-  const [generatorId, setGeneratorId] = React.useState<string>(loadLastGenerator)
-  const [choice, setChoice] = React.useState<string>(() => loadLastDifficulty(loadLastGenerator()))
+  const [choice, setChoice] = React.useState<string>(loadLastDifficulty)
   const [generating, setGenerating] = React.useState(false)
   const controllerRef = React.useRef<AbortController | null>(null)
   const cancelledRef = React.useRef(false)
 
   if(!open) return null
 
-  const currentGen = getGenerator(generatorId)
-
-  function handleGeneratorChange(newGenId: string) {
-    setGeneratorId(newGenId)
-    setChoice(loadLastDifficulty(newGenId))
-  }
+  const currentGen = getGenerator()
 
   async function handleStart(){
     try {
-      localStorage.setItem(`lastDifficulty:${generatorId}`, choice)
-      localStorage.setItem(GENERATOR_STORAGE_KEY, generatorId)
+      localStorage.setItem(`lastDifficulty:${GENERATOR_ID}`, choice)
     } catch {}
     cancelledRef.current = false
     const controller = new AbortController()
     controllerRef.current = controller
     setGenerating(true)
     try {
-      await onStart(generatorId, choice, controller.signal)
+      await onStart(GENERATOR_ID, choice, controller.signal)
       if (!cancelledRef.current) onClose()
     } catch {
       // aborted or error — stay open
@@ -85,20 +70,6 @@ export default function NewGameModal({ open, onClose, onStart }: Props){
               {d.label}
             </button>
           ))}
-        </div>
-        <div style={{marginTop:14}}>
-          <label htmlFor="generator-select" style={{display:'block',fontSize:'0.85rem',fontWeight:600,opacity:0.6,marginBottom:4}}>Generator</label>
-          <select
-            id="generator-select"
-            className="generator-select"
-            value={generatorId}
-            disabled={generating}
-            onChange={e => handleGeneratorChange(e.target.value)}
-          >
-            {GENERATORS.map(g => (
-              <option key={g.id} value={g.id}>{g.label}</option>
-            ))}
-          </select>
         </div>
         <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}>
           <button onClick={handleCancel}>{generating ? 'Cancel' : 'Cancel'}</button>

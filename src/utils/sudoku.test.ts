@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { generateGame, solveGrid, type Difficulty } from './sudoku'
+import { generateGame, solveGrid } from './sudoku'
 
-const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard', 'very-hard', 'expert']
+const HODOKU_DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD', 'UNFAIR', 'EXTREME'] as const
+type HodokuDifficulty = typeof HODOKU_DIFFICULTIES[number]
 
 function isValidSolution(grid: number[][]): boolean {
   const expected = new Set([1,2,3,4,5,6,7,8,9])
@@ -26,7 +27,7 @@ function isValidSolution(grid: number[][]): boolean {
 
 describe('sudoku utils', () => {
   it('generateGame returns a valid puzzle and complete solution', async () => {
-    const { puzzle, solution } = await generateGame('easy')
+    const { puzzle, solution } = await generateGame('EASY')
     expect(puzzle.length).toBe(9)
     expect(solution.length).toBe(9)
     expect(isValidSolution(solution)).toBe(true)
@@ -35,17 +36,16 @@ describe('sudoku utils', () => {
     for (let r = 0; r < 9; r++)
       for (let c = 0; c < 9; c++)
         if (puzzle[r][c] !== 0) expect(puzzle[r][c]).toBe(solution[r][c])
-  })
+  }, 30_000)
 
-  it.each(DIFFICULTIES)('generateGame (starxmaker) difficulty=%s produces correct givens count', async (diff) => {
-    // StarxMaker library's named givens: easy=62, medium=53, hard=44, very-hard=35, expert(insane)=26
-    const EXPECTED: Record<Difficulty, number> = { easy: 62, medium: 53, hard: 44, 'very-hard': 35, expert: 26 }
-    const { puzzle } = await generateGame(diff, 'starxmaker')
-    const givens = puzzle.flat().filter(n => n !== 0).length
-    // allow ±5 variance
-    expect(givens).toBeGreaterThanOrEqual(EXPECTED[diff] - 5)
-    expect(givens).toBeLessThanOrEqual(EXPECTED[diff] + 5)
-  })
+  it.each(HODOKU_DIFFICULTIES)('generateGame difficulty=%s returns valid puzzle and solution', async (diff: HodokuDifficulty) => {
+    const { puzzle, solution } = await generateGame(diff)
+    expect(puzzle.length).toBe(9)
+    expect(solution.length).toBe(9)
+    expect(isValidSolution(solution)).toBe(true)
+    const zeros = puzzle.flat().filter(n => n === 0).length
+    expect(zeros).toBeGreaterThan(0)
+  }, 30_000)
 
   it('solveGrid solves a known easy puzzle', () => {
     // A valid Sudoku puzzle (0 = blank)
