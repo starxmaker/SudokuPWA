@@ -47,6 +47,11 @@ const PUZZLE: number[][] = SOLUTION.map((row, r) =>
   r === 0 ? [5, 3, 0, 6, 7, 8, 9, 1, 2] : [...row]
 )
 
+// Two editable cells so digit 7 still has one remaining and can be used as a wrong entry.
+const PUZZLE_WITH_7_REMAINING: number[][] = SOLUTION.map((row, r) =>
+  r === 0 ? [5, 3, 0, 6, 0, 8, 9, 1, 2] : [...row]
+)
+
 // Almost-complete puzzle: only cell [8][8] is blank (answer = 9)
 const ALMOST_DONE: number[][] = SOLUTION.map((row, r) =>
   r === 8 ? [...row.slice(0, 8), 0] : [...row]
@@ -176,7 +181,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('enables undo after digit entry; undo reverts the cell', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     const undoBtn = screen.getByRole('button', { name: /undo/i })
@@ -190,7 +195,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('clears an entered digit using the eraser button', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
@@ -208,6 +213,18 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[2])
     await user.click(screen.getByRole('button', { name: /^4,/ }))
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+  })
+
+  it('disables exhausted digit buttons', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    const sevenBtn = screen.getByRole('button', { name: /^7,/ })
+
+    expect(sevenBtn).toBeDisabled()
+    await user.click(cells[2])
+    await user.click(sevenBtn)
+    expect(cells[2].textContent).toBe('\u00a0')
   })
 
   it('highlights matching note candidates when a filled cell with that digit is selected', async () => {
@@ -375,7 +392,7 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerErrorHaptic when haptic=true, autoCheck=true, and a wrong digit is entered', async () => {
     const onTriggerErrorHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic autoCheck onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic autoCheck onTriggerErrorHaptic={onTriggerErrorHaptic} />)
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2]) // blank cell, answer = 4
@@ -395,7 +412,7 @@ describe('Board haptic callbacks', () => {
 
   it('does not call onTriggerErrorHaptic when autoCheck=false even if digit is wrong', async () => {
     const onTriggerErrorHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic autoCheck={false} onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic autoCheck={false} onTriggerErrorHaptic={onTriggerErrorHaptic} />)
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2])
@@ -459,7 +476,7 @@ describe('Board numpad touch handling', () => {
 
 describe('Board pause display', () => {
   it('removes user class from cells with user entries when paused', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
@@ -502,7 +519,7 @@ describe('Board pause display', () => {
   })
 
   it('removes error class when paused', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} autoCheck />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} autoCheck />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
@@ -513,7 +530,7 @@ describe('Board pause display', () => {
   })
 
   it('restores classes after resuming', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
