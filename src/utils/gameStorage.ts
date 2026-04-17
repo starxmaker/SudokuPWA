@@ -2,9 +2,20 @@ import type { Grid } from './sudoku_types'
 
 export const STORAGE_KEY = 'sudoku-pwa-state'
 
-const V = 4 as const
+const V = 5 as const
 
-type SavedV4 = { v: typeof V; initial: Grid; current: Grid; solution: Grid | null; notes: number[][][] }
+export type CellColorGrid = (string | null)[][]
+export type CandidateColorGrid = ((string | null)[])[][]
+
+type SavedV5 = {
+  v: typeof V
+  initial: Grid
+  current: Grid
+  solution: Grid | null
+  notes: number[][][]
+  cellColors: CellColorGrid
+  candidateColors: CandidateColorGrid
+}
 
 function cloneGrid(g: Grid): Grid {
   return g.map(row => [...row])
@@ -14,12 +25,35 @@ function cloneNotes(n: number[][][]): number[][][] {
   return n.map(row => row.map(cell => [...cell]))
 }
 
+function cloneCellColors(colors: CellColorGrid): CellColorGrid {
+  return colors.map(row => [...row])
+}
+
+function cloneCandidateColors(colors: CandidateColorGrid): CandidateColorGrid {
+  return colors.map(row => row.map(cell => [...cell]))
+}
+
 function emptyNotes(): number[][][] {
   return Array.from({length: 9}, () => Array.from({length: 9}, () => []))
 }
 
+export function emptyCellColors(): CellColorGrid {
+  return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => null))
+}
+
+export function emptyCandidateColors(): CandidateColorGrid {
+  return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => null)))
+}
+
 /** Read saved game. Returns null solution for legacy saves that predate V3. */
-export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | null; notes: number[][][] } | null {
+export function loadSaved(): {
+  initial: Grid
+  current: Grid
+  solution: Grid | null
+  notes: number[][][]
+  cellColors: CellColorGrid
+  candidateColors: CandidateColorGrid
+} | null {
   try {
     const s = localStorage.getItem(STORAGE_KEY)
     if (!s) return null
@@ -27,15 +61,34 @@ export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | nu
     if (Array.isArray(parsed)) {
       const g = parsed as Grid
       if (g.length !== 9) return null
-      return { initial: cloneGrid(g), current: cloneGrid(g), solution: null, notes: emptyNotes() }
+      return {
+        initial: cloneGrid(g),
+        current: cloneGrid(g),
+        solution: null,
+        notes: emptyNotes(),
+        cellColors: emptyCellColors(),
+        candidateColors: emptyCandidateColors(),
+      }
     }
     if (parsed && typeof parsed === 'object') {
+      if ((parsed.v === 5) && parsed.initial && parsed.current) {
+        return {
+          initial: cloneGrid(parsed.initial),
+          current: cloneGrid(parsed.current),
+          solution: parsed.solution ? cloneGrid(parsed.solution) : null,
+          notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
+          cellColors: parsed.cellColors ? cloneCellColors(parsed.cellColors) : emptyCellColors(),
+          candidateColors: parsed.candidateColors ? cloneCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
+        }
+      }
       if ((parsed.v === 4) && parsed.initial && parsed.current) {
         return {
           initial: cloneGrid(parsed.initial),
           current: cloneGrid(parsed.current),
           solution: parsed.solution ? cloneGrid(parsed.solution) : null,
           notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
+          cellColors: emptyCellColors(),
+          candidateColors: emptyCandidateColors(),
         }
       }
       // Legacy V2/V3 saves — no notes
@@ -45,6 +98,8 @@ export function loadSaved(): { initial: Grid; current: Grid; solution: Grid | nu
           current: cloneGrid(parsed.current),
           solution: parsed.solution ? cloneGrid(parsed.solution) : null,
           notes: emptyNotes(),
+          cellColors: emptyCellColors(),
+          candidateColors: emptyCandidateColors(),
         }
       }
     }
@@ -86,14 +141,23 @@ export function clearElapsed(): void {
   try { localStorage.removeItem(ELAPSED_KEY) } catch { /* ignore */ }
 }
 
-export function saveGame(initial: Grid, current: Grid, solution: Grid | null = null, notes: number[][][] = emptyNotes()): void {
+export function saveGame(
+  initial: Grid,
+  current: Grid,
+  solution: Grid | null = null,
+  notes: number[][][] = emptyNotes(),
+  cellColors: CellColorGrid = emptyCellColors(),
+  candidateColors: CandidateColorGrid = emptyCandidateColors(),
+): void {
   try {
-    const payload: SavedV4 = {
+    const payload: SavedV5 = {
       v: V,
       initial: cloneGrid(initial),
       current: cloneGrid(current),
       solution: solution ? cloneGrid(solution) : null,
       notes: cloneNotes(notes),
+      cellColors: cloneCellColors(cellColors),
+      candidateColors: cloneCandidateColors(candidateColors),
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
   } catch { /* ignore */ }

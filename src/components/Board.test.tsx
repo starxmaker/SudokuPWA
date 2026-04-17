@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Board from './Board'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -88,6 +88,7 @@ describe('Board component', () => {
     expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /clear cell/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /toggle notes/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /toggle brush mode/i })).toBeInTheDocument()
   })
 
   it('renders number pad with buttons 1–9', async () => {
@@ -188,6 +189,53 @@ describe('Board component', () => {
     expect(screen.queryByRole('button', { name: /fill candidates/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /fill all candidates/i })).toBeNull()
   })
+
+  it('brush toggle shows and hides brush colors', async () => {
+    render(<Board />)
+    await waitForBoard()
+    const user = userEvent.setup()
+    const brushBtn = screen.getByRole('button', { name: /toggle brush mode/i })
+    const notesBtn = screen.getByRole('button', { name: /toggle notes/i })
+    const fourBtn = screen.getByRole('button', { name: /^4,/ })
+
+    expect(brushBtn.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByRole('button', { name: /brush color 1/i })).toBeNull()
+
+    await user.click(brushBtn)
+    expect(brushBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /brush color remover/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /brush color 1/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /brush color 8/i })).toBeInTheDocument()
+    const candidateColorBtn = screen.getByRole('button', { name: /toggle candidate coloring mode/i })
+    expect(candidateColorBtn).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /clear colors/i })).toBeDisabled()
+    expect(fourBtn).toBeDisabled()
+    const brushColors = screen.getByRole('toolbar', { name: /brush colors/i })
+    const colorButtons = within(brushColors).getAllByRole('button')
+    expect(colorButtons.at(-1)).toHaveAccessibleName(/brush color remover/i)
+
+    await user.click(candidateColorBtn)
+    expect(candidateColorBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(fourBtn).not.toBeDisabled()
+    expect(fourBtn.classList.contains('num-key--notes')).toBe(true)
+    expect(candidateColorBtn.classList.contains('brush-mode-toggle--active')).toBe(true)
+    expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(document.activeElement).not.toBe(candidateColorBtn)
+
+    await user.click(notesBtn)
+    expect(notesBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(brushBtn.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByRole('button', { name: /brush color 1/i })).toBeNull()
+
+    await user.click(brushBtn)
+    expect(brushBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(notesBtn.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: /brush color 1/i })).toBeInTheDocument()
+
+    await user.click(brushBtn)
+    expect(brushBtn.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByRole('button', { name: /brush color 1/i })).toBeNull()
+  })
 })
 
 describe('Board with fixed puzzle', () => {
@@ -235,6 +283,213 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[2])
     await user.click(screen.getByRole('button', { name: /^4,/ }))
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+  })
+
+  it('applies a brush color layer to a selected cell', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    expect(cells[2].classList.contains('selected')).toBe(true)
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    expect(cells[2].classList.contains('selected-brush')).toBe(true)
+    expect(cells[2].classList.contains('selected')).toBe(false)
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+
+    expect(cells[2].querySelector('.cell-color-layer')).not.toBeNull()
+  })
+
+  it('removes the cell brush color when a number is entered', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+    expect(cells[2].querySelector('.cell-color-layer')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+
+    expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
+    expect(cells[2].textContent?.trim()).toBe('4')
+  })
+
+  it('paints an existing candidate without changing candidate input state', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+
+    const noteSpansBeforeBrush = cells[2].querySelectorAll('.cell-note')
+    expect(noteSpansBeforeBrush[3].textContent).toBe('4')
+    expect(noteSpansBeforeBrush[0].textContent).toBe('')
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    const candidateColorBtn = screen.getByRole('button', { name: /toggle candidate coloring mode/i })
+    await user.click(candidateColorBtn)
+    const defaultBrushColorBtn = screen.getByRole('button', { name: /brush color 1/i })
+    expect(defaultBrushColorBtn.getAttribute('aria-pressed')).toBe('true')
+
+    expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    await user.click(screen.getByRole('button', { name: /^1,/ }))
+
+    const noteSpans = cells[2].querySelectorAll('.cell-note')
+    expect(noteSpans[3].classList.contains('cell-note--colored')).toBe(true)
+    expect(noteSpans[0].classList.contains('cell-note--colored')).toBe(false)
+    expect(noteSpans[3].textContent).toBe('4')
+    expect(noteSpans[0].textContent).toBe('')
+    expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
+    expect(candidateColorBtn.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('keeps candidate painting mode active when selecting another cell', async () => {
+    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+
+    await user.click(cells[4])
+    await user.click(screen.getByRole('button', { name: /^5,/ }))
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    const candidateColorBtn = screen.getByRole('button', { name: /toggle candidate coloring mode/i })
+    await user.click(candidateColorBtn)
+    expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('true')
+
+    await user.click(cells[4])
+    expect(candidateColorBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(candidateColorBtn.classList.contains('brush-mode-toggle--active')).toBe(true)
+    expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('remover swatch clears candidate colors for the selected cell in candidate painting mode', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    expect(cells[2].querySelector('.cell-note--colored')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /brush color remover/i }))
+    expect(cells[2].querySelector('.cell-note--colored')).toBeNull()
+  })
+
+  it('disables cell-color palette when the selected cell already has candidate colors', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
+
+    expect(screen.getByRole('button', { name: /brush color 1/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /brush color remover/i })).toBeDisabled()
+  })
+
+  it('disables candidate-color palette when the selected cell already has a cell color', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+    await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
+
+    expect(screen.getByRole('button', { name: /brush color 1/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /brush color remover/i })).toBeDisabled()
+  })
+
+  it('blocks digit entry in brush mode when candidate painting is off', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+
+    expect(screen.getByRole('button', { name: /^4,/ })).toBeDisabled()
+
+    fireEvent.keyDown(window, { key: '4' })
+    expect(cells[2].textContent).toBe('\u00a0')
+  })
+
+  it('remover swatch clears the selected cell color', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+    expect(cells[2].querySelector('.cell-color-layer')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /brush color remover/i }))
+    expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
+  })
+
+  it('clear cell removes selected brush colors', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+    expect(cells[2].querySelector('.cell-color-layer')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /clear cell/i }))
+    expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
+  })
+
+  it('clears all brush colors', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+    expect(cells[2].querySelector('.cell-color-layer')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 2/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    expect(cells[2].querySelector('.cell-note--colored')).not.toBeNull()
+
+    const clearColorsBtn = screen.getByRole('button', { name: /clear colors/i })
+    expect(clearColorsBtn).not.toBeDisabled()
+    await user.click(clearColorsBtn)
+
+    expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
+    expect(cells[2].querySelector('.cell-note--colored')).toBeNull()
+    expect(clearColorsBtn).toBeDisabled()
   })
 
   it('enables fill candidates only for a selected empty cell without notes', async () => {

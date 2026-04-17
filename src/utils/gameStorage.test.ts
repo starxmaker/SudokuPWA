@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { encodeGrid, decodeGrid, saveGame, loadSaved, STORAGE_KEY } from './gameStorage'
+import {
+  encodeGrid,
+  decodeGrid,
+  saveGame,
+  loadSaved,
+  STORAGE_KEY,
+  emptyCellColors,
+  emptyCandidateColors,
+} from './gameStorage'
 import type { Grid } from './sudoku_types'
 
 const BLANK: Grid = Array.from({ length: 9 }, () => Array(9).fill(0))
@@ -25,6 +33,20 @@ function sampleNotes(): number[][][] {
   n[4][4] = [5, 9]
   n[8][8] = [7]
   return n
+}
+
+function sampleCellColors() {
+  const colors = emptyCellColors()
+  colors[0][0] = 'rose'
+  colors[4][4] = 'sky'
+  return colors
+}
+
+function sampleCandidateColors() {
+  const colors = emptyCandidateColors()
+  colors[0][0][0] = 'rose'
+  colors[4][4][4] = 'sky'
+  return colors
 }
 
 beforeEach(() => localStorage.clear())
@@ -86,6 +108,8 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.current).toEqual(BLANK)
     expect(saved!.solution).toEqual(SAMPLE)
     expect(saved!.notes).toEqual(emptyNotes())
+    expect(saved!.cellColors).toEqual(emptyCellColors())
+    expect(saved!.candidateColors).toEqual(emptyCandidateColors())
   })
 
   it('saves and loads notes correctly', () => {
@@ -99,6 +123,8 @@ describe('saveGame / loadSaved', () => {
     saveGame(SAMPLE, BLANK, null)
     const saved = loadSaved()
     expect(saved!.notes).toEqual(emptyNotes())
+    expect(saved!.cellColors).toEqual(emptyCellColors())
+    expect(saved!.candidateColors).toEqual(emptyCandidateColors())
   })
 
   it('returns null when nothing is saved', () => {
@@ -132,6 +158,26 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.notes[0][0]).toEqual([1, 2, 3]) // original value preserved
   })
 
+  it('saves and loads brush colors correctly', () => {
+    const cellColors = sampleCellColors()
+    const candidateColors = sampleCandidateColors()
+    saveGame(SAMPLE, BLANK, SAMPLE, emptyNotes(), cellColors, candidateColors)
+    const saved = loadSaved()
+    expect(saved!.cellColors).toEqual(cellColors)
+    expect(saved!.candidateColors).toEqual(candidateColors)
+  })
+
+  it('does not mutate brush colors after saving', () => {
+    const cellColors = sampleCellColors()
+    const candidateColors = sampleCandidateColors()
+    saveGame(SAMPLE, BLANK, null, emptyNotes(), cellColors, candidateColors)
+    cellColors[0][0] = 'pink'
+    candidateColors[0][0][0] = 'pink'
+    const saved = loadSaved()
+    expect(saved!.cellColors[0][0]).toBe('rose')
+    expect(saved!.candidateColors[0][0][0]).toBe('rose')
+  })
+
   it('loads legacy V3 saves with empty notes', () => {
     const legacy = { v: 3, initial: SAMPLE, current: BLANK, solution: null }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy))
@@ -139,6 +185,8 @@ describe('saveGame / loadSaved', () => {
     expect(saved).not.toBeNull()
     expect(saved!.initial).toEqual(SAMPLE)
     expect(saved!.notes).toEqual(emptyNotes())
+    expect(saved!.cellColors).toEqual(emptyCellColors())
+    expect(saved!.candidateColors).toEqual(emptyCandidateColors())
   })
 
   it('loads legacy V2 saves with empty notes', () => {
@@ -148,6 +196,8 @@ describe('saveGame / loadSaved', () => {
     expect(saved).not.toBeNull()
     expect(saved!.solution).toEqual(SAMPLE)
     expect(saved!.notes).toEqual(emptyNotes())
+    expect(saved!.cellColors).toEqual(emptyCellColors())
+    expect(saved!.candidateColors).toEqual(emptyCandidateColors())
   })
 
   it('loads legacy array-format saves with empty notes', () => {
@@ -156,11 +206,23 @@ describe('saveGame / loadSaved', () => {
     expect(saved).not.toBeNull()
     expect(saved!.initial).toEqual(SAMPLE)
     expect(saved!.notes).toEqual(emptyNotes())
+    expect(saved!.cellColors).toEqual(emptyCellColors())
+    expect(saved!.candidateColors).toEqual(emptyCandidateColors())
   })
 
-  it('stores V4 version tag', () => {
+  it('loads legacy V4 saves with empty brush colors', () => {
+    const legacy = { v: 4, initial: SAMPLE, current: BLANK, solution: SAMPLE, notes: sampleNotes() }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy))
+    const saved = loadSaved()
+    expect(saved).not.toBeNull()
+    expect(saved!.notes).toEqual(sampleNotes())
+    expect(saved!.cellColors).toEqual(emptyCellColors())
+    expect(saved!.candidateColors).toEqual(emptyCandidateColors())
+  })
+
+  it('stores V5 version tag', () => {
     saveGame(SAMPLE, BLANK, null)
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
-    expect(raw.v).toBe(4)
+    expect(raw.v).toBe(5)
   })
 })
