@@ -59,6 +59,17 @@ const PUZZLE_WITH_3_REMAINING: number[][] = SOLUTION.map((row, r) => {
   return [...row]
 })
 
+const PUZZLE_WITH_MULTIPLE_CANDIDATES: number[][] = SOLUTION.map((row, r) => {
+  if (r === 0) return [5, 3, 0, 6, 0, 8, 9, 1, 2]
+  if (r === 1) return [6, 0, 2, 1, 9, 5, 3, 4, 8]
+  if (r === 7) return [2, 8, 0, 4, 1, 9, 6, 3, 5]
+  return [...row]
+})
+
+const FULL_GRID_NO_EMPTY: number[][] = SOLUTION.map((row, r) =>
+  r === 0 ? [5, 5, 4, 6, 7, 8, 9, 1, 2] : [...row]
+)
+
 // Almost-complete puzzle: only cell [8][8] is blank (answer = 9)
 const ALMOST_DONE: number[][] = SOLUTION.map((row, r) =>
   r === 8 ? [...row.slice(0, 8), 0] : [...row]
@@ -170,8 +181,12 @@ describe('Board component', () => {
     expect(notesBtn.getAttribute('aria-pressed')).toBe('false')
     await user.click(notesBtn)
     expect(notesBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /fill candidates/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /fill all candidates/i })).not.toBeDisabled()
     await user.click(notesBtn)
     expect(notesBtn.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByRole('button', { name: /fill candidates/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /fill all candidates/i })).toBeNull()
   })
 })
 
@@ -220,6 +235,98 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[2])
     await user.click(screen.getByRole('button', { name: /^4,/ }))
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+  })
+
+  it('enables fill candidates only for a selected empty cell without notes', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    const wandBtn = screen.getByRole('button', { name: /fill candidates/i })
+    expect(wandBtn).toBeDisabled()
+
+    await user.click(cells[0]) // clue cell
+    expect(wandBtn).toBeDisabled()
+
+    await user.click(cells[2]) // empty editable cell
+    expect(wandBtn).not.toBeDisabled()
+
+    await user.click(wandBtn)
+    expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+    expect(wandBtn).toBeDisabled()
+  })
+
+  it('fills simple row-column-box candidates for the selected cell', async () => {
+    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2]) // [0][2]
+    await user.click(screen.getByRole('button', { name: /fill candidates/i }))
+
+    const noteSpans = cells[2].querySelectorAll('.cell-note')
+    expect(noteSpans[3].textContent).toBe('4')
+    expect(noteSpans[6].textContent).toBe('7')
+    expect(noteSpans[0].textContent).toBe('')
+    expect(noteSpans[8].textContent).toBe('')
+  })
+
+  it('fills simple candidates for all empty cells', async () => {
+    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    const fillAllBtn = screen.getByRole('button', { name: /fill all candidates/i })
+    await user.click(fillAllBtn)
+
+    const cell02Notes = cells[2].querySelectorAll('.cell-note')
+    expect(cell02Notes[3].textContent).toBe('4')
+    expect(cell02Notes[6].textContent).toBe('7')
+
+    const cell04Notes = cells[4].querySelectorAll('.cell-note')
+    expect(cell04Notes[6].textContent).toBe('7')
+    expect(cell04Notes[3].textContent).toBe('')
+
+    const cell10Notes = cells[10].querySelectorAll('.cell-note')
+    expect(cell10Notes[6].textContent).toBe('7')
+
+    const cell74Notes = cells[65].querySelectorAll('.cell-note')
+    expect(cell74Notes[6].textContent).toBe('7')
+
+    expect(fillAllBtn).toBeDisabled()
+  })
+
+  it('disables fill-all when there are no empty cells', async () => {
+    render(<Board puzzle={FULL_GRID_NO_EMPTY} solution={null} />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    expect(screen.getByRole('button', { name: /fill all candidates/i })).toBeDisabled()
+  })
+
+  it('does not replace existing candidates when filling all empty cells', async () => {
+    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+
+    const fillAllBtn = screen.getByRole('button', { name: /fill all candidates/i })
+    expect(fillAllBtn).not.toBeDisabled()
+    await user.click(fillAllBtn)
+
+    const cell02Notes = cells[2].querySelectorAll('.cell-note')
+    expect(cell02Notes[3].textContent).toBe('4')
+    expect(cell02Notes[6].textContent).toBe('')
+
+    const cell04Notes = cells[4].querySelectorAll('.cell-note')
+    expect(cell04Notes[6].textContent).toBe('7')
+    expect(fillAllBtn).toBeDisabled()
   })
 
   it('restores candidates on first undo after a wrong entry', async () => {

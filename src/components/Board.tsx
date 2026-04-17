@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { MdPlayArrow, MdPause, MdUndo } from 'react-icons/md'
 import { FaEraser, FaPencilAlt } from 'react-icons/fa'
+import { FaWandMagic, FaWandMagicSparkles } from 'react-icons/fa6'
 import { generateGame, solveGrid, Grid } from '../utils/sudoku'
 import { loadSaved, saveGame, saveElapsed, loadElapsed, clearElapsed, saveCompleted } from '../utils/gameStorage'
 
@@ -237,6 +238,31 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setSelected(prev => (prev?.r === r && prev?.c === c ? null : { r, c }))
   }
 
+  function getSimpleCandidates(r: number, c: number): number[] {
+    const used = new Set<number>()
+    for (let i = 0; i < 9; i++) {
+      const rowValue = internalPuzzle[r][i]
+      const colValue = internalPuzzle[i][c]
+      if (rowValue >= 1 && rowValue <= 9) used.add(rowValue)
+      if (colValue >= 1 && colValue <= 9) used.add(colValue)
+    }
+
+    const boxR = Math.floor(r / 3) * 3
+    const boxC = Math.floor(c / 3) * 3
+    for (let br = boxR; br < boxR + 3; br++) {
+      for (let bc = boxC; bc < boxC + 3; bc++) {
+        const value = internalPuzzle[br][bc]
+        if (value >= 1 && value <= 9) used.add(value)
+      }
+    }
+
+    const candidates: number[] = []
+    for (let d = 1; d <= 9; d++) {
+      if (!used.has(d) && remaining[d] > 0) candidates.push(d)
+    }
+    return candidates
+  }
+
   function applyDigit(d: number): boolean {
     if (!selected) return false
     const { r, c } = selected
@@ -297,6 +323,44 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     onInput(r, c, 0)
   }
 
+  function fillCandidates() {
+    if (!selected) return
+    const { r, c } = selected
+    if (isClue(r, c) || internalPuzzle[r][c] !== 0 || notesRef.current[r][c].length > 0) return
+    const candidates = getSimpleCandidates(r, c)
+    if (candidates.length === 0) return
+    const historyEntry = makeHistoryEntry(internalPuzzle, notesRef.current)
+    setHistory(h => [...h.slice(-50), historyEntry])
+    setNotes(prev => {
+      const next = cloneNotesGrid(prev)
+      next[r][c] = candidates
+      return next
+    })
+  }
+
+  function fillAllCandidates() {
+    const hasFillableCell = internalPuzzle.some((row, r) =>
+      row.some((n, c) => !isClue(r, c) && n === 0 && notesRef.current[r][c].length === 0)
+    )
+    if (!hasFillableCell) return
+
+    const nextNotes = cloneNotesGrid(notesRef.current)
+    let changed = false
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (isClue(r, c) || internalPuzzle[r][c] !== 0 || nextNotes[r][c].length > 0) continue
+        const candidates = getSimpleCandidates(r, c)
+        nextNotes[r][c] = candidates
+        changed = true
+      }
+    }
+
+    if (!changed) return
+    const historyEntry = makeHistoryEntry(internalPuzzle, notesRef.current)
+    setHistory(h => [...h.slice(-50), historyEntry])
+    setNotes(nextNotes)
+  }
+
   function undo() {
     const entry = history[history.length - 1]
     if (!entry) return
@@ -318,6 +382,14 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   const selectedDigit =
     selected !== null ? internalPuzzle[selected.r][selected.c] : 0
+  const canFillSelectedCandidates =
+    selected !== null &&
+    !isClue(selected.r, selected.c) &&
+    internalPuzzle[selected.r][selected.c] === 0 &&
+    notes[selected.r][selected.c].length === 0
+  const hasAnyFillableCell = internalPuzzle.some((row, r) =>
+    row.some((n, c) => !isClue(r, c) && n === 0 && notes[r][c].length === 0)
+  )
 
   // flatten to grid items for responsive sizing
   const cells = [] as React.ReactNode[]
@@ -482,6 +554,28 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           </button>
         ))}
       </div>
+      {notesMode && (
+        <div className="num-pad-toolbar candidate-fill-row">
+          <button
+            type="button"
+            className="num-key clear"
+            aria-label="Fill candidates"
+            disabled={paused || won || !canFillSelectedCandidates}
+            onClick={fillCandidates}
+          >
+            <FaWandMagic size={20} />
+          </button>
+          <button
+            type="button"
+            className="num-key clear"
+            aria-label="Fill all candidates"
+            disabled={paused || won || !hasAnyFillableCell}
+            onClick={fillAllCandidates}
+          >
+            <FaWandMagicSparkles size={20} />
+          </button>
+        </div>
+      )}
       {won && (
         <div className="victory-overlay">
           <div className="victory-card">

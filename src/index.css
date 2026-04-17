@@ -335,6 +335,9 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   color:#fff !important;
   border:2px solid #1a3a6b !important;
 }
+.candidate-fill-row{
+  margin-top:8px;
+}
 .number-pad .num-key--notes{
   background:transparent !important;
   color:var(--text) !important;
