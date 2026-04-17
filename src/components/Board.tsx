@@ -230,7 +230,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     if (!selected) return false
     const { r, c } = selected
     if (isClue(r, c)) return false
-    if (!notesMode && remaining[d] === 0) return false
+    if (remaining[d] === 0) return false
     if (notesMode) {
       setHistory(h => [...h.slice(-50), {
         puzzle: internalPuzzle.map(row => [...row]),
@@ -442,7 +442,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             key={d}
             type="button"
             className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${notesMode ? ' num-key--notes' : ''}`}
-            disabled={paused || won || (!notesMode && remaining[d] === 0)}
+            disabled={paused || won || remaining[d] === 0}
             onPointerDown={(e) => {
               if (e.pointerType === 'touch') {
                 // Apply digit now (instant feedback), but defer haptic to onClick.

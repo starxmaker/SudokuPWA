@@ -52,6 +52,13 @@ const PUZZLE_WITH_7_REMAINING: number[][] = SOLUTION.map((row, r) =>
   r === 0 ? [5, 3, 0, 6, 0, 8, 9, 1, 2] : [...row]
 )
 
+// Keep cell [0][2] editable while leaving one digit 3 available for notes tests.
+const PUZZLE_WITH_3_REMAINING: number[][] = SOLUTION.map((row, r) => {
+  if (r === 0) return [5, 3, 0, 6, 7, 8, 9, 1, 2]
+  if (r === 1) return [6, 7, 2, 1, 9, 5, 0, 4, 8]
+  return [...row]
+})
+
 // Almost-complete puzzle: only cell [8][8] is blank (answer = 9)
 const ALMOST_DONE: number[][] = SOLUTION.map((row, r) =>
   r === 8 ? [...row.slice(0, 8), 0] : [...row]
@@ -247,7 +254,7 @@ describe('Board with fixed puzzle', () => {
     expect(cells[4].querySelector('.cell-notes')).toBeNull()
   })
 
-  it('disables exhausted digit buttons', async () => {
+  it('disables exhausted digit buttons in entry and notes mode', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
@@ -257,12 +264,17 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[2])
     await user.click(sevenBtn)
     expect(cells[2].textContent).toBe('\u00a0')
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    expect(sevenBtn).toBeDisabled()
+    await user.click(sevenBtn)
+    expect(cells[2].querySelector('.cell-notes')).toBeNull()
   })
 
   it('highlights matching note candidates when a filled cell with that digit is selected', async () => {
     // PUZZLE has cell [0][2] blank. Add note "3" there, then select cell [0][1]
     // which contains 3 in the puzzle — selectedDigit becomes 3, so the note should be bold.
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    render(<Board puzzle={PUZZLE_WITH_3_REMAINING} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // Enter note "3" in cell [0][2] (index 2)
@@ -280,7 +292,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('removes note highlight when a non-matching cell is selected', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    render(<Board puzzle={PUZZLE_WITH_3_REMAINING} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // Add note "3" in the blank cell
