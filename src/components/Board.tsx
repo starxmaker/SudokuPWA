@@ -24,6 +24,17 @@ function cloneGrid(g: Grid): Grid {
   return g.map(row => [...row])
 }
 
+function cloneNotesGrid(notes: number[][][]): number[][][] {
+  return notes.map(row => row.map(cell => [...cell]))
+}
+
+function makeHistoryEntry(puzzle: Grid, notes: number[][][]) {
+  return {
+    puzzle: cloneGrid(puzzle),
+    notes: cloneNotesGrid(notes),
+  }
+}
+
 function formatTime(s: number): string {
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
@@ -232,10 +243,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     if (isClue(r, c)) return false
     if (remaining[d] === 0) return false
     if (notesMode) {
-      setHistory(h => [...h.slice(-50), {
-        puzzle: internalPuzzle.map(row => [...row]),
-        notes: notesRef.current.map(row => row.map(cell => [...cell]))
-      }])
+      const historyEntry = makeHistoryEntry(internalPuzzle, notesRef.current)
+      setHistory(h => [...h.slice(-50), historyEntry])
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         const cell = next[r][c]
@@ -248,10 +257,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       const canValidateEntry = autoCheck && solutionGrid !== null
       const isCorrectEntry = solutionGrid !== null && d === solutionGrid[r][c]
       const shouldAutoRemove = autoRemove && (!canValidateEntry || isCorrectEntry)
-      setHistory(h => [...h.slice(-50), {
-        puzzle: internalPuzzle.map(row => [...row]),
-        notes: notesRef.current.map(row => row.map(cell => [...cell]))
-      }])
+      const historyEntry = makeHistoryEntry(internalPuzzle, notesRef.current)
+      setHistory(h => [...h.slice(-50), historyEntry])
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         next[r][c] = []
@@ -280,10 +287,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     if (!selected) return
     const { r, c } = selected
     if (isClue(r, c)) return
-    setHistory(h => [...h.slice(-50), {
-      puzzle: internalPuzzle.map(row => [...row]),
-      notes: notesRef.current.map(row => row.map(cell => [...cell]))
-    }])
+    const historyEntry = makeHistoryEntry(internalPuzzle, notesRef.current)
+    setHistory(h => [...h.slice(-50), historyEntry])
     setNotes(prev => {
       const next = prev.map(row => row.map(cell => [...cell]))
       next[r][c] = []
@@ -293,14 +298,14 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   function undo() {
-    setHistory(prev => {
-      if (prev.length === 0) return prev
-      const entry = prev[prev.length - 1]
-      setInternalPuzzle(entry.puzzle.map(r => [...r]))
-      if (setPuzzleProp) setPuzzleProp(entry.puzzle)
-      setNotes(entry.notes.map(r => r.map(c => [...c])))
-      return prev.slice(0, -1)
-    })
+    const entry = history[history.length - 1]
+    if (!entry) return
+    const restoredPuzzle = cloneGrid(entry.puzzle)
+    const restoredNotes = cloneNotesGrid(entry.notes)
+    setInternalPuzzle(restoredPuzzle)
+    if (setPuzzleProp) setPuzzleProp(restoredPuzzle)
+    setNotes(restoredNotes)
+    setHistory(prev => prev.slice(0, -1))
   }
 
   if(internalPuzzle.length===0) return null

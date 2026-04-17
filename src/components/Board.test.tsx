@@ -222,6 +222,26 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
   })
 
+  it('restores candidates on first undo after a wrong entry', async () => {
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+    const undoBtn = screen.getByRole('button', { name: /undo/i })
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit
+    expect(cells[2].textContent?.trim()).toBe('7')
+
+    await user.click(undoBtn)
+    expect(cells[2].classList.contains('user')).toBe(false)
+    expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+  })
+
   it('keeps peer candidates on wrong entry when auto-check and auto-remove are enabled', async () => {
     render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} autoCheck autoRemove />)
     const cells = screen.getAllByRole('gridcell')
