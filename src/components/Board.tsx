@@ -260,6 +260,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   })
   const [candidateBrushMode, setCandidateBrushMode] = useState<boolean>(() => savedBrushPrefs?.candidateMode ?? false)
   const [candidateOverlay, setCandidateOverlay] = useState<CandidateOverlayState | null>(null)
+  const [candidateOverlayPreviewDigit, setCandidateOverlayPreviewDigit] = useState<number | null>(null)
+  const [candidateSelectedDigit, setCandidateSelectedDigit] = useState<number | null>(null)
   const [visibleToolTray, setVisibleToolTray] = useState<ToolTrayView>('main')
   const [toolTrayTransition, setToolTrayTransition] = useState<ToolTrayTransition | null>(null)
   const toolTrayTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
@@ -306,6 +308,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   useEffect(() => {
     if (paused) {
       setCandidateOverlay(null)
+      setCandidateOverlayPreviewDigit(null)
+      setCandidateSelectedDigit(null)
       setDrawingDraft(null)
       drawingPointerIdRef.current = null
     }
@@ -432,6 +436,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setCandidateColors(emptyCandidateColors())
     setDrawingStrokes(emptyDrawingStrokes())
     setDrawingDraft(null)
+    setCandidateSelectedDigit(null)
     setHistory([])
     setElapsed(0)
     clearElapsed()
@@ -471,6 +476,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setCandidateColors(emptyCandidateColors())
     setDrawingStrokes(emptyDrawingStrokes())
     setDrawingDraft(null)
+    setCandidateSelectedDigit(null)
     setHistory([])
     setElapsed(0)
     clearElapsed()
@@ -506,6 +512,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   function selectCell(r: number, c: number) {
+    setCandidateSelectedDigit(null)
     setSelected(prev => (prev?.r === r && prev?.c === c ? null : { r, c }))
   }
 
@@ -567,8 +574,12 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     return true
   }
 
-  function closeCandidateOverlay() {
+  function closeCandidateOverlay(preserveSelectedDigit = false) {
     setCandidateOverlay(null)
+    setCandidateOverlayPreviewDigit(null)
+    if (!preserveSelectedDigit) {
+      setCandidateSelectedDigit(null)
+    }
   }
 
   function switchLowerPad(next: LowerPadView, direction: LowerPadTransition['direction']) {
@@ -824,6 +835,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   function openCandidateOverlay(r: number, c: number, target: HTMLElement) {
+    setCandidateSelectedDigit(null)
     setSelected({ r, c })
     if (
       internalPuzzle[r][c] !== 0 ||
@@ -834,6 +846,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       return false
     }
     const { top, left, size } = getCandidateOverlayPosition(target.getBoundingClientRect())
+    setCandidateSelectedDigit(null)
+    setCandidateOverlayPreviewDigit(null)
     setCandidateOverlay({ r, c, top, left, size })
     return true
   }
@@ -1188,6 +1202,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   const selectedDigit =
     selected !== null ? internalPuzzle[selected.r][selected.c] : 0
+  const highlightedDigit = candidateOverlayPreviewDigit ?? candidateSelectedDigit ?? selectedDigit
   const canFillSelectedCandidates =
     selected !== null &&
     !isClue(selected.r, selected.c) &&
@@ -1419,9 +1434,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       const userEntry = !clue && n !== 0
       const selectedHere = selected?.r === r && selected?.c === c
       const sameDigit =
-        selected !== null &&
-        selectedDigit !== 0 &&
-        n === selectedDigit &&
+        highlightedDigit !== 0 &&
+        n === highlightedDigit &&
         !selectedHere
       const inCross =
         selected !== null &&
@@ -1447,6 +1461,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           className={`cell ${clue ? 'given' : ''} ${!paused && userEntry ? 'user' : ''} ${selectedClass} ${!paused && sameDigit ? 'same-digit' : ''} ${!paused && inCross ? 'cross' : ''} ${!paused && isError ? 'error' : ''}`}
           onClick={(e) => {
             if (brushMode) {
+              setCandidateSelectedDigit(null)
               setSelected({ r, c })
               const changed = candidateBrushMode
                 ? openCandidateOverlay(r, c, e.currentTarget)
@@ -1472,7 +1487,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
               {[1,2,3,4,5,6,7,8,9].map(d => (
                 <span
                   key={d}
-                  className={`cell-note${selectedDigit !== 0 && cellNotes.includes(d) && d === selectedDigit ? ' cell-note--highlight' : ''}${cellNotes.includes(d) && candidateColors[r][c][d - 1].length > 0 ? ' cell-note--colored' : ''}`}
+                  className={`cell-note${highlightedDigit !== 0 && cellNotes.includes(d) && d === highlightedDigit ? ' cell-note--highlight' : ''}${cellNotes.includes(d) && candidateColors[r][c][d - 1].length > 0 ? ' cell-note--colored' : ''}`}
                   style={cellNotes.includes(d) && candidateColors[r][c][d - 1].length > 0
                     ? ({ '--annotation-color': buildBrushFill(candidateColors[r][c][d - 1]) } as React.CSSProperties)
                     : undefined}
@@ -2015,7 +2030,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             type="button"
             className="brush-candidate-backdrop"
             aria-label="Close candidate painter"
-            onClick={() => setCandidateOverlay(null)}
+            onClick={closeCandidateOverlay}
           />
           <div
             className="brush-candidate-overlay"
@@ -2038,10 +2053,20 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   className={`brush-candidate-button${hasCandidate ? '' : ' brush-candidate-button--empty'}`}
                   aria-label={hasCandidate ? `Paint candidate ${d}` : `Candidate ${d} unavailable`}
                   disabled={!hasCandidate || overlayHasCellColor}
+                  onPointerEnter={() => {
+                    if (hasCandidate && !overlayHasCellColor) setCandidateOverlayPreviewDigit(d)
+                  }}
+                  onFocus={() => {
+                    if (hasCandidate && !overlayHasCellColor) setCandidateOverlayPreviewDigit(d)
+                  }}
+                  onPointerDown={() => {
+                    if (hasCandidate && !overlayHasCellColor) setCandidateOverlayPreviewDigit(d)
+                  }}
                   onClick={() => {
                     const changed = applyCandidateBrushColorAt(candidateOverlay.r, candidateOverlay.c, d)
                     if (changed) {
-                      setCandidateOverlay(null)
+                      setCandidateSelectedDigit(d)
+                      closeCandidateOverlay(true)
                       if (haptic) onTriggerHaptic?.()
                     }
                   }}
