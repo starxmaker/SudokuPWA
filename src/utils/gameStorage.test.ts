@@ -60,6 +60,10 @@ function sampleDrawingStrokes() {
   ]
 }
 
+function sampleFlaggedColorCell() {
+  return { r: 0, c: 0 }
+}
+
 beforeEach(() => localStorage.clear())
 
 describe('encodeGrid / decodeGrid', () => {
@@ -122,6 +126,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
+    expect(saved!.flaggedColorCell).toBeNull()
   })
 
   it('saves and loads notes correctly', () => {
@@ -138,6 +143,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
+    expect(saved!.flaggedColorCell).toBeNull()
   })
 
   it('returns null when nothing is saved', () => {
@@ -194,9 +200,11 @@ describe('saveGame / loadSaved', () => {
 
   it('saves and loads drawing strokes correctly', () => {
     const drawingStrokes = sampleDrawingStrokes()
-    saveGame(SAMPLE, BLANK, SAMPLE, emptyNotes(), emptyCellColors(), emptyCandidateColors(), drawingStrokes)
+    const flaggedColorCell = sampleFlaggedColorCell()
+    saveGame(SAMPLE, BLANK, SAMPLE, emptyNotes(), emptyCellColors(), emptyCandidateColors(), drawingStrokes, flaggedColorCell)
     const saved = loadSaved()
     expect(saved!.drawingStrokes).toEqual(drawingStrokes)
+    expect(saved!.flaggedColorCell).toEqual(flaggedColorCell)
   })
 
   it('does not mutate drawing strokes after saving', () => {
@@ -219,6 +227,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
+    expect(saved!.flaggedColorCell).toBeNull()
   })
 
   it('loads legacy V2 saves with empty notes', () => {
@@ -231,6 +240,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
+    expect(saved!.flaggedColorCell).toBeNull()
   })
 
   it('loads legacy array-format saves with empty notes', () => {
@@ -242,6 +252,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
+    expect(saved!.flaggedColorCell).toBeNull()
   })
 
   it('loads legacy V4 saves with empty brush colors', () => {
@@ -253,6 +264,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
+    expect(saved!.flaggedColorCell).toBeNull()
   })
 
   it('loads legacy V6 saves with empty drawings', () => {
@@ -269,22 +281,42 @@ describe('saveGame / loadSaved', () => {
     const saved = loadSaved()
     expect(saved).not.toBeNull()
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
+    expect(saved!.flaggedColorCell).toBeNull()
   })
 
-  it('stores V7 version tag', () => {
+  it('loads legacy V7 saves with no flagged color cell', () => {
+    const legacy = {
+      v: 7,
+      initial: SAMPLE,
+      current: BLANK,
+      solution: SAMPLE,
+      notes: sampleNotes(),
+      cellColors: sampleCellColors(),
+      candidateColors: sampleCandidateColors(),
+      drawingStrokes: sampleDrawingStrokes(),
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy))
+    const saved = loadSaved()
+    expect(saved).not.toBeNull()
+    expect(saved!.drawingStrokes).toEqual(sampleDrawingStrokes())
+    expect(saved!.flaggedColorCell).toBeNull()
+  })
+
+  it('stores V8 version tag', () => {
     saveGame(SAMPLE, BLANK, null)
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
-    expect(raw.v).toBe(7)
+    expect(raw.v).toBe(8)
   })
 })
 
 describe('brush preferences', () => {
   it('saves and loads brush and drawing colors independently', () => {
-    saveBrushPrefs(['violet'], true, ['lime'])
+    saveBrushPrefs(['violet'], true, ['lime'], true)
     expect(loadBrushPrefs()).toEqual({
       activeColors: ['violet'],
       activeDrawingColors: ['lime'],
       candidateMode: true,
+      firstColorFlagEnabled: true,
     })
   })
 
@@ -298,6 +330,7 @@ describe('brush preferences', () => {
       activeColors: ['sky'],
       activeDrawingColors: [],
       candidateMode: false,
+      firstColorFlagEnabled: true,
     })
   })
 })

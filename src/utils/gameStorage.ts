@@ -2,12 +2,13 @@ import type { Grid } from './sudoku_types'
 
 export const STORAGE_KEY = 'sudoku-pwa-state'
 
-const V = 7 as const
+const V = 8 as const
 
 export type CellColorValue = string[]
 export type CandidateColorCell = CellColorValue[]
 export type CellColorGrid = CellColorValue[][]
 export type CandidateColorGrid = CandidateColorCell[][]
+export type FlaggedColorCell = { r: number; c: number } | null
 export type DrawingPoint = [number, number]
 export type DrawingStroke = {
   color: string
@@ -15,7 +16,7 @@ export type DrawingStroke = {
 }
 export type DrawingStrokes = DrawingStroke[]
 
-type SavedV7 = {
+type SavedV8 = {
   v: typeof V
   initial: Grid
   current: Grid
@@ -24,6 +25,7 @@ type SavedV7 = {
   cellColors: CellColorGrid
   candidateColors: CandidateColorGrid
   drawingStrokes: DrawingStrokes
+  flaggedColorCell: FlaggedColorCell
 }
 
 function cloneGrid(g: Grid): Grid {
@@ -40,6 +42,10 @@ function cloneCellColors(colors: CellColorGrid): CellColorGrid {
 
 function cloneCandidateColors(colors: CandidateColorGrid): CandidateColorGrid {
   return colors.map(row => row.map(cell => cell.map(candidate => [...candidate])))
+}
+
+function cloneFlaggedColorCell(cell: FlaggedColorCell): FlaggedColorCell {
+  return cell === null ? null : { ...cell }
 }
 
 function cloneDrawingPoint([x, y]: DrawingPoint): DrawingPoint {
@@ -138,6 +144,24 @@ function normalizeDrawingStrokes(strokes: unknown): DrawingStrokes {
     .filter((stroke): stroke is DrawingStroke => stroke !== null)
 }
 
+function normalizeFlaggedColorCell(cell: unknown): FlaggedColorCell {
+  if (!cell || typeof cell !== 'object') return null
+  const candidate = cell as { r?: unknown; c?: unknown }
+  if (
+    typeof candidate.r !== 'number' ||
+    typeof candidate.c !== 'number' ||
+    !Number.isInteger(candidate.r) ||
+    !Number.isInteger(candidate.c) ||
+    candidate.r < 0 ||
+    candidate.r > 8 ||
+    candidate.c < 0 ||
+    candidate.c > 8
+  ) {
+    return null
+  }
+  return { r: candidate.r, c: candidate.c }
+}
+
 /** Read saved game. Returns null solution for legacy saves that predate V3. */
 export function loadSaved(): {
   initial: Grid
@@ -147,6 +171,7 @@ export function loadSaved(): {
   cellColors: CellColorGrid
   candidateColors: CandidateColorGrid
   drawingStrokes: DrawingStrokes
+  flaggedColorCell: FlaggedColorCell
 } | null {
   try {
     const s = localStorage.getItem(STORAGE_KEY)
@@ -163,9 +188,22 @@ export function loadSaved(): {
           cellColors: emptyCellColors(),
           candidateColors: emptyCandidateColors(),
           drawingStrokes: emptyDrawingStrokes(),
+          flaggedColorCell: null,
         }
       }
       if (parsed && typeof parsed === 'object') {
+        if ((parsed.v === 8) && parsed.initial && parsed.current) {
+          return {
+            initial: cloneGrid(parsed.initial),
+            current: cloneGrid(parsed.current),
+            solution: parsed.solution ? cloneGrid(parsed.solution) : null,
+            notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
+            cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
+            candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
+            drawingStrokes: parsed.drawingStrokes ? normalizeDrawingStrokes(parsed.drawingStrokes) : emptyDrawingStrokes(),
+            flaggedColorCell: normalizeFlaggedColorCell(parsed.flaggedColorCell),
+          }
+        }
         if ((parsed.v === 7) && parsed.initial && parsed.current) {
           return {
             initial: cloneGrid(parsed.initial),
@@ -175,6 +213,7 @@ export function loadSaved(): {
             cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
             drawingStrokes: parsed.drawingStrokes ? normalizeDrawingStrokes(parsed.drawingStrokes) : emptyDrawingStrokes(),
+            flaggedColorCell: null,
           }
         }
         if ((parsed.v === 6) && parsed.initial && parsed.current) {
@@ -186,6 +225,7 @@ export function loadSaved(): {
             cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
             drawingStrokes: emptyDrawingStrokes(),
+            flaggedColorCell: null,
           }
         }
         if ((parsed.v === 5) && parsed.initial && parsed.current) {
@@ -197,6 +237,7 @@ export function loadSaved(): {
             cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
             drawingStrokes: emptyDrawingStrokes(),
+            flaggedColorCell: null,
           }
         }
         if ((parsed.v === 4) && parsed.initial && parsed.current) {
@@ -208,6 +249,7 @@ export function loadSaved(): {
             cellColors: emptyCellColors(),
             candidateColors: emptyCandidateColors(),
             drawingStrokes: emptyDrawingStrokes(),
+            flaggedColorCell: null,
           }
         }
         // Legacy V2/V3 saves — no notes
@@ -220,6 +262,7 @@ export function loadSaved(): {
             cellColors: emptyCellColors(),
             candidateColors: emptyCandidateColors(),
             drawingStrokes: emptyDrawingStrokes(),
+            flaggedColorCell: null,
           }
         }
       }
@@ -250,6 +293,7 @@ type BrushPrefs = {
   activeColors: string[]
   activeDrawingColors: string[]
   candidateMode: boolean
+  firstColorFlagEnabled: boolean
 }
 
 export function saveElapsed(seconds: number): void {
@@ -268,12 +312,18 @@ export function clearElapsed(): void {
   try { localStorage.removeItem(ELAPSED_KEY) } catch { /* ignore */ }
 }
 
-export function saveBrushPrefs(activeColors: string[], candidateMode: boolean, activeDrawingColors: string[]): void {
+export function saveBrushPrefs(
+  activeColors: string[],
+  candidateMode: boolean,
+  activeDrawingColors: string[],
+  firstColorFlagEnabled = true,
+): void {
   try {
     const payload: BrushPrefs = {
       activeColors: [...activeColors],
       activeDrawingColors: [...activeDrawingColors],
       candidateMode,
+      firstColorFlagEnabled,
     }
     localStorage.setItem(BRUSH_PREFS_KEY, JSON.stringify(payload))
   } catch { /* ignore */ }
@@ -304,6 +354,7 @@ export function loadBrushPrefs(): BrushPrefs | null {
         activeColors,
         activeDrawingColors,
         candidateMode: parsed.candidateMode,
+        firstColorFlagEnabled: parsed.firstColorFlagEnabled !== false,
       }
     }
   } catch { /* ignore */ }
@@ -318,9 +369,10 @@ export function saveGame(
   cellColors: CellColorGrid = emptyCellColors(),
   candidateColors: CandidateColorGrid = emptyCandidateColors(),
   drawingStrokes: DrawingStrokes = emptyDrawingStrokes(),
+  flaggedColorCell: FlaggedColorCell = null,
 ): void {
   try {
-    const payload: SavedV7 = {
+    const payload: SavedV8 = {
       v: V,
       initial: cloneGrid(initial),
       current: cloneGrid(current),
@@ -329,6 +381,7 @@ export function saveGame(
       cellColors: cloneCellColors(cellColors),
       candidateColors: cloneCandidateColors(candidateColors),
       drawingStrokes: cloneDrawingStrokes(drawingStrokes),
+      flaggedColorCell: cloneFlaggedColorCell(flaggedColorCell),
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
   } catch { /* ignore */ }

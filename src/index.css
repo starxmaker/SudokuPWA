@@ -92,6 +92,7 @@ body{background:var(--bg);color:var(--text)}
 button{
   appearance:none;
   -webkit-appearance:none;
+  -webkit-tap-highlight-color:transparent;
   border:0;
   background:var(--accent);
   color: #fff;
@@ -236,8 +237,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   grid-template-columns:repeat(9,minmax(0,1fr));
   grid-template-rows:repeat(9,minmax(0,1fr));
   gap:0;
-  width:100%;
-  max-height:min(720px, calc(100dvh - var(--board-safe-space)));
+  width:min(100%, calc(100dvh - var(--board-safe-space)));
   aspect-ratio:1/1;
   max-width:720px;
   border:2px solid var(--board-outer);
@@ -482,12 +482,6 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .dark .num-pad-toolbar .num-key.drawing-toggle{
   border:2px solid #555 !important;
 }
-.num-pad-toolbar .num-key.clear:hover,
-.num-pad-toolbar .num-key.notes-toggle:hover,
-.num-pad-toolbar .num-key.brush-toggle:hover,
-.num-pad-toolbar .num-key.drawing-toggle:hover{
-  background:var(--accent-soft) !important;
-}
 .num-pad-toolbar .num-key.clear:disabled,
 .num-pad-toolbar .num-key.notes-toggle:disabled,
 .num-pad-toolbar .num-key.brush-toggle:disabled,
@@ -501,9 +495,11 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .notes-toggle--active,
 .brush-toggle--active,
 .drawing-toggle--active,
+.flag-toggle--active,
 .num-pad-toolbar .num-key.notes-toggle.notes-toggle--active,
 .num-pad-toolbar .num-key.brush-toggle.brush-toggle--active,
 .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active,
+.num-pad-toolbar .num-key.clear.flag-toggle--active,
 .num-pad-toolbar .num-key.clear.brush-mode-toggle--active{
   background:#1a3a6b !important;
   color:#fff !important;
@@ -512,6 +508,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .num-pad-toolbar .num-key.notes-toggle.notes-toggle--active:disabled,
 .num-pad-toolbar .num-key.brush-toggle.brush-toggle--active:disabled,
 .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active:disabled,
+.num-pad-toolbar .num-key.clear.flag-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.brush-mode-toggle--active:disabled{
   background:transparent !important;
   color:var(--muted) !important;
@@ -524,6 +521,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .dark .num-pad-toolbar .num-key.notes-toggle.notes-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.brush-toggle.brush-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active:disabled,
+.dark .num-pad-toolbar .num-key.clear.flag-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.brush-mode-toggle--active:disabled{
   border:2px solid #555 !important;
 }
@@ -551,9 +549,6 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   background:var(--swatch-color) !important;
   box-shadow:none !important;
   padding:0 !important;
-}
-.brush-color-button:hover{
-  transform:scale(1.04);
 }
 .brush-color-button--active{
   border-color:var(--text);
@@ -760,6 +755,13 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   background:var(--annotation-color);
   pointer-events:none;
 }
+.cell-flag-border{
+  position:absolute;
+  inset:0;
+  box-shadow:inset 0 0 0 2px #e53935;
+  pointer-events:none;
+  z-index:3;
+}
 .board-drawing-layer{
   position:absolute;
   inset:0;
@@ -837,6 +839,19 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   border-color:#555 !important;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .num-pad-toolbar .num-key.clear:hover,
+  .num-pad-toolbar .num-key.notes-toggle:hover,
+  .num-pad-toolbar .num-key.brush-toggle:hover,
+  .num-pad-toolbar .num-key.drawing-toggle:hover{
+    background:var(--accent-soft) !important;
+  }
+
+  .brush-color-button:hover{
+    transform:scale(1.04);
+  }
+}
+
 @keyframes tool-tray-enter-right{
   from{opacity:0;transform:translateX(32px)}
   to{opacity:1;transform:translateX(0)}
@@ -889,38 +904,105 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .footer{margin-top:12px;color:var(--muted)}
 
 @media (min-width: 980px) {
-  .app{ max-width:1160px; }
+  .app{ max-width:1360px; }
   .game-main{
     flex-direction:row;
     align-items:stretch;
     justify-content:center;
-    gap:20px;
+    gap:16px;
   }
   .board-area{
-    width:min(720px, calc(100dvh - 150px), calc(100vw - 420px));
+    width:min(920px, calc(100dvh - 120px), calc(100vw - 420px));
     gap:10px;
   }
+  .board{
+    width:100%;
+    max-width:none;
+  }
   .controls-panel{
-    width:320px;
-    max-width:320px;
+    width:360px;
+    max-width:360px;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
     gap:8px;
   }
-  .controls-panel .num-pad-toolbar{
+  .controls-panel .tool-tray__measure > .num-pad-toolbar{
     max-width:none;
     margin-top:0;
-    justify-content:flex-start;
-    flex-wrap:wrap;
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:8px;
+    justify-content:stretch;
+    align-items:start;
+  }
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.clear,
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.notes-toggle,
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.brush-toggle,
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.drawing-toggle{
+    width:100%;
+    min-width:0;
+    padding:0 8px;
+  }
+  .controls-panel .tool-tray__measure > .tool-tray__panel--sub{
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    align-items:start;
+  }
+  .controls-panel .tool-tray__measure > .tool-tray__panel .tool-tray__content{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-column:2 / span 4;
+    width:100%;
+    gap:8px;
+    justify-content:stretch;
+    align-items:start;
+  }
+  .controls-panel > .tool-tray > .num-pad-toolbar:not(.tool-tray__panel--hidden){
+    max-width:none;
+    margin-top:0;
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:8px;
+    justify-content:stretch;
+    align-items:start;
+  }
+  .controls-panel > .tool-tray > .tool-tray__panel--hidden{
+    display:none;
+  }
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.clear,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.notes-toggle,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.brush-toggle,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.drawing-toggle{
+    width:100%;
+    min-width:0;
+    padding:0 8px;
+  }
+  .controls-panel > .tool-tray > .tool-tray__panel--sub{
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    align-items:start;
+  }
+  .controls-panel > .tool-tray > .tool-tray__panel .tool-tray__content{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-column:2 / span 4;
+    width:100%;
+    gap:8px;
+    justify-content:stretch;
+    align-items:start;
+  }
+  .controls-panel .tool-tray{
+    margin-top:auto;
   }
   .controls-panel .input-pad-switcher{
-    margin-top:auto;
+    margin-top:8px;
   }
   .controls-panel .input-pad-switcher .number-pad{
     margin-top:0;
   }
   .controls-panel .number-pad{
     max-width:none;
-    margin-top:auto;
-    grid-template-columns:repeat(3,minmax(0,1fr));
+    margin-top:0;
+    grid-template-columns:repeat(5,minmax(0,1fr));
   }
 }
 
