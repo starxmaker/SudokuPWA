@@ -79,6 +79,23 @@ async function waitForBoard() {
   await screen.findAllByRole('gridcell')
 }
 
+function mockDrawingLayerRect(layer: Element, size = 360) {
+  Object.defineProperty(layer, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      width: size,
+      height: size,
+      right: size,
+      bottom: size,
+      toJSON: () => '',
+    }),
+  })
+}
+
 describe('Board component', () => {
   it('renders 81 cells and control buttons', async () => {
     render(<Board />)
@@ -89,6 +106,7 @@ describe('Board component', () => {
     expect(screen.getByRole('button', { name: /clear cell/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /toggle notes/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /toggle brush mode/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /toggle free drawing/i })).toBeInTheDocument()
   })
 
   it('renders number pad with buttons 1–9', async () => {
@@ -241,6 +259,22 @@ describe('Board component', () => {
     expect(brushBtnFinal.getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('button', { name: /brush color 1/i })).toBeNull()
     expect(screen.getByRole('button', { name: /^4,/ })).toBeInTheDocument()
+  })
+
+  it('drawing toggle shows colors and drawing actions', async () => {
+    render(<Board />)
+    await waitForBoard()
+    const user = userEvent.setup()
+    const drawingBtn = screen.getByRole('button', { name: /toggle free drawing/i })
+
+    expect(drawingBtn.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByRole('button', { name: /clear drawings/i })).toBeNull()
+
+    await user.click(drawingBtn)
+    expect(drawingBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /brush color 1/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /clear drawings/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /^4,/ })).toBeNull()
   })
 })
 
@@ -497,6 +531,68 @@ describe('Board with fixed puzzle', () => {
     expect(screen.getByRole('button', { name: /brush color 3/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: /toggle candidate coloring mode/i }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('draws a freehand stroke and undo restores the previous board drawing state', async () => {
+    const { container } = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+
+    const drawingLayer = container.querySelector('.board-drawing-layer')
+    expect(drawingLayer).not.toBeNull()
+    mockDrawingLayerRect(drawingLayer!)
+
+    fireEvent.pointerDown(drawingLayer!, { pointerId: 1, clientX: 40, clientY: 60, button: 0 })
+    fireEvent.pointerMove(drawingLayer!, { pointerId: 1, clientX: 120, clientY: 140 })
+    fireEvent.pointerUp(drawingLayer!, { pointerId: 1, clientX: 160, clientY: 180 })
+
+    await waitFor(() =>
+      expect(container.querySelectorAll('.board-drawing-layer polyline').length).toBe(1)
+    )
+
+    await user.click(screen.getByRole('button', { name: /undo/i }))
+
+    await waitFor(() =>
+      expect(container.querySelectorAll('.board-drawing-layer polyline').length).toBe(0)
+    )
+  })
+
+  it('persists drawings between renders and clears them from the drawing tray', async () => {
+    const user = userEvent.setup()
+    const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+
+    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+
+    const firstLayer = firstRender.container.querySelector('.board-drawing-layer')
+    expect(firstLayer).not.toBeNull()
+    mockDrawingLayerRect(firstLayer!)
+
+    fireEvent.pointerDown(firstLayer!, { pointerId: 7, clientX: 30, clientY: 30, button: 0 })
+    fireEvent.pointerMove(firstLayer!, { pointerId: 7, clientX: 140, clientY: 120 })
+    fireEvent.pointerUp(firstLayer!, { pointerId: 7, clientX: 180, clientY: 160 })
+
+    await waitFor(() =>
+      expect(firstRender.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(1)
+    )
+
+    firstRender.unmount()
+
+    const secondRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+
+    await waitFor(() =>
+      expect(secondRender.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(1)
+    )
+
+    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+    const clearDrawingsBtn = screen.getByRole('button', { name: /clear drawings/i })
+    expect(clearDrawingsBtn).not.toBeDisabled()
+    await user.click(clearDrawingsBtn)
+
+    await waitFor(() =>
+      expect(secondRender.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(0)
+    )
   })
 
   it('enables fill candidates only for a selected empty cell without notes', async () => {

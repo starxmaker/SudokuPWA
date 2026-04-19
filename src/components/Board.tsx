@@ -3,11 +3,14 @@ import { MdPlayArrow, MdPause, MdUndo } from 'react-icons/md'
 import { FaEraser, FaPencilAlt } from 'react-icons/fa'
 import { FaBrush, FaWandMagic, FaWandMagicSparkles } from 'react-icons/fa6'
 import { GiMagicBroom } from 'react-icons/gi'
+import { LiaMarkerSolid } from 'react-icons/lia'
 import { TbNumbers } from 'react-icons/tb'
 import { generateGame, solveGrid, Grid } from '../utils/sudoku'
 import {
   type CandidateColorGrid,
   type CellColorGrid,
+  type DrawingStroke,
+  cloneDrawingStrokes,
   loadSaved,
   saveGame,
   saveElapsed,
@@ -18,6 +21,7 @@ import {
   saveBrushPrefs,
   emptyCellColors,
   emptyCandidateColors,
+  emptyDrawingStrokes,
 } from '../utils/gameStorage'
 
 type Props = {
@@ -52,6 +56,10 @@ function cloneCandidateColorsGrid(colors: CandidateColorGrid): CandidateColorGri
   return colors.map(row => row.map(cell => cell.map(candidate => [...candidate])))
 }
 
+function cloneDrawingStrokesGrid(strokes: DrawingStroke[]) {
+  return cloneDrawingStrokes(strokes)
+}
+
 function emptyCandidateColorCell(): string[][] {
   return Array.from({ length: 9 }, () => [] as string[])
 }
@@ -61,12 +69,14 @@ function makeHistoryEntry(
   notes: number[][][],
   cellColors: CellColorGrid,
   candidateColors: CandidateColorGrid,
+  drawingStrokes: DrawingStroke[],
 ) {
   return {
     puzzle: cloneGrid(puzzle),
     notes: cloneNotesGrid(notes),
     cellColors: cloneCellColorsGrid(cellColors),
     candidateColors: cloneCandidateColorsGrid(candidateColors),
+    drawingStrokes: cloneDrawingStrokesGrid(drawingStrokes),
   }
 }
 
@@ -89,7 +99,7 @@ type CandidateOverlayState = {
   left: number
   size: number
 }
-type ToolTrayView = 'main' | 'notes' | 'brush'
+type ToolTrayView = 'main' | 'notes' | 'brush' | 'drawing'
 type ToolTrayTransition = {
   from: ToolTrayView
   to: ToolTrayView
@@ -123,7 +133,11 @@ type ToolTraySequence = {
 const BRUSH_COLOR_MAP: Record<BrushColorId, string> = Object.fromEntries(
   BRUSH_COLORS.map(color => [color.id, color.fill])
 ) as Record<BrushColorId, string>
+const BRUSH_SWATCH_MAP: Record<BrushColorId, string> = Object.fromEntries(
+  BRUSH_COLORS.map(color => [color.id, color.swatch])
+) as Record<BrushColorId, string>
 const DEFAULT_BRUSH_COLOR: BrushColorId = BRUSH_COLORS[0].id
+const DRAWING_STROKE_WIDTH = 0.018
 
 function toggleColorInSelection(current: readonly string[], colorId: BrushColorId) {
   return current.includes(colorId) ? current.filter(color => color !== colorId) : [...current, colorId]
@@ -208,11 +222,21 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   })
   const candidateColorsRef = React.useRef(candidateColors)
   candidateColorsRef.current = candidateColors
+  const [drawingStrokes, setDrawingStrokes] = useState<DrawingStroke[]>(() => {
+    const saved = loadSaved()
+    return saved?.drawingStrokes ? saved.drawingStrokes : emptyDrawingStrokes()
+  })
+  const drawingStrokesRef = React.useRef(drawingStrokes)
+  drawingStrokesRef.current = drawingStrokes
+  const [drawingDraft, setDrawingDraft] = useState<DrawingStroke | null>(null)
+  const drawingDraftRef = React.useRef(drawingDraft)
+  drawingDraftRef.current = drawingDraft
   const [history, setHistory] = useState<{
     puzzle: Grid
     notes: number[][][]
     cellColors: CellColorGrid
     candidateColors: CandidateColorGrid
+    drawingStrokes: DrawingStroke[]
   }[]>([])
   // Guards against touch ghost-click: onPointerDown stores 'ok'|'error', onClick fires haptic then skips apply.
   const touchFiredRef = React.useRef<'ok' | 'error' | null>(null)
@@ -223,6 +247,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const [finalTime, setFinalTime] = useState(0)
   const [shareCopied, setShareCopied] = useState(false)
   const [brushMode, setBrushMode] = useState(false)
+  const [drawingMode, setDrawingMode] = useState(false)
   const [activeBrushColor, setActiveBrushColor] = useState<BrushColorId>(() => {
     const savedColors = savedBrushPrefs?.activeColors
       ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
@@ -238,15 +263,20 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const [visibleLowerPad, setVisibleLowerPad] = useState<LowerPadView>('numbers')
   const [lowerPadTransition, setLowerPadTransition] = useState<LowerPadTransition | null>(null)
   const lowerPadTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const drawingPointerIdRef = React.useRef<number | null>(null)
   const toolTrayRef = React.useRef<HTMLDivElement | null>(null)
   const mainNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const mainBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
+  const mainDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const activeNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const activeBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
+  const activeDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const measureMainNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const measureMainBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
+  const measureMainDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const measureNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const measureBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
+  const measureDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
 
   // Auto-pause when the tab/window loses focus; never auto-resume.
   // Using focusout on document: relatedTarget is non-null for within-page
@@ -269,8 +299,19 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }, [paused])
 
   useEffect(() => {
-    if (paused) setCandidateOverlay(null)
+    if (paused) {
+      setCandidateOverlay(null)
+      setDrawingDraft(null)
+      drawingPointerIdRef.current = null
+    }
   }, [paused])
+
+  useEffect(() => {
+    if (!drawingMode) {
+      setDrawingDraft(null)
+      drawingPointerIdRef.current = null
+    }
+  }, [drawingMode])
 
   useEffect(() => {
     saveBrushPrefs([activeBrushColor], candidateBrushMode)
@@ -310,8 +351,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   useEffect(() => {
     if (internalPuzzle.length !== 9 || !initialGrid) return
-    saveGame(initialGrid, internalPuzzle, solutionGrid, notes, cellColors, candidateColors)
-  }, [internalPuzzle, initialGrid, solutionGrid, notes, cellColors, candidateColors])
+    saveGame(initialGrid, internalPuzzle, solutionGrid, notes, cellColors, candidateColors, drawingStrokes)
+  }, [internalPuzzle, initialGrid, solutionGrid, notes, cellColors, candidateColors, drawingStrokes])
 
   useEffect(() => {
     if (solutionProp != null) setSolutionGrid(solutionProp)
@@ -333,8 +374,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     const frozen = cloneGrid(internalPuzzle)
     setInitialGrid(frozen)
     if (setPuzzleProp) setPuzzleProp(internalPuzzle)
-    saveGame(frozen, internalPuzzle, solutionGrid, notes, cellColors, candidateColors)
-  }, [internalPuzzle, initialGrid, setPuzzleProp, solutionGrid, notes, cellColors, candidateColors])
+    saveGame(frozen, internalPuzzle, solutionGrid, notes, cellColors, candidateColors, drawingStrokes)
+  }, [internalPuzzle, initialGrid, setPuzzleProp, solutionGrid, notes, cellColors, candidateColors, drawingStrokes])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -384,6 +425,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setCellColors(emptyCellColors())
     setCandidateColors(emptyCandidateColors())
+    setDrawingStrokes(emptyDrawingStrokes())
+    setDrawingDraft(null)
     setHistory([])
     setElapsed(0)
     clearElapsed()
@@ -391,6 +434,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setManualPause(false)
     setWon(false)
     setBrushMode(false)
+    setDrawingMode(false)
     setCandidateOverlay(null)
     setToolTrayTransition(null)
     setToolTraySequence(null)
@@ -410,7 +454,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       lowerPadTimerRef.current = null
     }
     if(setPuzzleProp) setPuzzleProp(p)
-    saveGame(initial, p, s)
+    saveGame(initial, p, s, undefined, undefined, undefined, emptyDrawingStrokes())
     setSelected(null)
   }
 
@@ -420,6 +464,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setCellColors(emptyCellColors())
     setCandidateColors(emptyCandidateColors())
+    setDrawingStrokes(emptyDrawingStrokes())
+    setDrawingDraft(null)
     setHistory([])
     setElapsed(0)
     clearElapsed()
@@ -427,6 +473,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setManualPause(false)
     setWon(false)
     setBrushMode(false)
+    setDrawingMode(false)
     setCandidateOverlay(null)
     setToolTrayTransition(null)
     setToolTraySequence(null)
@@ -446,7 +493,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       lowerPadTimerRef.current = null
     }
     setSelected(null)
-    saveGame(initialGrid, cloneGrid(initialGrid), solutionGrid)
+    saveGame(initialGrid, cloneGrid(initialGrid), solutionGrid, undefined, undefined, undefined, emptyDrawingStrokes())
   }
 
   function isClue(r: number, c: number): boolean {
@@ -480,6 +527,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
+      drawingStrokesRef.current,
     )
     setHistory(h => [...h.slice(-50), historyEntry])
     setCellColors(prev => {
@@ -503,6 +551,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
+      drawingStrokesRef.current,
     )
     setHistory(h => [...h.slice(-50), historyEntry])
     setCandidateColors(prev => {
@@ -546,6 +595,50 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setToolTraySequence(null)
   }
 
+  function getMainToolButton(target: ToolTrayAnimatedTarget) {
+    switch (target) {
+      case 'notes':
+        return mainNotesButtonRef.current
+      case 'brush':
+        return mainBrushButtonRef.current
+      case 'drawing':
+        return mainDrawingButtonRef.current
+    }
+  }
+
+  function getActiveToolButton(target: ToolTrayAnimatedTarget) {
+    switch (target) {
+      case 'notes':
+        return activeNotesButtonRef.current
+      case 'brush':
+        return activeBrushButtonRef.current
+      case 'drawing':
+        return activeDrawingButtonRef.current
+    }
+  }
+
+  function getMeasureMainToolButton(target: ToolTrayAnimatedTarget) {
+    switch (target) {
+      case 'notes':
+        return measureMainNotesButtonRef.current
+      case 'brush':
+        return measureMainBrushButtonRef.current
+      case 'drawing':
+        return measureMainDrawingButtonRef.current
+    }
+  }
+
+  function getMeasureSubtoolButton(target: ToolTrayAnimatedTarget) {
+    switch (target) {
+      case 'notes':
+        return measureNotesButtonRef.current
+      case 'brush':
+        return measureBrushButtonRef.current
+      case 'drawing':
+        return measureDrawingButtonRef.current
+    }
+  }
+
   function startToolTraySequence(target: ToolTrayAnimatedTarget, direction: ToolTraySequenceDirection) {
     if (!ENABLE_STAGED_TOOL_ANIMATION) {
       setVisibleToolTray(direction === 'forward' ? target : 'main')
@@ -556,11 +649,11 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
     const container = toolTrayRef.current
     const source = direction === 'forward'
-      ? (target === 'notes' ? mainNotesButtonRef.current : mainBrushButtonRef.current)
-      : (target === 'notes' ? activeNotesButtonRef.current : activeBrushButtonRef.current)
+      ? getMainToolButton(target)
+      : getActiveToolButton(target)
     const destination = direction === 'forward'
-      ? (target === 'notes' ? measureNotesButtonRef.current : measureBrushButtonRef.current)
-      : (target === 'notes' ? measureMainNotesButtonRef.current : measureMainBrushButtonRef.current)
+      ? getMeasureSubtoolButton(target)
+      : getMeasureMainToolButton(target)
     if (container === null || source === null || destination === null) {
       setVisibleToolTray(direction === 'forward' ? target : 'main')
       setToolTrayTransition(null)
@@ -628,6 +721,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   function openNotesTools() {
     closeCandidateOverlay()
     setBrushMode(false)
+    setDrawingMode(false)
     setNotesMode(true)
     startToolTraySequence('notes', 'forward')
     switchLowerPad('numbers', 'backward')
@@ -636,8 +730,18 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   function openBrushTools() {
     closeCandidateOverlay()
     setNotesMode(false)
+    setDrawingMode(false)
     setBrushMode(true)
     startToolTraySequence('brush', 'forward')
+    switchLowerPad('colors', 'forward')
+  }
+
+  function openDrawingTools() {
+    closeCandidateOverlay()
+    setNotesMode(false)
+    setBrushMode(false)
+    setDrawingMode(true)
+    startToolTraySequence('drawing', 'forward')
     switchLowerPad('colors', 'forward')
   }
 
@@ -650,6 +754,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     }
     if (activeTool === 'brush') {
       setBrushMode(false)
+      switchLowerPad('numbers', 'backward')
+    }
+    if (activeTool === 'drawing') {
+      setDrawingMode(false)
       switchLowerPad('numbers', 'backward')
     }
     startToolTraySequence(activeTool, 'backward')
@@ -673,6 +781,15 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     openBrushTools()
   }
 
+  function toggleDrawingTools() {
+    if (toolTraySequence !== null) return
+    if (visibleToolTray === 'drawing') {
+      closeActiveToolTray()
+      return
+    }
+    openDrawingTools()
+  }
+
   function clearSelectedBrushColors() {
     if (!selected) return false
     const { r, c } = selected
@@ -685,6 +802,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
+      drawingStrokesRef.current,
     )
     setHistory(h => [...h.slice(-50), historyEntry])
     setCellColors(prev => {
@@ -745,13 +863,14 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     const { r, c } = selected
     if (isClue(r, c)) return false
     if (remaining[d] === 0) return false
-    if (brushMode) return false
+    if (brushMode || drawingMode) return false
     if (notesMode) {
       const historyEntry = makeHistoryEntry(
         internalPuzzle,
         notesRef.current,
         cellColorsRef.current,
         candidateColorsRef.current,
+        drawingStrokesRef.current,
       )
       const hadCandidate = notesRef.current[r][c].includes(d)
       setHistory(h => [...h.slice(-50), historyEntry])
@@ -777,6 +896,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
         notesRef.current,
         cellColorsRef.current,
         candidateColorsRef.current,
+        drawingStrokesRef.current,
       )
       setHistory(h => [...h.slice(-50), historyEntry])
       setNotes(prev => {
@@ -832,12 +952,14 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     if (!selected) return
     const { r, c } = selected
     if (isClue(r, c)) return
+    if (drawingMode) return
     setCandidateOverlay(null)
     const historyEntry = makeHistoryEntry(
       internalPuzzle,
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
+      drawingStrokesRef.current,
     )
     setHistory(h => [...h.slice(-50), historyEntry])
     setNotes(prev => {
@@ -869,6 +991,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
+      drawingStrokesRef.current,
     )
     setHistory(h => [...h.slice(-50), historyEntry])
     setNotes(prev => {
@@ -906,6 +1029,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
+      drawingStrokesRef.current,
     )
     setHistory(h => [...h.slice(-50), historyEntry])
     setNotes(nextNotes)
@@ -937,10 +1061,93 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
+      drawingStrokesRef.current,
     )
     setHistory(h => [...h.slice(-50), historyEntry])
     setCellColors(emptyCellColors())
     setCandidateColors(emptyCandidateColors())
+  }
+
+  function clearAllDrawings() {
+    if (drawingStrokesRef.current.length === 0) return
+    const historyEntry = makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+      drawingStrokesRef.current,
+    )
+    setHistory(h => [...h.slice(-50), historyEntry])
+    drawingPointerIdRef.current = null
+    setDrawingDraft(null)
+    setDrawingStrokes(emptyDrawingStrokes())
+  }
+
+  function getDrawingPoint(event: React.PointerEvent<SVGSVGElement>) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return null
+    const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
+    const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height))
+    return [x, y] as [number, number]
+  }
+
+  function startDrawing(event: React.PointerEvent<SVGSVGElement>) {
+    if (!drawingMode || paused || won) return
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const point = getDrawingPoint(event)
+    if (point === null) return
+    closeCandidateOverlay()
+    setSelected(null)
+    drawingPointerIdRef.current = event.pointerId
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    setDrawingDraft({
+      color: BRUSH_SWATCH_MAP[activeBrushColor] ?? activeBrushColor,
+      points: [point],
+    })
+  }
+
+  function moveDrawing(event: React.PointerEvent<SVGSVGElement>) {
+    if (!drawingMode || drawingPointerIdRef.current !== event.pointerId) return
+    const point = getDrawingPoint(event)
+    if (point === null) return
+    setDrawingDraft(prev => {
+      if (prev === null) return prev
+      const lastPoint = prev.points[prev.points.length - 1]
+      if (lastPoint && lastPoint[0] === point[0] && lastPoint[1] === point[1]) return prev
+      return {
+        ...prev,
+        points: [...prev.points, point],
+      }
+    })
+  }
+
+  function stopDrawing(event: React.PointerEvent<SVGSVGElement>) {
+    if (drawingPointerIdRef.current !== event.pointerId) return
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId)
+    }
+    drawingPointerIdRef.current = null
+    const stroke = drawingDraftRef.current
+    setDrawingDraft(null)
+    if (stroke === null || stroke.points.length === 0) return
+    const historyEntry = makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+      drawingStrokesRef.current,
+    )
+    setHistory(h => [...h.slice(-50), historyEntry])
+    setDrawingStrokes(prev => [...prev, ...cloneDrawingStrokesGrid([stroke])])
+    if (haptic) onTriggerHaptic?.()
+  }
+
+  function cancelDrawing(event?: React.PointerEvent<SVGSVGElement>) {
+    if (event && drawingPointerIdRef.current === event.pointerId && event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId)
+    }
+    drawingPointerIdRef.current = null
+    setDrawingDraft(null)
   }
 
   function undo() {
@@ -950,11 +1157,15 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     const restoredNotes = cloneNotesGrid(entry.notes)
     const restoredCellColors = cloneCellColorsGrid(entry.cellColors)
     const restoredCandidateColors = cloneCandidateColorsGrid(entry.candidateColors)
+    const restoredDrawingStrokes = cloneDrawingStrokesGrid(entry.drawingStrokes)
     setInternalPuzzle(restoredPuzzle)
     if (setPuzzleProp) setPuzzleProp(restoredPuzzle)
     setNotes(restoredNotes)
     setCellColors(restoredCellColors)
     setCandidateColors(restoredCandidateColors)
+    drawingPointerIdRef.current = null
+    setDrawingDraft(null)
+    setDrawingStrokes(restoredDrawingStrokes)
     setHistory(prev => prev.slice(0, -1))
   }
 
@@ -979,6 +1190,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const hasAnyColors =
     cellColors.some(row => row.some(color => color.length > 0)) ||
     candidateColors.some(row => row.some(cell => cell.some(color => color.length > 0)))
+  const hasAnyDrawings = drawingStrokes.length > 0
   const candidateEntryMode = notesMode
   const selectedHasCellColor =
     selected !== null && cellColors[selected.r][selected.c].length > 0
@@ -999,6 +1211,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const isToolTrayFadingOut = stagedToolPhase === 'fade-out'
   const isToolTrayMoving = stagedToolPhase === 'move'
   const isToolTrayFadingIn = stagedToolPhase === 'fade-in'
+  const renderedDrawingStrokes = drawingDraft === null ? drawingStrokes : [...drawingStrokes, drawingDraft]
 
   function toolTrayPanelClass(view: ToolTrayView, layer: 'active' | 'overlay') {
     if (toolTraySequence !== null) {
@@ -1045,14 +1258,9 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     return 'input-pad__panel--fade-out'
   }
 
-  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'undo') {
+  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'undo') {
     const classes = ['tool-tray__main-button']
-    const fadingTarget =
-      stagedToolTarget === 'notes'
-        ? button === 'notes'
-        : stagedToolTarget === 'brush'
-          ? button === 'brush'
-          : false
+    const fadingTarget = stagedToolTarget !== null && button === stagedToolTarget
     if (isToolTrayOpening && isToolTrayFadingOut) {
       if (fadingTarget) classes.push('tool-tray__main-button--selected')
       else classes.push('tool-tray__main-button--fading')
@@ -1086,6 +1294,32 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       classes.push('tool-tray__content--fade-in')
     }
     return classes.join(' ')
+  }
+
+  function toolToggleClass(target: ToolTrayAnimatedTarget) {
+    switch (target) {
+      case 'notes':
+        return 'notes-toggle'
+      case 'brush':
+        return 'brush-toggle'
+      case 'drawing':
+        return 'drawing-toggle'
+    }
+  }
+
+  function renderToolIcon(target: ToolTrayAnimatedTarget) {
+    switch (target) {
+      case 'notes':
+        return <FaPencilAlt size={20} />
+      case 'brush':
+        return <FaBrush size={20} />
+      case 'drawing':
+        return <LiaMarkerSolid size={22} />
+    }
+  }
+
+  function buildDrawingPolyline(points: readonly [number, number][]) {
+    return points.map(([x, y]) => `${x},${y}`).join(' ')
   }
 
   function renderNumberPad(tabIndex?: number) {
@@ -1277,6 +1511,38 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           <div className="board-wrapper">
             <div className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label="Sudoku grid">
               {cells}
+              <svg
+                className={`board-drawing-layer${drawingMode && !paused && !won ? ' board-drawing-layer--interactive' : ''}`}
+                aria-label="Free drawing canvas"
+                viewBox="0 0 1 1"
+                preserveAspectRatio="none"
+                onPointerDown={startDrawing}
+                onPointerMove={moveDrawing}
+                onPointerUp={stopDrawing}
+                onPointerCancel={cancelDrawing}
+              >
+                {renderedDrawingStrokes.map((stroke, index) =>
+                  stroke.points.length === 1 ? (
+                    <circle
+                      key={`drawing-stroke-${index}`}
+                      className="board-drawing-layer__stroke"
+                      cx={stroke.points[0][0]}
+                      cy={stroke.points[0][1]}
+                      r={DRAWING_STROKE_WIDTH / 2}
+                      fill={stroke.color}
+                    />
+                  ) : (
+                    <polyline
+                      key={`drawing-stroke-${index}`}
+                      className="board-drawing-layer__stroke"
+                      points={buildDrawingPolyline(stroke.points)}
+                      fill="none"
+                      stroke={stroke.color}
+                      strokeWidth={DRAWING_STROKE_WIDTH}
+                    />
+                  )
+                )}
+              </svg>
               {paused && !won && (
                 <div className="board-pause-overlay">
                   <button
@@ -1318,6 +1584,14 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                 >
                   <FaBrush size={20} />
                 </button>
+                <button
+                  ref={measureMainDrawingButtonRef}
+                  type="button"
+                  className="num-key drawing-toggle"
+                  tabIndex={-1}
+                >
+                  <LiaMarkerSolid size={22} />
+                </button>
               </div>
               <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
                 <button
@@ -1349,13 +1623,27 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   <button type="button" className="num-key clear" tabIndex={-1}><GiMagicBroom size={18} /></button>
                 </div>
               </div>
+              <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
+                <button
+                  ref={measureDrawingButtonRef}
+                  type="button"
+                  className="num-key drawing-toggle drawing-toggle--active"
+                  tabIndex={-1}
+                >
+                  <LiaMarkerSolid size={22} />
+                </button>
+                <div className="tool-tray__content tool-tray__content--drawing">
+                  <button type="button" className="num-key clear" tabIndex={-1}><MdUndo size={24} /></button>
+                  <button type="button" className="num-key clear" tabIndex={-1}><GiMagicBroom size={18} /></button>
+                </div>
+              </div>
             </div>
             {toolTraySequence !== null && stagedToolPhase === 'move' && (
               <button
                 type="button"
                 tabIndex={-1}
                 aria-hidden="true"
-                className={`tool-tray__mover num-key ${stagedToolTarget === 'notes' ? 'notes-toggle' : 'brush-toggle'}${stagedToolDirection === 'forward' ? ' tool-tray__mover--selected' : ''}${toolTraySequence.moveActive ? ' tool-tray__mover--active' : ''}`}
+                className={`tool-tray__mover num-key ${toolToggleClass(toolTraySequence.target)}${stagedToolDirection === 'forward' ? ' tool-tray__mover--selected' : ''}${toolTraySequence.moveActive ? ' tool-tray__mover--active' : ''}`}
                 style={{
                   left: `${toolTraySequence.mover.left}px`,
                   top: `${toolTraySequence.mover.top}px`,
@@ -1366,7 +1654,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                     : 'translate(0, 0)',
                 }}
               >
-                {stagedToolTarget === 'notes' ? <FaPencilAlt size={20} /> : <FaBrush size={20} />}
+                {renderToolIcon(toolTraySequence.target)}
               </button>
             )}
             <div
@@ -1415,6 +1703,17 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
               >
                 <FaBrush size={20} />
               </button>
+              <button
+                type="button"
+                ref={mainDrawingButtonRef}
+                className={`num-key drawing-toggle${drawingMode ? ' drawing-toggle--active' : ''} ${mainToolButtonClass('drawing')}`}
+                aria-label="Toggle free drawing"
+                aria-pressed={drawingMode}
+                disabled={paused || won}
+                onClick={toggleDrawingTools}
+              >
+                <LiaMarkerSolid size={22} />
+              </button>
             </div>
             {toolTrayOverlayView === 'main' && (
               <div
@@ -1433,6 +1732,9 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                 </button>
                 <button type="button" className="num-key brush-toggle" tabIndex={-1}>
                   <FaBrush size={20} />
+                </button>
+                <button type="button" className="num-key drawing-toggle" tabIndex={-1}>
+                  <LiaMarkerSolid size={22} />
                 </button>
               </div>
             )}
@@ -1589,6 +1891,68 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                     tabIndex={-1}
                   >
                     <TbNumbers size={18} />
+                  </button>
+                  <button type="button" className="num-key clear" tabIndex={-1}>
+                    <GiMagicBroom size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
+            <div
+              className={`num-pad-toolbar tool-tray__panel tool-tray__panel--sub ${toolTrayPanelClass('drawing', 'active')}`}
+              role="toolbar"
+              aria-label="Drawing tools"
+              aria-hidden={visibleToolTray !== 'drawing'}
+            >
+              <button
+                type="button"
+                ref={activeDrawingButtonRef}
+                className={`num-key drawing-toggle${isToolTargetClosing('drawing') ? '' : ' drawing-toggle--active'}${isToolTrayMoving && stagedToolTarget === 'drawing' ? ' tool-tray__selected-tool--hidden' : ''}`}
+                aria-label="Toggle free drawing"
+                aria-pressed={!isToolTargetClosing('drawing')}
+                disabled={paused || won}
+                onClick={toggleDrawingTools}
+              >
+                <LiaMarkerSolid size={22} />
+              </button>
+              <div className={subtoolContentClass('drawing')}>
+                <button
+                  type="button"
+                  className="num-key clear"
+                  aria-label="Undo"
+                  disabled={undoDisabled}
+                  onClick={undo}
+                >
+                  <MdUndo size={24} />
+                </button>
+                <button
+                  type="button"
+                  className="num-key clear"
+                  aria-label="Clear drawings"
+                  disabled={paused || won || !hasAnyDrawings}
+                  onClick={clearAllDrawings}
+                >
+                  <GiMagicBroom size={18} />
+                </button>
+              </div>
+            </div>
+            {toolTrayOverlayView === 'drawing' && (
+              <div
+                className={`num-pad-toolbar tool-tray__panel tool-tray__panel--sub tool-tray__panel--overlay ${toolTrayPanelClass('drawing', 'overlay')}`}
+                role="presentation"
+                aria-hidden="true"
+              >
+                <button
+                  type="button"
+                  className="num-key drawing-toggle drawing-toggle--active"
+                  aria-pressed="true"
+                  tabIndex={-1}
+                >
+                  <LiaMarkerSolid size={22} />
+                </button>
+                <div className="tool-tray__content tool-tray__content--drawing">
+                  <button type="button" className="num-key clear" tabIndex={-1}>
+                    <MdUndo size={24} />
                   </button>
                   <button type="button" className="num-key clear" tabIndex={-1}>
                     <GiMagicBroom size={18} />
