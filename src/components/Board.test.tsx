@@ -304,6 +304,25 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-color-layer')).not.toBeNull()
   })
 
+  it('accumulates brush colors on a cell across multiple paint passes', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /brush color 2/i }))
+    await user.click(cells[2])
+
+    const colorLayer = cells[2].querySelector('.cell-color-layer')
+    expect(colorLayer).not.toBeNull()
+    expect(colorLayer?.getAttribute('style')).toContain('linear-gradient')
+    expect(colorLayer?.getAttribute('style')).toContain('rgba(244, 63, 94, 0.28)')
+    expect(colorLayer?.getAttribute('style')).toContain('rgba(249, 115, 22, 0.28)')
+    expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: /brush color 2/i }).getAttribute('aria-pressed')).toBe('true')
+  })
+
   it('removes the cell brush color when a number is entered', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
@@ -462,7 +481,7 @@ describe('Board with fixed puzzle', () => {
     expect(clearColorsBtn).toBeDisabled()
   })
 
-  it('persists the selected brush color and candidate painting mode between renders', async () => {
+  it('persists the selected brush colors and candidate painting mode between renders', async () => {
     const user = userEvent.setup()
     const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
 
@@ -476,6 +495,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
 
     expect(screen.getByRole('button', { name: /brush color 3/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: /toggle candidate coloring mode/i }).getAttribute('aria-pressed')).toBe('true')
   })
 

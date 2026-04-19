@@ -45,15 +45,15 @@ function cloneNotesGrid(notes: number[][][]): number[][][] {
 }
 
 function cloneCellColorsGrid(colors: CellColorGrid): CellColorGrid {
-  return colors.map(row => [...row])
-}
-
-function cloneCandidateColorsGrid(colors: CandidateColorGrid): CandidateColorGrid {
   return colors.map(row => row.map(cell => [...cell]))
 }
 
-function emptyCandidateColorCell(): (string | null)[] {
-  return Array.from({ length: 9 }, () => null)
+function cloneCandidateColorsGrid(colors: CandidateColorGrid): CandidateColorGrid {
+  return colors.map(row => row.map(cell => cell.map(candidate => [...candidate])))
+}
+
+function emptyCandidateColorCell(): string[][] {
+  return Array.from({ length: 9 }, () => [] as string[])
 }
 
 function makeHistoryEntry(
@@ -124,6 +124,25 @@ const BRUSH_COLOR_MAP: Record<BrushColorId, string> = Object.fromEntries(
   BRUSH_COLORS.map(color => [color.id, color.fill])
 ) as Record<BrushColorId, string>
 const DEFAULT_BRUSH_COLOR: BrushColorId = BRUSH_COLORS[0].id
+
+function toggleColorInSelection(current: readonly string[], colorId: BrushColorId) {
+  return current.includes(colorId) ? current.filter(color => color !== colorId) : [...current, colorId]
+}
+
+function buildBrushFill(colorIds: readonly string[]) {
+  if (colorIds.length === 0) return undefined
+  if (colorIds.length === 1) {
+    const fill = BRUSH_COLOR_MAP[colorIds[0] as BrushColorId] ?? colorIds[0]
+    return fill
+  }
+  const stops = colorIds.flatMap((colorId, index) => {
+    const fill = BRUSH_COLOR_MAP[colorId as BrushColorId] ?? colorId
+    const start = (index * 100) / colorIds.length
+    const end = ((index + 1) * 100) / colorIds.length
+    return [`${fill} ${start}%`, `${fill} ${end}%`]
+  })
+  return `linear-gradient(90deg, ${stops.join(', ')})`
+}
 const TOOL_TRAY_ANIMATION_MS = 280
 const TOOL_TRAY_FADE_MS = import.meta.env.MODE === 'test' ? 0 : 240
 const TOOL_TRAY_MOVE_MS = import.meta.env.MODE === 'test' ? 0 : 320
@@ -204,9 +223,11 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const [finalTime, setFinalTime] = useState(0)
   const [shareCopied, setShareCopied] = useState(false)
   const [brushMode, setBrushMode] = useState(false)
-  const [activeBrushColor, setActiveBrushColor] = useState<BrushColorId>(
-    () => BRUSH_COLORS.find(color => color.id === savedBrushPrefs?.activeColor)?.id ?? DEFAULT_BRUSH_COLOR
-  )
+  const [activeBrushColor, setActiveBrushColor] = useState<BrushColorId>(() => {
+    const savedColors = savedBrushPrefs?.activeColors
+      ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
+    return savedColors && savedColors.length > 0 ? savedColors[0] : DEFAULT_BRUSH_COLOR
+  })
   const [candidateBrushMode, setCandidateBrushMode] = useState<boolean>(() => savedBrushPrefs?.candidateMode ?? false)
   const [candidateOverlay, setCandidateOverlay] = useState<CandidateOverlayState | null>(null)
   const [visibleToolTray, setVisibleToolTray] = useState<ToolTrayView>('main')
@@ -252,7 +273,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }, [paused])
 
   useEffect(() => {
-    saveBrushPrefs(activeBrushColor, candidateBrushMode)
+    saveBrushPrefs([activeBrushColor], candidateBrushMode)
   }, [activeBrushColor, candidateBrushMode])
 
   useEffect(() => () => {
@@ -449,10 +470,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   function applyCellBrushColorAt(r: number, c: number, colorId: BrushColorId = activeBrushColor) {
-    if (candidateColorsRef.current[r][c].some(color => color !== null)) return false
-    const currentColor = cellColorsRef.current[r][c]
-    const nextColor = currentColor === colorId ? null : colorId
-    if (currentColor === nextColor) return false
+    if (candidateColorsRef.current[r][c].some(candidateColors => candidateColors.length > 0)) return false
+    const currentColors = cellColorsRef.current[r][c]
+    const nextColors = toggleColorInSelection(currentColors, colorId)
+    if (currentColors.length === nextColors.length && currentColors.every((color, index) => color === nextColors[index])) return false
 
     const historyEntry = makeHistoryEntry(
       internalPuzzle,
@@ -463,20 +484,19 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setHistory(h => [...h.slice(-50), historyEntry])
     setCellColors(prev => {
       const next = cloneCellColorsGrid(prev)
-      next[r][c] = nextColor
+      next[r][c] = [...nextColors]
       return next
     })
     return true
   }
 
   function applyCandidateBrushColorAt(r: number, c: number, d: number) {
-    if (cellColorsRef.current[r][c] !== null) return false
+    if (cellColorsRef.current[r][c].length > 0) return false
     if (!notesRef.current[r][c].includes(d)) return false
 
-    const currentColor = candidateColorsRef.current[r][c][d - 1]
-    const nextColor = currentColor === activeBrushColor ? null : activeBrushColor
-
-    if (currentColor === nextColor) return false
+    const currentColors = candidateColorsRef.current[r][c][d - 1]
+    const nextColors = toggleColorInSelection(currentColors, activeBrushColor)
+    if (currentColors.length === nextColors.length && currentColors.every((color, index) => color === nextColors[index])) return false
 
     const historyEntry = makeHistoryEntry(
       internalPuzzle,
@@ -487,7 +507,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setHistory(h => [...h.slice(-50), historyEntry])
     setCandidateColors(prev => {
       const next = cloneCandidateColorsGrid(prev)
-      next[r][c][d - 1] = nextColor
+      next[r][c][d - 1] = [...nextColors]
       return next
     })
     return true
@@ -656,8 +676,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   function clearSelectedBrushColors() {
     if (!selected) return false
     const { r, c } = selected
-    const hasCellColor = cellColorsRef.current[r][c] !== null
-    const hasCandidateColor = candidateColorsRef.current[r][c].some(color => color !== null)
+    const hasCellColor = cellColorsRef.current[r][c].length > 0
+    const hasCandidateColor = candidateColorsRef.current[r][c].some(colors => colors.length > 0)
     if (!hasCellColor && !hasCandidateColor) return false
 
     const historyEntry = makeHistoryEntry(
@@ -669,7 +689,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setHistory(h => [...h.slice(-50), historyEntry])
     setCellColors(prev => {
       const next = cloneCellColorsGrid(prev)
-      next[r][c] = null
+      next[r][c] = []
       return next
     })
     setCandidateColors(prev => {
@@ -685,7 +705,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     if (
       internalPuzzle[r][c] !== 0 ||
       notesRef.current[r][c].length === 0 ||
-      cellColorsRef.current[r][c] !== null
+      cellColorsRef.current[r][c].length > 0
     ) {
       setCandidateOverlay(null)
       return false
@@ -745,7 +765,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       })
       setCandidateColors(prev => {
         const next = cloneCandidateColorsGrid(prev)
-        next[r][c][d - 1] = null
+        next[r][c][d - 1] = []
         return next
       })
     } else {
@@ -784,12 +804,12 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           const boxR = Math.floor(r / 3) * 3
           const boxC = Math.floor(c / 3) * 3
           for (let i = 0; i < 9; i++) {
-            next[r][i][d - 1] = null
-            next[i][c][d - 1] = null
+            next[r][i][d - 1] = []
+            next[i][c][d - 1] = []
           }
           for (let br = boxR; br < boxR + 3; br++) {
             for (let bc = boxC; bc < boxC + 3; bc++) {
-              next[br][bc][d - 1] = null
+              next[br][bc][d - 1] = []
             }
           }
         }
@@ -797,7 +817,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       })
       setCellColors(prev => {
         const next = cloneCellColorsGrid(prev)
-        next[r][c] = null
+        next[r][c] = []
         return next
       })
       onInput(r, c, d)
@@ -832,7 +852,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     })
     setCellColors(prev => {
       const next = cloneCellColorsGrid(prev)
-      next[r][c] = null
+      next[r][c] = []
       return next
     })
     onInput(r, c, 0)
@@ -906,9 +926,9 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   function clearAllColors() {
-    const hasCellColors = cellColorsRef.current.some(row => row.some(color => color !== null))
+    const hasCellColors = cellColorsRef.current.some(row => row.some(color => color.length > 0))
     const hasCandidateColors = candidateColorsRef.current.some(row =>
-      row.some(cell => cell.some(color => color !== null))
+      row.some(cell => cell.some(color => color.length > 0))
     )
     if (!hasCellColors && !hasCandidateColors) return
 
@@ -957,17 +977,17 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     row.some((n, c) => !isClue(r, c) && n === 0 && notes[r][c].length === 0)
   )
   const hasAnyColors =
-    cellColors.some(row => row.some(color => color !== null)) ||
-    candidateColors.some(row => row.some(cell => cell.some(color => color !== null)))
+    cellColors.some(row => row.some(color => color.length > 0)) ||
+    candidateColors.some(row => row.some(cell => cell.some(color => color.length > 0)))
   const candidateEntryMode = notesMode
   const selectedHasCellColor =
-    selected !== null && cellColors[selected.r][selected.c] !== null
+    selected !== null && cellColors[selected.r][selected.c].length > 0
   const selectedHasCandidateColors =
-    selected !== null && candidateColors[selected.r][selected.c].some(color => color !== null)
+    selected !== null && candidateColors[selected.r][selected.c].some(color => color.length > 0)
   const selectedHasAnyColors = selectedHasCellColor || selectedHasCandidateColors
   const overlayCellNotes = candidateOverlay ? notes[candidateOverlay.r][candidateOverlay.c] : []
   const overlayHasCellColor =
-    candidateOverlay !== null && cellColors[candidateOverlay.r][candidateOverlay.c] !== null
+    candidateOverlay !== null && cellColors[candidateOverlay.r][candidateOverlay.c].length > 0
   const toolTrayOverlayView = toolTrayTransition?.from ?? null
   const lowerPadOverlayView = lowerPadTransition?.from ?? null
   const undoDisabled = history.length === 0 || paused || won
@@ -1168,7 +1188,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       const isError = autoCheck && solutionGrid !== null && userEntry && n !== solutionGrid[r][c]
       const cellNotes = notes[r][c]
       const hasNotes = cellNotes.length > 0 && n === 0
-      const cellColorId = cellColors[r][c] as BrushColorId | null
+      const cellColorIds = cellColors[r][c]
       const selectedClass = !paused && selectedHere
         ? (brushMode ? 'selected-brush' : 'selected')
         : ''
@@ -1197,10 +1217,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             selectCell(r, c)
           }}
         >
-          {cellColorId && (
+          {cellColorIds.length > 0 && (
             <span
               className="cell-color-layer"
-              style={{ '--annotation-color': BRUSH_COLOR_MAP[cellColorId] } as React.CSSProperties}
+              style={{ '--annotation-color': buildBrushFill(cellColorIds) } as React.CSSProperties}
             />
           )}
           {hasNotes ? (
@@ -1208,9 +1228,9 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
               {[1,2,3,4,5,6,7,8,9].map(d => (
                 <span
                   key={d}
-                  className={`cell-note${selectedDigit !== 0 && cellNotes.includes(d) && d === selectedDigit ? ' cell-note--highlight' : ''}${cellNotes.includes(d) && candidateColors[r][c][d - 1] ? ' cell-note--colored' : ''}`}
-                  style={cellNotes.includes(d) && candidateColors[r][c][d - 1]
-                    ? ({ '--annotation-color': BRUSH_COLOR_MAP[candidateColors[r][c][d - 1] as BrushColorId] } as React.CSSProperties)
+                  className={`cell-note${selectedDigit !== 0 && cellNotes.includes(d) && d === selectedDigit ? ' cell-note--highlight' : ''}${cellNotes.includes(d) && candidateColors[r][c][d - 1].length > 0 ? ' cell-note--colored' : ''}`}
+                  style={cellNotes.includes(d) && candidateColors[r][c][d - 1].length > 0
+                    ? ({ '--annotation-color': buildBrushFill(candidateColors[r][c][d - 1]) } as React.CSSProperties)
                     : undefined}
                 >
                   {cellNotes.includes(d) ? d : ''}
@@ -1636,7 +1656,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => {
               const hasCandidate = overlayCellNotes.includes(d)
-              const colorId = candidateColors[candidateOverlay.r][candidateOverlay.c][d - 1] as BrushColorId | null
+              const colorIds = candidateColors[candidateOverlay.r][candidateOverlay.c][d - 1]
               return (
                 <button
                   key={d}
@@ -1651,8 +1671,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                       if (haptic) onTriggerHaptic?.()
                     }
                   }}
-                  style={colorId
-                    ? ({ '--annotation-color': BRUSH_COLOR_MAP[colorId] } as React.CSSProperties)
+                  style={colorIds.length > 0
+                    ? ({ '--annotation-color': buildBrushFill(colorIds) } as React.CSSProperties)
                     : undefined}
                 >
                   {hasCandidate ? d : ''}

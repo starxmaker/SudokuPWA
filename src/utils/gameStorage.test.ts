@@ -37,15 +37,15 @@ function sampleNotes(): number[][][] {
 
 function sampleCellColors() {
   const colors = emptyCellColors()
-  colors[0][0] = 'rose'
-  colors[4][4] = 'sky'
+  colors[0][0] = ['rose']
+  colors[4][4] = ['sky']
   return colors
 }
 
 function sampleCandidateColors() {
   const colors = emptyCandidateColors()
-  colors[0][0][0] = 'rose'
-  colors[4][4][4] = 'sky'
+  colors[0][0][0] = ['rose']
+  colors[4][4][4] = ['sky']
   return colors
 }
 
@@ -171,11 +171,11 @@ describe('saveGame / loadSaved', () => {
     const cellColors = sampleCellColors()
     const candidateColors = sampleCandidateColors()
     saveGame(SAMPLE, BLANK, null, emptyNotes(), cellColors, candidateColors)
-    cellColors[0][0] = 'pink'
-    candidateColors[0][0][0] = 'pink'
+    cellColors[0][0] = ['pink']
+    candidateColors[0][0][0] = ['pink']
     const saved = loadSaved()
-    expect(saved!.cellColors[0][0]).toBe('rose')
-    expect(saved!.candidateColors[0][0][0]).toBe('rose')
+    expect(saved!.cellColors[0][0]).toEqual(['rose'])
+    expect(saved!.candidateColors[0][0][0]).toEqual(['rose'])
   })
 
   it('loads legacy V3 saves with empty notes', () => {
@@ -220,9 +220,9 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
   })
 
-  it('stores V5 version tag', () => {
+  it('stores V6 version tag', () => {
     saveGame(SAMPLE, BLANK, null)
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
-    expect(raw.v).toBe(5)
+    expect(raw.v).toBe(6)
   })
 })

@@ -2,12 +2,14 @@ import type { Grid } from './sudoku_types'
 
 export const STORAGE_KEY = 'sudoku-pwa-state'
 
-const V = 5 as const
+const V = 6 as const
 
-export type CellColorGrid = (string | null)[][]
-export type CandidateColorGrid = ((string | null)[])[][]
+export type CellColorValue = string[]
+export type CandidateColorCell = CellColorValue[]
+export type CellColorGrid = CellColorValue[][]
+export type CandidateColorGrid = CandidateColorCell[][]
 
-type SavedV5 = {
+type SavedV6 = {
   v: typeof V
   initial: Grid
   current: Grid
@@ -26,11 +28,11 @@ function cloneNotes(n: number[][][]): number[][][] {
 }
 
 function cloneCellColors(colors: CellColorGrid): CellColorGrid {
-  return colors.map(row => [...row])
+  return colors.map(row => row.map(cell => [...cell]))
 }
 
 function cloneCandidateColors(colors: CandidateColorGrid): CandidateColorGrid {
-  return colors.map(row => row.map(cell => [...cell]))
+  return colors.map(row => row.map(cell => cell.map(candidate => [...candidate])))
 }
 
 function emptyNotes(): number[][][] {
@@ -38,11 +40,46 @@ function emptyNotes(): number[][][] {
 }
 
 export function emptyCellColors(): CellColorGrid {
-  return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => null))
+  return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as string[]))
 }
 
 export function emptyCandidateColors(): CandidateColorGrid {
-  return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => null)))
+  return Array.from(
+    { length: 9 },
+    () => Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as string[])),
+  )
+}
+
+function normalizeColorValue(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === 'string')
+  }
+  return typeof value === 'string' ? [value] : []
+}
+
+function normalizeCellColors(colors: unknown): CellColorGrid {
+  if (!Array.isArray(colors) || colors.length !== 9) return emptyCellColors()
+  return colors.map(row =>
+    Array.isArray(row) && row.length === 9
+      ? row.map(cell => normalizeColorValue(cell))
+      : Array.from({ length: 9 }, () => [] as string[]),
+  )
+}
+
+function normalizeCandidateCell(cell: unknown): CandidateColorCell {
+  if (!Array.isArray(cell) || cell.length !== 9) {
+    return Array.from({ length: 9 }, () => [] as string[])
+  }
+  return cell.map(candidate => normalizeColorValue(candidate))
+}
+
+function normalizeCandidateColors(colors: unknown): CandidateColorGrid {
+  if (!Array.isArray(colors) || colors.length !== 9) return emptyCandidateColors()
+  return colors.map(row =>
+    Array.isArray(row) && row.length === 9
+      ? row.map(cell => normalizeCandidateCell(cell))
+      : Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as string[])),
+  )
 }
 
 /** Read saved game. Returns null solution for legacy saves that predate V3. */
@@ -71,14 +108,24 @@ export function loadSaved(): {
       }
     }
     if (parsed && typeof parsed === 'object') {
+      if ((parsed.v === 6) && parsed.initial && parsed.current) {
+        return {
+          initial: cloneGrid(parsed.initial),
+          current: cloneGrid(parsed.current),
+          solution: parsed.solution ? cloneGrid(parsed.solution) : null,
+          notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
+          cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
+          candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
+        }
+      }
       if ((parsed.v === 5) && parsed.initial && parsed.current) {
         return {
           initial: cloneGrid(parsed.initial),
           current: cloneGrid(parsed.current),
           solution: parsed.solution ? cloneGrid(parsed.solution) : null,
           notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
-          cellColors: parsed.cellColors ? cloneCellColors(parsed.cellColors) : emptyCellColors(),
-          candidateColors: parsed.candidateColors ? cloneCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
+          cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
+          candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
         }
       }
       if ((parsed.v === 4) && parsed.initial && parsed.current) {
@@ -127,7 +174,7 @@ export const ELAPSED_KEY = 'sudoku-pwa-elapsed'
 export const BRUSH_PREFS_KEY = 'sudoku-pwa-brush-prefs'
 
 type BrushPrefs = {
-  activeColor: string
+  activeColors: string[]
   candidateMode: boolean
 }
 
@@ -147,9 +194,9 @@ export function clearElapsed(): void {
   try { localStorage.removeItem(ELAPSED_KEY) } catch { /* ignore */ }
 }
 
-export function saveBrushPrefs(activeColor: string, candidateMode: boolean): void {
+export function saveBrushPrefs(activeColors: string[], candidateMode: boolean): void {
   try {
-    const payload: BrushPrefs = { activeColor, candidateMode }
+    const payload: BrushPrefs = { activeColors: [...activeColors], candidateMode }
     localStorage.setItem(BRUSH_PREFS_KEY, JSON.stringify(payload))
   } catch { /* ignore */ }
 }
@@ -162,10 +209,20 @@ export function loadBrushPrefs(): BrushPrefs | null {
     if (
       parsed &&
       typeof parsed === 'object' &&
-      typeof parsed.activeColor === 'string' &&
       typeof parsed.candidateMode === 'boolean'
     ) {
-      return parsed as BrushPrefs
+      if (Array.isArray(parsed.activeColors)) {
+        return {
+          activeColors: parsed.activeColors.filter((entry): entry is string => typeof entry === 'string'),
+          candidateMode: parsed.candidateMode,
+        }
+      }
+      if (typeof parsed.activeColor === 'string') {
+        return {
+          activeColors: [parsed.activeColor],
+          candidateMode: parsed.candidateMode,
+        }
+      }
     }
   } catch { /* ignore */ }
   return null
@@ -180,7 +237,7 @@ export function saveGame(
   candidateColors: CandidateColorGrid = emptyCandidateColors(),
 ): void {
   try {
-    const payload: SavedV5 = {
+    const payload: SavedV6 = {
       v: V,
       initial: cloneGrid(initial),
       current: cloneGrid(current),
