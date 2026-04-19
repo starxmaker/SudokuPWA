@@ -1646,7 +1646,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   disabled={!hasCandidate || overlayHasCellColor}
                   onClick={() => {
                     const changed = applyCandidateBrushColorAt(candidateOverlay.r, candidateOverlay.c, d)
-                    if (changed && haptic) onTriggerHaptic?.()
+                    if (changed) {
+                      setCandidateOverlay(null)
+                      if (haptic) onTriggerHaptic?.()
+                    }
                   }}
                   style={colorId
                     ? ({ '--annotation-color': BRUSH_COLOR_MAP[colorId] } as React.CSSProperties)

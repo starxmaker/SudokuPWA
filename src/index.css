@@ -573,6 +573,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   position:relative;
   width:100%;
   margin-top:22px;
+  z-index:1700;
 }
 .input-pad-switcher .number-pad{
   margin-top:0;

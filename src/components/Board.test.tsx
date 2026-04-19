@@ -342,6 +342,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(screen.getByRole('button', { name: /brush color 2/i }))
     expect(screen.getByRole('dialog', { name: /candidate painter/i })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /paint candidate 4/i }))
+    expect(screen.queryByRole('dialog', { name: /candidate painter/i })).toBeNull()
 
     const noteSpans = cells[2].querySelectorAll('.cell-note')
     expect(noteSpans[3].classList.contains('cell-note--colored')).toBe(true)
