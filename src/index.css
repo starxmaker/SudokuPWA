@@ -236,8 +236,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   grid-template-columns:repeat(9,minmax(0,1fr));
   grid-template-rows:repeat(9,minmax(0,1fr));
   gap:0;
-  width:100%;
-  max-height:min(720px, calc(100dvh - var(--board-safe-space)));
+  width:min(100%, calc(100dvh - var(--board-safe-space)));
   aspect-ratio:1/1;
   max-width:720px;
   border:2px solid var(--board-outer);
@@ -900,38 +899,105 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .footer{margin-top:12px;color:var(--muted)}
 
 @media (min-width: 980px) {
-  .app{ max-width:1160px; }
+  .app{ max-width:1360px; }
   .game-main{
     flex-direction:row;
     align-items:stretch;
     justify-content:center;
-    gap:20px;
+    gap:16px;
   }
   .board-area{
-    width:min(720px, calc(100dvh - 150px), calc(100vw - 420px));
+    width:min(920px, calc(100dvh - 120px), calc(100vw - 420px));
     gap:10px;
   }
+  .board{
+    width:100%;
+    max-width:none;
+  }
   .controls-panel{
-    width:320px;
-    max-width:320px;
+    width:360px;
+    max-width:360px;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
     gap:8px;
   }
-  .controls-panel .num-pad-toolbar{
+  .controls-panel .tool-tray__measure > .num-pad-toolbar{
     max-width:none;
     margin-top:0;
-    justify-content:flex-start;
-    flex-wrap:wrap;
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:8px;
+    justify-content:stretch;
+    align-items:start;
+  }
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.clear,
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.notes-toggle,
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.brush-toggle,
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.drawing-toggle{
+    width:100%;
+    min-width:0;
+    padding:0 8px;
+  }
+  .controls-panel .tool-tray__measure > .tool-tray__panel--sub{
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    align-items:start;
+  }
+  .controls-panel .tool-tray__measure > .tool-tray__panel .tool-tray__content{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-column:2 / span 4;
+    width:100%;
+    gap:8px;
+    justify-content:stretch;
+    align-items:start;
+  }
+  .controls-panel > .tool-tray > .num-pad-toolbar:not(.tool-tray__panel--hidden){
+    max-width:none;
+    margin-top:0;
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:8px;
+    justify-content:stretch;
+    align-items:start;
+  }
+  .controls-panel > .tool-tray > .tool-tray__panel--hidden{
+    display:none;
+  }
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.clear,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.notes-toggle,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.brush-toggle,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.drawing-toggle{
+    width:100%;
+    min-width:0;
+    padding:0 8px;
+  }
+  .controls-panel > .tool-tray > .tool-tray__panel--sub{
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    align-items:start;
+  }
+  .controls-panel > .tool-tray > .tool-tray__panel .tool-tray__content{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-column:2 / span 4;
+    width:100%;
+    gap:8px;
+    justify-content:stretch;
+    align-items:start;
+  }
+  .controls-panel .tool-tray{
+    margin-top:auto;
   }
   .controls-panel .input-pad-switcher{
-    margin-top:auto;
+    margin-top:8px;
   }
   .controls-panel .input-pad-switcher .number-pad{
     margin-top:0;
   }
   .controls-panel .number-pad{
     max-width:none;
-    margin-top:auto;
-    grid-template-columns:repeat(3,minmax(0,1fr));
+    margin-top:0;
+    grid-template-columns:repeat(5,minmax(0,1fr));
   }
 }
 
