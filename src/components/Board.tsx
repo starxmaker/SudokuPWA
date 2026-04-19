@@ -14,6 +14,8 @@ import {
   loadElapsed,
   clearElapsed,
   saveCompleted,
+  loadBrushPrefs,
+  saveBrushPrefs,
   emptyCellColors,
   emptyCandidateColors,
 } from '../utils/gameStorage'
@@ -80,11 +82,18 @@ const BRUSH_COLORS = [
 ] as const
 
 type BrushColorId = (typeof BRUSH_COLORS)[number]['id']
-type BrushSelection = BrushColorId | 'clear'
+type CandidateOverlayState = {
+  r: number
+  c: number
+  top: number
+  left: number
+  size: number
+}
 
 const BRUSH_COLOR_MAP: Record<BrushColorId, string> = Object.fromEntries(
   BRUSH_COLORS.map(color => [color.id, color.fill])
 ) as Record<BrushColorId, string>
+const DEFAULT_BRUSH_COLOR: BrushColorId = BRUSH_COLORS[0].id
 
 function formatTime(s: number): string {
   const h = Math.floor(s / 3600)
@@ -95,6 +104,7 @@ function formatTime(s: number): string {
 }
 
 export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, onBack, solution: solutionProp, autoCheck, autoRemove, haptic, onTriggerHaptic, onTriggerErrorHaptic, onNew, onShare, onWin, difficulty }: Props){
+  const savedBrushPrefs = loadBrushPrefs()
   const [internalPuzzle, setInternalPuzzle] = useState<Grid>(() => {
     const saved = loadSaved()
     if (saved?.current && saved.current.length === 9) return saved.current
@@ -158,8 +168,11 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const [finalTime, setFinalTime] = useState(0)
   const [shareCopied, setShareCopied] = useState(false)
   const [brushMode, setBrushMode] = useState(false)
-  const [activeBrushColor, setActiveBrushColor] = useState<BrushSelection | null>(null)
-  const [candidateBrushMode, setCandidateBrushMode] = useState(false)
+  const [activeBrushColor, setActiveBrushColor] = useState<BrushColorId>(
+    () => BRUSH_COLORS.find(color => color.id === savedBrushPrefs?.activeColor)?.id ?? DEFAULT_BRUSH_COLOR
+  )
+  const [candidateBrushMode, setCandidateBrushMode] = useState<boolean>(() => savedBrushPrefs?.candidateMode ?? false)
+  const [candidateOverlay, setCandidateOverlay] = useState<CandidateOverlayState | null>(null)
 
   // Auto-pause when the tab/window loses focus; never auto-resume.
   // Using focusout on document: relatedTarget is non-null for within-page
@@ -180,6 +193,14 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     const id = setInterval(() => setElapsed(s => { saveElapsed(s + 1); return s + 1 }), 1000)
     return () => clearInterval(id)
   }, [paused])
+
+  useEffect(() => {
+    if (paused) setCandidateOverlay(null)
+  }, [paused])
+
+  useEffect(() => {
+    saveBrushPrefs(activeBrushColor, candidateBrushMode)
+  }, [activeBrushColor, candidateBrushMode])
 
   // Win detection
   useEffect(() => {
@@ -284,8 +305,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setManualPause(false)
     setWon(false)
     setBrushMode(false)
-    setActiveBrushColor(null)
-    setCandidateBrushMode(false)
+    setCandidateOverlay(null)
     if(setPuzzleProp) setPuzzleProp(p)
     saveGame(initial, p, s)
     setSelected(null)
@@ -304,8 +324,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setManualPause(false)
     setWon(false)
     setBrushMode(false)
-    setActiveBrushColor(null)
-    setCandidateBrushMode(false)
+    setCandidateOverlay(null)
     setSelected(null)
     saveGame(initialGrid, cloneGrid(initialGrid), solutionGrid)
   }
@@ -316,6 +335,109 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   function selectCell(r: number, c: number) {
     setSelected(prev => (prev?.r === r && prev?.c === c ? null : { r, c }))
+  }
+
+  function getCandidateOverlayPosition(rect: DOMRect) {
+    const maxSize = Math.min(window.innerWidth - 16, window.innerHeight - 16, rect.width * 3)
+    const size = Math.max(120, maxSize)
+    const unclampedLeft = rect.left + rect.width / 2 - size / 2
+    const unclampedTop = rect.top + rect.height / 2 - size / 2
+    return {
+      size,
+      left: Math.max(8, Math.min(window.innerWidth - size - 8, unclampedLeft)),
+      top: Math.max(8, Math.min(window.innerHeight - size - 8, unclampedTop)),
+    }
+  }
+
+  function applyCellBrushColorAt(r: number, c: number, colorId: BrushColorId = activeBrushColor) {
+    if (candidateColorsRef.current[r][c].some(color => color !== null)) return false
+    const currentColor = cellColorsRef.current[r][c]
+    const nextColor = currentColor === colorId ? null : colorId
+    if (currentColor === nextColor) return false
+
+    const historyEntry = makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+    )
+    setHistory(h => [...h.slice(-50), historyEntry])
+    setCellColors(prev => {
+      const next = cloneCellColorsGrid(prev)
+      next[r][c] = nextColor
+      return next
+    })
+    return true
+  }
+
+  function applyCandidateBrushColorAt(r: number, c: number, d: number) {
+    if (cellColorsRef.current[r][c] !== null) return false
+    if (!notesRef.current[r][c].includes(d)) return false
+
+    const currentColor = candidateColorsRef.current[r][c][d - 1]
+    const nextColor = currentColor === activeBrushColor ? null : activeBrushColor
+
+    if (currentColor === nextColor) return false
+
+    const historyEntry = makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+    )
+    setHistory(h => [...h.slice(-50), historyEntry])
+    setCandidateColors(prev => {
+      const next = cloneCandidateColorsGrid(prev)
+      next[r][c][d - 1] = nextColor
+      return next
+    })
+    return true
+  }
+
+  function closeCandidateOverlay() {
+    setCandidateOverlay(null)
+  }
+
+  function clearSelectedBrushColors() {
+    if (!selected) return false
+    const { r, c } = selected
+    const hasCellColor = cellColorsRef.current[r][c] !== null
+    const hasCandidateColor = candidateColorsRef.current[r][c].some(color => color !== null)
+    if (!hasCellColor && !hasCandidateColor) return false
+
+    const historyEntry = makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+    )
+    setHistory(h => [...h.slice(-50), historyEntry])
+    setCellColors(prev => {
+      const next = cloneCellColorsGrid(prev)
+      next[r][c] = null
+      return next
+    })
+    setCandidateColors(prev => {
+      const next = cloneCandidateColorsGrid(prev)
+      next[r][c] = emptyCandidateColorCell()
+      return next
+    })
+    return true
+  }
+
+  function openCandidateOverlay(r: number, c: number, target: HTMLElement) {
+    setSelected({ r, c })
+    if (
+      internalPuzzle[r][c] !== 0 ||
+      notesRef.current[r][c].length === 0 ||
+      cellColorsRef.current[r][c] !== null
+    ) {
+      setCandidateOverlay(null)
+      return false
+    }
+    const { top, left, size } = getCandidateOverlayPosition(target.getBoundingClientRect())
+    setCandidateOverlay({ r, c, top, left, size })
+    return true
   }
 
   function getSimpleCandidates(r: number, c: number): number[] {
@@ -348,34 +470,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     const { r, c } = selected
     if (isClue(r, c)) return false
     if (remaining[d] === 0) return false
-    if (brushMode && !candidateBrushMode) return false
-    if (brushMode && candidateBrushMode) {
-      if (activeBrushColor === null) return false
-      if (internalPuzzle[r][c] !== 0) return false
-      if (!notesRef.current[r][c].includes(d)) return false
-
-      const currentColor = candidateColorsRef.current[r][c][d - 1]
-      const nextColor =
-        activeBrushColor === 'clear' || currentColor === activeBrushColor
-          ? null
-          : activeBrushColor
-
-      if (currentColor === nextColor) return false
-
-      const historyEntry = makeHistoryEntry(
-        internalPuzzle,
-        notesRef.current,
-        cellColorsRef.current,
-        candidateColorsRef.current,
-      )
-      setHistory(h => [...h.slice(-50), historyEntry])
-      setCandidateColors(prev => {
-        const next = cloneCandidateColorsGrid(prev)
-        next[r][c][d - 1] = nextColor
-        return next
-      })
-      return false
-    }
+    if (brushMode) return false
     if (notesMode) {
       const historyEntry = makeHistoryEntry(
         internalPuzzle,
@@ -395,11 +490,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       })
       setCandidateColors(prev => {
         const next = cloneCandidateColorsGrid(prev)
-        next[r][c][d - 1] = hadCandidate
-          ? null
-          : (brushMode && candidateBrushMode && activeBrushColor !== null && activeBrushColor !== 'clear'
-              ? activeBrushColor
-              : null)
+        next[r][c][d - 1] = null
         return next
       })
     } else {
@@ -466,6 +557,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     if (!selected) return
     const { r, c } = selected
     if (isClue(r, c)) return
+    setCandidateOverlay(null)
     const historyEntry = makeHistoryEntry(
       internalPuzzle,
       notesRef.current,
@@ -554,41 +646,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     })
   }
 
-  function applyBrushColor(colorId: BrushSelection) {
+  function applyBrushColor(colorId: BrushColorId) {
     setActiveBrushColor(colorId)
-    if (candidateBrushMode) {
-      if (colorId !== 'clear' || !selected) return
-      const { r, c } = selected
-      if (!candidateColorsRef.current[r][c].some(color => color !== null)) return
-      const historyEntry = makeHistoryEntry(
-        internalPuzzle,
-        notesRef.current,
-        cellColorsRef.current,
-        candidateColorsRef.current,
-      )
-      setHistory(h => [...h.slice(-50), historyEntry])
-      setCandidateColors(prev => {
-        const next = cloneCandidateColorsGrid(prev)
-        next[r][c] = emptyCandidateColorCell()
-        return next
-      })
-      return
-    }
-    if (!selected) return
-    const { r, c } = selected
-    const historyEntry = makeHistoryEntry(
-      internalPuzzle,
-      notesRef.current,
-      cellColorsRef.current,
-      candidateColorsRef.current,
-    )
-    const nextColor = colorId === 'clear' || cellColorsRef.current[r][c] === colorId ? null : colorId
-    setHistory(h => [...h.slice(-50), historyEntry])
-    setCellColors(prev => {
-      const next = cloneCellColorsGrid(prev)
-      next[r][c] = nextColor
-      return next
-    })
   }
 
   function clearAllColors() {
@@ -642,19 +701,18 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   const hasAnyFillableCell = internalPuzzle.some((row, r) =>
     row.some((n, c) => !isClue(r, c) && n === 0 && notes[r][c].length === 0)
   )
-  const hasBrushSelection = selected !== null
+  const hasAnyColors =
+    cellColors.some(row => row.some(color => color !== null)) ||
+    candidateColors.some(row => row.some(cell => cell.some(color => color !== null)))
+  const candidateEntryMode = notesMode
   const selectedHasCellColor =
     selected !== null && cellColors[selected.r][selected.c] !== null
   const selectedHasCandidateColors =
     selected !== null && candidateColors[selected.r][selected.c].some(color => color !== null)
-  const hasAnyColors =
-    cellColors.some(row => row.some(color => color !== null)) ||
-    candidateColors.some(row => row.some(cell => cell.some(color => color !== null)))
-  const canUseBrushPalette = candidateBrushMode
-    ? !selectedHasCellColor
-    : hasBrushSelection && !selectedHasCandidateColors
-  const candidateEntryMode = notesMode || (brushMode && candidateBrushMode)
-  const numberPadLocked = brushMode && !candidateBrushMode
+  const selectedHasAnyColors = selectedHasCellColor || selectedHasCandidateColors
+  const overlayCellNotes = candidateOverlay ? notes[candidateOverlay.r][candidateOverlay.c] : []
+  const overlayHasCellColor =
+    candidateOverlay !== null && cellColors[candidateOverlay.r][candidateOverlay.c] !== null
 
   // flatten to grid items for responsive sizing
   const cells = [] as React.ReactNode[]
@@ -692,7 +750,21 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           aria-selected={selectedHere}
           aria-disabled={clue}
           className={`cell ${clue ? 'given' : ''} ${!paused && userEntry ? 'user' : ''} ${selectedClass} ${!paused && sameDigit ? 'same-digit' : ''} ${!paused && inCross ? 'cross' : ''} ${!paused && isError ? 'error' : ''}`}
-          onClick={() => { if (haptic) onTriggerHaptic?.(); selectCell(r, c) }}
+          onClick={(e) => {
+            if (brushMode) {
+              setSelected({ r, c })
+              const changed = candidateBrushMode
+                ? openCandidateOverlay(r, c, e.currentTarget)
+                : (() => {
+                    closeCandidateOverlay()
+                    return applyCellBrushColorAt(r, c)
+                  })()
+              if (changed && haptic) onTriggerHaptic?.()
+              return
+            }
+            if (haptic) onTriggerHaptic?.()
+            selectCell(r, c)
+          }}
         >
           {cellColorId && (
             <span
@@ -796,8 +868,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
               const next = !v
               if (next) {
                 setBrushMode(false)
-                setActiveBrushColor(null)
-                setCandidateBrushMode(false)
+                setCandidateOverlay(null)
               }
               return next
             })
@@ -816,10 +887,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
               const next = !v
               if (next) {
                 setNotesMode(false)
-              } else {
-                setActiveBrushColor(null)
-                setCandidateBrushMode(false)
               }
+              setCandidateOverlay(null)
               return next
             })
           }}
@@ -827,47 +896,49 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           <FaBrush size={20} />
         </button>
       </div>
-      <div className="number-pad" role="toolbar" aria-label="Number entry">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
-          <button
-            key={d}
-            type="button"
-            className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${candidateEntryMode ? ' num-key--notes' : ''}`}
-            disabled={paused || won || remaining[d] === 0 || numberPadLocked}
-            onPointerDown={(e) => {
-              if (e.pointerType === 'touch') {
-                // Apply digit now (instant feedback), but defer haptic to onClick.
-                // iOS only honors haptic triggered inside a click/tap event handler.
+      {!brushMode && (
+        <div className="number-pad" role="toolbar" aria-label="Number entry">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
+            <button
+              key={d}
+              type="button"
+              className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${candidateEntryMode ? ' num-key--notes' : ''}`}
+              disabled={paused || won || remaining[d] === 0}
+              onPointerDown={(e) => {
+                if (e.pointerType === 'touch') {
+                  // Apply digit now (instant feedback), but defer haptic to onClick.
+                  // iOS only honors haptic triggered inside a click/tap event handler.
+                  const isError = applyDigit(d)
+                  touchFiredRef.current = isError ? 'error' : 'ok'
+                }
+              }}
+              onClick={() => {
+                if (touchFiredRef.current !== null) {
+                  // iOS ghost click — fire the haptic here (valid iOS haptic context).
+                  const result = touchFiredRef.current
+                  touchFiredRef.current = null
+                  if (haptic) {
+                    if (result === 'error') onTriggerErrorHaptic?.()
+                    else onTriggerHaptic?.()
+                  }
+                  return
+                }
+                // Mouse / keyboard path
                 const isError = applyDigit(d)
-                touchFiredRef.current = isError ? 'error' : 'ok'
-              }
-            }}
-            onClick={() => {
-              if (touchFiredRef.current !== null) {
-                // iOS ghost click — fire the haptic here (valid iOS haptic context).
-                const result = touchFiredRef.current
-                touchFiredRef.current = null
                 if (haptic) {
-                  if (result === 'error') onTriggerErrorHaptic?.()
+                  if (isError) onTriggerErrorHaptic?.()
                   else onTriggerHaptic?.()
                 }
-                return
-              }
-              // Mouse / keyboard path
-              const isError = applyDigit(d)
-              if (haptic) {
-                if (isError) onTriggerErrorHaptic?.()
-                else onTriggerHaptic?.()
-              }
-            }}
-            aria-label={`${d}, ${remaining[d]} remaining`}
-            data-digit={d}
-          >
-            <span className="num-key__digit">{remaining[d] === 0 ? '\u00a0' : d}</span>
-            <span className="num-key__remaining">{remaining[d] > 0 ? remaining[d] : '\u00a0'}</span>
-          </button>
-        ))}
-      </div>
+              }}
+              aria-label={`${d}, ${remaining[d]} remaining`}
+              data-digit={d}
+            >
+              <span className="num-key__digit">{remaining[d] === 0 ? '\u00a0' : d}</span>
+              <span className="num-key__remaining">{remaining[d] > 0 ? remaining[d] : '\u00a0'}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {brushMode && (
         <div className="num-pad-toolbar brush-color-row" role="toolbar" aria-label="Brush colors">
           {BRUSH_COLORS.map((color, index) => (
@@ -877,18 +948,21 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
               className={`brush-color-button${activeBrushColor === color.id ? ' brush-color-button--active' : ''}`}
               aria-label={`Brush color ${index + 1}`}
               aria-pressed={activeBrushColor === color.id}
-              disabled={paused || won || !canUseBrushPalette}
+              disabled={paused || won}
               onClick={() => applyBrushColor(color.id)}
               style={{ '--annotation-color': color.fill, '--swatch-color': color.swatch } as React.CSSProperties}
             />
           ))}
           <button
             type="button"
-            className={`brush-color-button brush-color-button--clear${activeBrushColor === 'clear' ? ' brush-color-button--active' : ''}`}
+            className="brush-color-button brush-color-button--clear"
             aria-label="Brush color remover"
-            aria-pressed={activeBrushColor === 'clear'}
-            disabled={paused || won || !canUseBrushPalette}
-            onClick={() => applyBrushColor('clear')}
+            aria-pressed={false}
+            disabled={paused || won || !selectedHasAnyColors}
+            onClick={() => {
+              const changed = clearSelectedBrushColors()
+              if (changed && haptic) onTriggerHaptic?.()
+            }}
           >
             <span className="brush-color-button__clear-mark" aria-hidden="true">×</span>
           </button>
@@ -902,16 +976,12 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             aria-label="Toggle candidate coloring mode"
             aria-pressed={candidateBrushMode}
             disabled={paused || won}
-            onClick={(e) => {
-              const button = e.currentTarget
-              setCandidateBrushMode(v => {
-                const next = !v
-                if (next && (activeBrushColor === null || activeBrushColor === 'clear')) {
-                  setActiveBrushColor(BRUSH_COLORS[0].id)
-                }
+            onClick={() => {
+              setCandidateBrushMode(prev => {
+                const next = !prev
+                if (!next) closeCandidateOverlay()
                 return next
               })
-              button.blur()
             }}
           >
             <TbNumbers size={18} />
@@ -926,6 +996,50 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             <GiMagicBroom size={18} />
           </button>
         </div>
+      )}
+      {candidateOverlay && (
+        <>
+          <button
+            type="button"
+            className="brush-candidate-backdrop"
+            aria-label="Close candidate painter"
+            onClick={() => setCandidateOverlay(null)}
+          />
+          <div
+            className="brush-candidate-overlay"
+            role="dialog"
+            aria-label="Candidate painter"
+            style={{
+              top: `${candidateOverlay.top}px`,
+              left: `${candidateOverlay.left}px`,
+              width: `${candidateOverlay.size}px`,
+              height: `${candidateOverlay.size}px`,
+            }}
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => {
+              const hasCandidate = overlayCellNotes.includes(d)
+              const colorId = candidateColors[candidateOverlay.r][candidateOverlay.c][d - 1] as BrushColorId | null
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  className={`brush-candidate-button${hasCandidate ? '' : ' brush-candidate-button--empty'}`}
+                  aria-label={hasCandidate ? `Paint candidate ${d}` : `Candidate ${d} unavailable`}
+                  disabled={!hasCandidate || overlayHasCellColor}
+                  onClick={() => {
+                    const changed = applyCandidateBrushColorAt(candidateOverlay.r, candidateOverlay.c, d)
+                    if (changed && haptic) onTriggerHaptic?.()
+                  }}
+                  style={colorId
+                    ? ({ '--annotation-color': BRUSH_COLOR_MAP[colorId] } as React.CSSProperties)
+                    : undefined}
+                >
+                  {hasCandidate ? d : ''}
+                </button>
+              )
+            })}
+          </div>
+        </>
       )}
       {notesMode && (
         <div className="num-pad-toolbar candidate-fill-row">

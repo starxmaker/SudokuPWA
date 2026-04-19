@@ -124,6 +124,12 @@ export function clearCompleted(): void {
 }
 
 export const ELAPSED_KEY = 'sudoku-pwa-elapsed'
+export const BRUSH_PREFS_KEY = 'sudoku-pwa-brush-prefs'
+
+type BrushPrefs = {
+  activeColor: string
+  candidateMode: boolean
+}
 
 export function saveElapsed(seconds: number): void {
   try { localStorage.setItem(ELAPSED_KEY, String(seconds)) } catch { /* ignore */ }
@@ -139,6 +145,30 @@ export function loadElapsed(): number {
 
 export function clearElapsed(): void {
   try { localStorage.removeItem(ELAPSED_KEY) } catch { /* ignore */ }
+}
+
+export function saveBrushPrefs(activeColor: string, candidateMode: boolean): void {
+  try {
+    const payload: BrushPrefs = { activeColor, candidateMode }
+    localStorage.setItem(BRUSH_PREFS_KEY, JSON.stringify(payload))
+  } catch { /* ignore */ }
+}
+
+export function loadBrushPrefs(): BrushPrefs | null {
+  try {
+    const s = localStorage.getItem(BRUSH_PREFS_KEY)
+    if (!s) return null
+    const parsed = JSON.parse(s)
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      typeof parsed.activeColor === 'string' &&
+      typeof parsed.candidateMode === 'boolean'
+    ) {
+      return parsed as BrushPrefs
+    }
+  } catch { /* ignore */ }
+  return null
 }
 
 export function saveGame(

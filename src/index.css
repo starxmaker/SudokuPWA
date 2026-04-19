@@ -359,9 +359,13 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   margin-top:8px;
   flex-wrap:wrap;
   gap:10px;
+  position:relative;
+  z-index:1700;
 }
 .brush-actions-row{
   margin-top:8px;
+  position:relative;
+  z-index:1700;
 }
 .brush-color-button{
   width:32px;
@@ -540,6 +544,64 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   inset:1px;
   background:var(--annotation-color);
   pointer-events:none;
+}
+.brush-candidate-backdrop{
+  position:fixed;
+  inset:0;
+  border:none !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  border-radius:0 !important;
+  padding:0 !important;
+  z-index:1699;
+}
+.brush-candidate-overlay{
+  position:fixed;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(3,1fr);
+  gap:6px;
+  padding:10px;
+  background:var(--card);
+  border:1px solid var(--cell-box);
+  border-radius:18px;
+  box-shadow:0 14px 30px rgba(0,0,0,0.2);
+  z-index:1701;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.brush-candidate-button{
+  min-width:0;
+  min-height:0;
+  padding:0;
+  font-size:clamp(1.3rem, 4.5vw, 2rem);
+  font-weight:500;
+  border-radius:12px;
+  border:1px solid var(--cell-inner);
+  background:#fff !important;
+  color:var(--cell-user-text) !important;
+  box-shadow:none !important;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.brush-candidate-button[disabled]{
+  opacity:1;
+  cursor:default;
+}
+.brush-candidate-button--empty{
+  border-style:dashed;
+  color:transparent !important;
+}
+.brush-candidate-button:not(.brush-candidate-button--empty)[style]{
+  background:var(--annotation-color) !important;
+}
+.dark .brush-candidate-overlay{
+  border-color:#555;
+  box-shadow:0 14px 30px rgba(0,0,0,0.45);
+}
+.dark .brush-candidate-button{
+  background:#181818 !important;
+  border-color:#555 !important;
 }
 
 /* Slightly stronger 3×3 box boundaries (grey) */
