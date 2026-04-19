@@ -92,6 +92,7 @@ body{background:var(--bg);color:var(--text)}
 button{
   appearance:none;
   -webkit-appearance:none;
+  -webkit-tap-highlight-color:transparent;
   border:0;
   background:var(--accent);
   color: #fff;
@@ -481,12 +482,6 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .dark .num-pad-toolbar .num-key.drawing-toggle{
   border:2px solid #555 !important;
 }
-.num-pad-toolbar .num-key.clear:hover,
-.num-pad-toolbar .num-key.notes-toggle:hover,
-.num-pad-toolbar .num-key.brush-toggle:hover,
-.num-pad-toolbar .num-key.drawing-toggle:hover{
-  background:var(--accent-soft) !important;
-}
 .num-pad-toolbar .num-key.clear:disabled,
 .num-pad-toolbar .num-key.notes-toggle:disabled,
 .num-pad-toolbar .num-key.brush-toggle:disabled,
@@ -554,9 +549,6 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   background:var(--swatch-color) !important;
   box-shadow:none !important;
   padding:0 !important;
-}
-.brush-color-button:hover{
-  transform:scale(1.04);
 }
 .brush-color-button--active{
   border-color:var(--text);
@@ -845,6 +837,19 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .dark .brush-candidate-button{
   background:#181818 !important;
   border-color:#555 !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .num-pad-toolbar .num-key.clear:hover,
+  .num-pad-toolbar .num-key.notes-toggle:hover,
+  .num-pad-toolbar .num-key.brush-toggle:hover,
+  .num-pad-toolbar .num-key.drawing-toggle:hover{
+    background:var(--accent-soft) !important;
+  }
+
+  .brush-color-button:hover{
+    transform:scale(1.04);
+  }
 }
 
 @keyframes tool-tray-enter-right{

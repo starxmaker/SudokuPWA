@@ -471,6 +471,19 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
   })
 
+  it('does not highlight a cell digit across the board when candidate coloring mode selects a filled cell', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
+    await user.click(cells[0])
+
+    expect(screen.queryByRole('dialog', { name: /candidate painter/i })).toBeNull()
+    expect(cells[28].classList.contains('same-digit')).toBe(false)
+  })
+
   it('closes the candidate overlay when clicking outside it', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
@@ -505,17 +518,35 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[2])
 
     const candidateButton = screen.getByRole('button', { name: /paint candidate 4/i })
-    fireEvent.focus(candidateButton)
+    fireEvent.pointerMove(candidateButton)
 
     expect(cells[33].classList.contains('same-digit')).toBe(true)
     expect(cells[33].classList.contains('cross')).toBe(false)
     expect(cells[2].querySelectorAll('.cell-note')[3].classList.contains('cell-note--highlight')).toBe(true)
 
-    fireEvent.blur(candidateButton)
-    expect(cells[33].classList.contains('same-digit')).toBe(true)
-
     await user.click(screen.getByRole('button', { name: /close candidate painter/i }))
     expect(cells[33].classList.contains('same-digit')).toBe(false)
+  })
+
+  it('does not preview a candidate just because an overlay button receives focus', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+    await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
+    await user.click(cells[2])
+
+    const candidateButton = screen.getByRole('button', { name: /paint candidate 4/i })
+    fireEvent.focus(candidateButton)
+
+    expect(cells[33].classList.contains('same-digit')).toBe(false)
+    expect(cells[2].querySelectorAll('.cell-note')[3].classList.contains('cell-note--highlight')).toBe(false)
   })
 
   it('keeps matching digits highlighted after painting a candidate from the overlay', async () => {
@@ -1021,6 +1052,23 @@ describe('Board haptic callbacks', () => {
     expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
   })
 
+  it('calls onTriggerHaptic and clears focus for a one-shot toolbar button', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^7,/ }))
+    onTriggerHaptic.mockClear()
+
+    const clearBtn = screen.getByRole('button', { name: /clear cell/i })
+    await user.click(clearBtn)
+
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+    expect(clearBtn).not.toHaveFocus()
+  })
+
   it('does not call onTriggerHaptic when haptic=false', async () => {
     const onTriggerHaptic = vi.fn()
     render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic={false} onTriggerHaptic={onTriggerHaptic} />)
@@ -1168,6 +1216,24 @@ describe('Board pause display', () => {
     expect(cells[2].classList.contains('error')).toBe(true)
     await user.click(screen.getByRole('button', { name: 'Pause' }))
     expect(cells[2].classList.contains('error')).toBe(false)
+  })
+
+  it('hides the first-color flag border when paused and restores it on resume', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(cells[2])
+    expect(cells[2].querySelector('.cell-flag-border')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    expect(cells[2].querySelector('.cell-flag-border')).toBeNull()
+
+    const resumeBtns = screen.getAllByRole('button', { name: 'Resume' })
+    const timerResumeBtn = resumeBtns.find(btn => btn.classList.contains('timer-pause'))
+    await user.click(timerResumeBtn ?? resumeBtns[0])
+    expect(cells[2].querySelector('.cell-flag-border')).not.toBeNull()
   })
 
   it('restores classes after resuming', async () => {

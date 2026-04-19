@@ -892,6 +892,15 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     openDrawingTools()
   }
 
+  function handleMomentaryButtonClick(
+    event: React.MouseEvent<HTMLButtonElement>,
+    action: () => boolean,
+  ) {
+    const changed = action()
+    event.currentTarget.blur()
+    if (changed && haptic) onTriggerHaptic?.()
+  }
+
   function clearSelectedBrushColors() {
     if (!selected) return false
     const { r, c } = selected
@@ -1074,10 +1083,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   function clearCell() {
-    if (!selected) return
+    if (!selected) return false
     const { r, c } = selected
-    if (isClue(r, c)) return
-    if (drawingMode) return
+    if (isClue(r, c)) return false
+    if (drawingMode) return false
     setCandidateOverlay(null)
     const historyEntry = makeHistoryEntry(
       internalPuzzle,
@@ -1110,14 +1119,15 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setCellColors(nextCellColors)
     setFlaggedColorCell(nextFlaggedColorCell)
     onInput(r, c, 0)
+    return true
   }
 
   function fillCandidates() {
-    if (!selected) return
+    if (!selected) return false
     const { r, c } = selected
-    if (isClue(r, c) || internalPuzzle[r][c] !== 0 || notesRef.current[r][c].length > 0) return
+    if (isClue(r, c) || internalPuzzle[r][c] !== 0 || notesRef.current[r][c].length > 0) return false
     const candidates = getSimpleCandidates(r, c)
-    if (candidates.length === 0) return
+    if (candidates.length === 0) return false
     const historyEntry = makeHistoryEntry(
       internalPuzzle,
       notesRef.current,
@@ -1145,13 +1155,14 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCandidateColors(nextCandidateColors)
     setFlaggedColorCell(nextFlaggedColorCell)
+    return true
   }
 
   function fillAllCandidates() {
     const hasFillableCell = internalPuzzle.some((row, r) =>
       row.some((n, c) => !isClue(r, c) && n === 0 && notesRef.current[r][c].length === 0)
     )
-    if (!hasFillableCell) return
+    if (!hasFillableCell) return false
 
     const nextNotes = cloneNotesGrid(notesRef.current)
     let changed = false
@@ -1164,7 +1175,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       }
     }
 
-    if (!changed) return
+    if (!changed) return false
     const historyEntry = makeHistoryEntry(
       internalPuzzle,
       notesRef.current,
@@ -1193,6 +1204,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCandidateColors(nextCandidateColors)
     setFlaggedColorCell(nextFlaggedColorCell)
+    return true
   }
 
   function applyBrushColor(colorId: BrushColorId) {
@@ -1208,7 +1220,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     const hasCandidateColors = candidateColorsRef.current.some(row =>
       row.some(cell => cell.some(color => color.length > 0))
     )
-    if (!hasCellColors && !hasCandidateColors) return
+    if (!hasCellColors && !hasCandidateColors) return false
 
     const historyEntry = makeHistoryEntry(
       internalPuzzle,
@@ -1223,10 +1235,11 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     setCellColors(emptyCellColors())
     setCandidateColors(emptyCandidateColors())
     setFlaggedColorCell(null)
+    return true
   }
 
   function clearAllDrawings() {
-    if (drawingStrokesRef.current.length === 0) return
+    if (drawingStrokesRef.current.length === 0) return false
     const historyEntry = makeHistoryEntry(
       internalPuzzle,
       notesRef.current,
@@ -1239,6 +1252,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     drawingPointerIdRef.current = null
     setDrawingDraft(null)
     setDrawingStrokes(emptyDrawingStrokes())
+    return true
   }
 
   function getDrawingPoint(event: React.PointerEvent<SVGSVGElement>) {
@@ -1311,7 +1325,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   function undo() {
     const entry = history[history.length - 1]
-    if (!entry) return
+    if (!entry) return false
     const restoredPuzzle = cloneGrid(entry.puzzle)
     const restoredNotes = cloneNotesGrid(entry.notes)
     const restoredCellColors = cloneCellColorsGrid(entry.cellColors)
@@ -1329,6 +1343,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     flaggedColorCellRef.current = restoredFlaggedColorCell
     setFlaggedColorCell(restoredFlaggedColorCell)
     setHistory(prev => prev.slice(0, -1))
+    return true
   }
 
   if(internalPuzzle.length===0) return null
@@ -1341,7 +1356,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
 
   const selectedDigit =
     selected !== null ? internalPuzzle[selected.r][selected.c] : 0
-  const highlightedDigit = candidateOverlayPreviewDigit ?? candidateSelectedDigit ?? selectedDigit
+  const highlightedDigit = candidateOverlayPreviewDigit ?? candidateSelectedDigit ?? (brushMode || drawingMode ? 0 : selectedDigit)
   const canFillSelectedCandidates =
     selected !== null &&
     !isClue(selected.r, selected.c) &&
@@ -1555,10 +1570,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
           aria-label="Brush color remover"
           aria-pressed={false}
           disabled={paused || won || !selectedHasAnyColors}
-          onClick={() => {
-            const changed = clearSelectedBrushColors()
-            if (changed && haptic) onTriggerHaptic?.()
-          }}
+          onClick={(event) => handleMomentaryButtonClick(event, clearSelectedBrushColors)}
           tabIndex={tabIndex}
         >
           <span className="brush-color-button__clear-mark" aria-hidden="true">×</span>
@@ -1620,7 +1632,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
             selectCell(r, c)
           }}
           >
-          {flaggedHere && <span className="cell-flag-border" />}
+          {!paused && flaggedHere && <span className="cell-flag-border" />}
           {cellColorIds.length > 0 && (
             <span
               className="cell-color-layer"
@@ -1839,7 +1851,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                 type="button"
                 aria-label="Undo"
                 disabled={undoDisabled}
-                onClick={undo}
+                onClick={(event) => handleMomentaryButtonClick(event, undo)}
               >
                 <MdUndo size={24} />
               </button>
@@ -1848,7 +1860,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                 type="button"
                 aria-label="Clear cell"
                 disabled={paused || won}
-                onClick={clearCell}
+                onClick={(event) => handleMomentaryButtonClick(event, clearCell)}
               >
                 <FaEraser size={22} />
               </button>
@@ -1932,7 +1944,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   className="num-key clear"
                   aria-label="Undo"
                   disabled={undoDisabled}
-                  onClick={undo}
+                  onClick={(event) => handleMomentaryButtonClick(event, undo)}
                 >
                   <MdUndo size={24} />
                 </button>
@@ -1941,7 +1953,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   className="num-key clear"
                   aria-label="Fill candidates"
                   disabled={paused || won || !canFillSelectedCandidates}
-                  onClick={fillCandidates}
+                  onClick={(event) => handleMomentaryButtonClick(event, fillCandidates)}
                 >
                   <FaWandMagic size={20} />
                 </button>
@@ -1950,7 +1962,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   className="num-key clear"
                   aria-label="Fill all candidates"
                   disabled={paused || won || !hasAnyFillableCell}
-                  onClick={fillAllCandidates}
+                  onClick={(event) => handleMomentaryButtonClick(event, fillAllCandidates)}
                 >
                   <FaWandMagicSparkles size={20} />
                 </button>
@@ -2006,7 +2018,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   className="num-key clear"
                   aria-label="Undo"
                   disabled={undoDisabled}
-                  onClick={undo}
+                  onClick={(event) => handleMomentaryButtonClick(event, undo)}
                 >
                   <MdUndo size={24} />
                 </button>
@@ -2041,7 +2053,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   className="num-key clear"
                   aria-label="Clear colors"
                   disabled={paused || won || !hasAnyColors}
-                  onClick={clearAllColors}
+                  onClick={(event) => handleMomentaryButtonClick(event, clearAllColors)}
                 >
                   <GiMagicBroom size={18} />
                 </button>
@@ -2110,7 +2122,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   className="num-key clear"
                   aria-label="Undo"
                   disabled={undoDisabled}
-                  onClick={undo}
+                  onClick={(event) => handleMomentaryButtonClick(event, undo)}
                 >
                   <MdUndo size={24} />
                 </button>
@@ -2119,7 +2131,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   className="num-key clear"
                   aria-label="Clear drawings"
                   disabled={paused || won || !hasAnyDrawings}
-                  onClick={clearAllDrawings}
+                  onClick={(event) => handleMomentaryButtonClick(event, clearAllDrawings)}
                 >
                   <GiMagicBroom size={18} />
                 </button>
@@ -2217,10 +2229,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
                   className={`brush-candidate-button${hasCandidate ? '' : ' brush-candidate-button--empty'}`}
                   aria-label={hasCandidate ? `Paint candidate ${d}` : `Candidate ${d} unavailable`}
                   disabled={!hasCandidate || overlayHasCellColor}
-                  onPointerEnter={() => {
-                    if (hasCandidate && !overlayHasCellColor) setCandidateOverlayPreviewDigit(d)
-                  }}
-                  onFocus={() => {
+                  onPointerMove={() => {
                     if (hasCandidate && !overlayHasCellColor) setCandidateOverlayPreviewDigit(d)
                   }}
                   onPointerDown={() => {
