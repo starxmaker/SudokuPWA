@@ -229,6 +229,7 @@ describe('Board component', () => {
     expect(screen.queryByRole('button', { name: /brush color 9/i })).toBeNull()
     expect(screen.getByRole('button', { name: /toggle candidate coloring mode/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /toggle candidate coloring mode/i }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: /toggle first color flag/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /brush color remover/i }).getAttribute('aria-pressed')).toBe('false')
@@ -355,6 +356,57 @@ describe('Board with fixed puzzle', () => {
     expect(colorLayer?.getAttribute('style')).toContain('rgba(249, 115, 22, 0.28)')
     expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: /brush color 2/i }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('persists the first color flag toggle and keeps the first colored cell flagged', async () => {
+    const user = userEvent.setup()
+    const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(cells[2])
+    await user.click(cells[4])
+
+    expect(cells[2].querySelector('.cell-flag-border')).not.toBeNull()
+    expect(cells[4].querySelector('.cell-flag-border')).toBeNull()
+
+    firstRender.unmount()
+
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    const rerenderedCells = screen.getAllByRole('gridcell')
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    expect(screen.getByRole('button', { name: /toggle first color flag/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(rerenderedCells[2].querySelector('.cell-flag-border')).not.toBeNull()
+    expect(rerenderedCells[4].querySelector('.cell-flag-border')).toBeNull()
+  })
+
+  it('clears and resets the first color flag when board colors are removed', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /brush color 2/i }))
+    await user.click(cells[4])
+
+    expect(cells[2].querySelector('.cell-flag-border')).not.toBeNull()
+    expect(cells[4].querySelector('.cell-color-layer')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /clear cell/i }))
+
+    expect(cells[2].querySelector('.cell-flag-border')).toBeNull()
+    expect(cells[4].querySelector('.cell-flag-border')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /clear colors/i }))
+    await user.click(cells[4])
+
+    expect(cells[4].querySelector('.cell-flag-border')).not.toBeNull()
   })
 
   it('removes the cell brush color when a number is entered', async () => {
