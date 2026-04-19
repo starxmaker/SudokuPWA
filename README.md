@@ -1,15 +1,32 @@
 # Sudoku PWA
 
-Simple Progressive Web App scaffold for Sudoku with offline support.
+Sudoku power web app based on Typescript.
 
-Run locally (Vite):
+You can try it  [here](https://starxmaker.github.io/SudokuPWA/)
 
-```bash
-npm install
-npm run dev
-# then open http://localhost:5173
-```
+## Features
 
-Notes:
-- Service worker caches static assets for offline use.
-- Progress is saved to `localStorage`.
+- Free and open source
+- Installable (PWA)
+- Completely client side code, no servers used.
+- Can be played on PC/Tablet/Phones
+- Offline support
+- QQwing sudoku generation
+- Sudoku.JS solvable check
+- Hodoku difficulty calibration (based on human techniques)
+- Candidates with prefilling support
+- Candidate and digit coloring
+- Undo movements
+- Timers
+- Night mode
+- Share and import puzzles
+- Haptics support
+- Free drawing
+
+## Limitations
+
+- Only single solution puzzles are supported for the meantime
+- No score or time tracking
+- No hints
+- Hodoku difficulty calibration is based on [Hodoku partial port on TS](https://github.com/starxmaker/hodoku-difficulty-rating-ts).  As you see, parity on difficulty rating is not still 100% on expert puzzles compared with the original Java version.
+- For the moment, only difficulty rating is relevant to the project, although score rating will be used in the future for more difficulty options.
