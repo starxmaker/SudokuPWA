@@ -118,8 +118,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   align-items:center;
   justify-content:space-between;
   gap:8px;
-  width:min(100%, calc(100dvh - var(--board-safe-space)));
-  max-width:720px;
+  width:100%;
 }
 .difficulty-label{
   font-size:0.85rem;font-weight:600;opacity:0.6;text-transform:capitalize;
@@ -202,6 +201,27 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   gap:8px;
   padding:8px 0 48px;
 }
+.game-main{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
+.board-area{
+  width:min(100%, 720px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  flex:0 0 auto;
+}
+.controls-panel{
+  width:min(100%, 720px);
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+}
 .board-wrapper{
   width:100%;
   display:flex;
@@ -215,7 +235,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   grid-template-columns:repeat(9,minmax(0,1fr));
   grid-template-rows:repeat(9,minmax(0,1fr));
   gap:0;
-  width:min(100%, calc(100dvh - var(--board-safe-space)));
+  width:100%;
   max-height:min(720px, calc(100dvh - var(--board-safe-space)));
   aspect-ratio:1/1;
   max-width:720px;
@@ -314,8 +334,64 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   justify-content:center;
   gap:8px;
   width:100%;
-  max-width:720px;
+  max-width:none;
   margin-top:10px;
+}
+.tool-tray{
+  position:relative;
+  width:100%;
+  margin-top:8px;
+}
+.tool-tray .num-pad-toolbar{
+  margin-top:0;
+}
+.tool-tray__panel{
+  width:100%;
+}
+.tool-tray__panel--active{
+  position:relative;
+}
+.tool-tray__panel--overlay{
+  position:absolute;
+  inset:0 auto auto 0;
+  pointer-events:none;
+}
+.tool-tray__panel--hidden{
+  display:none;
+}
+.tool-tray__panel--sub{
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.tool-tray__back{
+  flex:0 0 auto;
+}
+.tool-tray__content{
+  display:flex;
+  gap:8px;
+  flex:0 1 auto;
+  min-width:0;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.tool-tray__content--notes{
+  position:relative;
+  z-index:1700;
+}
+.tool-tray__panel--enter-right{
+  animation:tool-tray-enter-right 0.22s ease both;
+}
+.tool-tray__panel--enter-left{
+  animation:tool-tray-enter-left 0.22s ease both;
+}
+.tool-tray__panel--leave-left{
+  animation:tool-tray-leave-left 0.22s ease both;
+}
+.tool-tray__panel--leave-right{
+  animation:tool-tray-leave-right 0.22s ease both;
 }
 .num-pad-toolbar .num-key.clear,
 .num-pad-toolbar .num-key.notes-toggle,
@@ -403,6 +479,51 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .dark .brush-color-button--active{
   border-color:#fff;
 }
+.tool-tray__content .num-key.clear{
+  min-width:44px;
+  padding:8px 12px;
+}
+.input-pad-switcher{
+  position:relative;
+  width:100%;
+  margin-top:16px;
+}
+.input-pad-switcher .number-pad{
+  margin-top:0;
+}
+.input-pad__panel{
+  width:100%;
+}
+.input-pad__panel--active{
+  position:relative;
+}
+.input-pad__panel--overlay{
+  position:absolute;
+  inset:0 auto auto 0;
+  pointer-events:none;
+}
+.input-pad__panel.input-pad__panel--hidden{
+  display:none !important;
+}
+.input-pad__panel--enter-right{
+  animation:tool-tray-enter-right 0.22s ease both;
+}
+.input-pad__panel--enter-left{
+  animation:tool-tray-enter-left 0.22s ease both;
+}
+.input-pad__panel--leave-left{
+  animation:tool-tray-leave-left 0.22s ease both;
+}
+.input-pad__panel--leave-right{
+  animation:tool-tray-leave-right 0.22s ease both;
+}
+.brush-color-pad{
+  align-items:center;
+}
+.brush-color-pad .brush-color-button{
+  justify-self:center;
+  align-self:center;
+}
 .number-pad .num-key--notes{
   background:transparent !important;
   color:var(--text) !important;
@@ -415,7 +536,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   gap:6px;
   width:100%;
   max-width:720px;
-  margin-top:10px;
+  margin-top:8px;
 }
 .number-pad .num-key{
   padding:2px 1px;
@@ -603,6 +724,23 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   border-color:#555 !important;
 }
 
+@keyframes tool-tray-enter-right{
+  from{opacity:0;transform:translateX(28px)}
+  to{opacity:1;transform:translateX(0)}
+}
+@keyframes tool-tray-enter-left{
+  from{opacity:0;transform:translateX(-28px)}
+  to{opacity:1;transform:translateX(0)}
+}
+@keyframes tool-tray-leave-left{
+  from{opacity:1;transform:translateX(0)}
+  to{opacity:0;transform:translateX(-28px)}
+}
+@keyframes tool-tray-leave-right{
+  from{opacity:1;transform:translateX(0)}
+  to{opacity:0;transform:translateX(28px)}
+}
+
 /* Slightly stronger 3×3 box boundaries (grey) */
 .board > .cell:nth-child(9n+3),
 .board > .cell:nth-child(9n+6){ border-right-width:2px;border-right-color:var(--cell-box) }
@@ -611,16 +749,73 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 
 .footer{margin-top:12px;color:var(--muted)}
 
+@media (min-width: 980px) {
+  .app{ max-width:1160px; }
+  .game-main{
+    flex-direction:row;
+    align-items:stretch;
+    justify-content:center;
+    gap:20px;
+  }
+  .board-area{
+    width:min(720px, calc(100dvh - 150px), calc(100vw - 420px));
+    gap:10px;
+  }
+  .controls-panel{
+    width:320px;
+    max-width:320px;
+    gap:8px;
+  }
+  .controls-panel .num-pad-toolbar{
+    max-width:none;
+    margin-top:0;
+    justify-content:flex-start;
+    flex-wrap:wrap;
+  }
+  .controls-panel .input-pad-switcher{
+    margin-top:auto;
+  }
+  .controls-panel .input-pad-switcher .number-pad{
+    margin-top:0;
+  }
+  .controls-panel .number-pad{
+    max-width:none;
+    margin-top:auto;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+
 @media (max-height: 860px) {
-  :root{ --board-safe-space: 300px }
+  :root{ --board-safe-space: 250px }
   .game-layout{ padding-bottom:24px; }
+  .num-pad-toolbar .num-key.clear,
+  .num-pad-toolbar .num-key.notes-toggle,
+  .num-pad-toolbar .num-key.brush-toggle{
+    min-width:50px;
+    padding:8px 14px;
+    font-size:1rem;
+  }
 }
 
 @media (max-height: 760px) {
-  :root{ --board-safe-space: 330px }
+  :root{ --board-safe-space: 210px }
   .game-layout{
     gap:6px;
     padding-bottom:12px;
+  }
+  .num-pad-toolbar{
+    gap:6px;
+    margin-top:6px;
+  }
+  .tool-tray{ margin-top:6px; }
+  .input-pad-switcher{ margin-top:10px; }
+  .number-pad{ margin-top:6px; }
+  .num-pad-toolbar .num-key.clear,
+  .num-pad-toolbar .num-key.notes-toggle,
+  .num-pad-toolbar .num-key.brush-toggle{
+    min-width:44px;
+    padding:7px 12px;
+    font-size:0.95rem;
   }
 }
 

@@ -182,10 +182,12 @@ describe('Board component', () => {
     expect(notesBtn.getAttribute('aria-pressed')).toBe('false')
     await user.click(notesBtn)
     expect(notesBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /fill candidates/i })).toBeDisabled()
     expect(screen.getByRole('button', { name: /fill all candidates/i })).not.toBeDisabled()
-    await user.click(notesBtn)
-    expect(notesBtn.getAttribute('aria-pressed')).toBe('false')
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
+    const notesBtnAgain = screen.getByRole('button', { name: /toggle notes/i })
+    expect(notesBtnAgain.getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('button', { name: /fill candidates/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /fill all candidates/i })).toBeNull()
   })
@@ -209,28 +211,34 @@ describe('Board component', () => {
     expect(screen.queryByRole('button', { name: /brush color 9/i })).toBeNull()
     expect(screen.getByRole('button', { name: /toggle candidate coloring mode/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /toggle candidate coloring mode/i }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /brush color remover/i }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: /clear colors/i })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /^4,/ })).toBeNull()
     const brushColors = screen.getByRole('toolbar', { name: /brush colors/i })
-    const colorButtons = within(brushColors).getAllByRole('button')
+    const colorButtons = within(brushColors).getAllByRole('button', { name: /brush color/i })
     expect(colorButtons.at(-1)).toHaveAccessibleName(/brush color remover/i)
 
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     await user.click(notesBtn)
     expect(notesBtn.getAttribute('aria-pressed')).toBe('true')
-    expect(brushBtn.getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('button', { name: /brush color 1/i })).toBeNull()
     expect(screen.getByRole('button', { name: /^4,/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /toggle notes mode/i })).toBeInTheDocument()
 
-    await user.click(brushBtn)
-    expect(brushBtn.getAttribute('aria-pressed')).toBe('true')
-    expect(notesBtn.getAttribute('aria-pressed')).toBe('false')
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
+    const brushBtnAgain = screen.getByRole('button', { name: /toggle brush mode/i })
+    const notesBtnAgain = screen.getByRole('button', { name: /toggle notes/i })
+    await user.click(brushBtnAgain)
+    expect(brushBtnAgain.getAttribute('aria-pressed')).toBe('true')
+    expect(notesBtnAgain.getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: /brush color 1/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^4,/ })).toBeNull()
 
-    await user.click(brushBtn)
-    expect(brushBtn.getAttribute('aria-pressed')).toBe('false')
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    const brushBtnFinal = screen.getByRole('button', { name: /toggle brush mode/i })
+    expect(brushBtnFinal.getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('button', { name: /brush color 1/i })).toBeNull()
     expect(screen.getByRole('button', { name: /^4,/ })).toBeInTheDocument()
   })
@@ -322,6 +330,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(screen.getByRole('button', { name: /toggle notes/i }))
     await user.click(screen.getByRole('button', { name: /^4,/ }))
 
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     await user.click(screen.getByRole('button', { name: /brush color 1/i }))
     await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
@@ -364,6 +373,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[2])
     await user.click(screen.getByRole('button', { name: /toggle notes/i }))
     await user.click(screen.getByRole('button', { name: /^4,/ }))
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     await user.click(screen.getByRole('button', { name: /brush color 1/i }))
     await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
@@ -413,6 +423,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[2])
     expect(cells[2].querySelector('.cell-color-layer')).not.toBeNull()
 
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     await user.click(screen.getByRole('button', { name: /clear cell/i }))
     expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
   })
@@ -429,6 +440,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[4])
     await user.click(screen.getByRole('button', { name: /^7,/ }))
 
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     await user.click(screen.getByRole('button', { name: /brush color 1/i }))
     await user.click(cells[2])
@@ -569,7 +581,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(screen.getByRole('button', { name: /^4,/ }))
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
 
-    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
     await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit
     expect(cells[2].textContent?.trim()).toBe('7')
 
@@ -588,7 +600,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(screen.getByRole('button', { name: /^7,/ }))
     expect(cells[4].querySelector('.cell-notes')).not.toBeNull()
 
-    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
     await user.click(cells[2]) // [0][2], correct digit is 4
     await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit
     expect(cells[4].querySelector('.cell-notes')).not.toBeNull()
@@ -604,7 +616,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(screen.getByRole('button', { name: /^4,/ }))
     expect(cells[4].querySelector('.cell-notes')).not.toBeNull()
 
-    await user.click(screen.getByRole('button', { name: /toggle notes/i }))
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
     await user.click(cells[2]) // [0][2], correct digit is 4
     await user.click(screen.getByRole('button', { name: /^4,/ })) // correct digit
     expect(cells[4].querySelector('.cell-notes')).toBeNull()
