@@ -1,5 +1,5 @@
 
-:root{ --gap:4px; --bg: #f5f7fb; --text: #0b2135; --muted: #556; --card: #fff; --accent: #0b6cff; --accent-soft: rgba(11,108,255,0.06); --board-outer: #000000; --board-radius: 14px; --cell-inner: #b8c0cc; --cell-box: #8a96a8; --cell-cross-bg: rgba(0,0,0,0.08); --cell-clue-text: #4a5568; --cell-user-text: #0055d4; --cell-selected-bg: rgba(11,108,255,0.22) }
+:root{ --gap:4px; --bg: #f5f7fb; --text: #0b2135; --muted: #556; --card: #fff; --accent: #0b6cff; --accent-soft: rgba(11,108,255,0.06); --board-outer: #000000; --board-radius: 14px; --cell-inner: #b8c0cc; --cell-box: #8a96a8; --cell-cross-bg: rgba(0,0,0,0.08); --cell-clue-text: #4a5568; --cell-user-text: #0055d4; --cell-selected-bg: rgba(11,108,255,0.22); --board-safe-space: 260px }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;overscroll-behavior:none}
 body{font-family:system-ui,Arial;}
@@ -118,9 +118,8 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   align-items:center;
   justify-content:space-between;
   gap:8px;
-  width:100%;
+  width:min(100%, calc(100dvh - var(--board-safe-space)));
   max-width:720px;
-  padding:0 2px;
 }
 .difficulty-label{
   font-size:0.85rem;font-weight:600;opacity:0.6;text-transform:capitalize;
@@ -216,8 +215,8 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   grid-template-columns:repeat(9,minmax(0,1fr));
   grid-template-rows:repeat(9,minmax(0,1fr));
   gap:0;
-  width:100%;
-  max-height:calc(100dvh - 260px);
+  width:min(100%, calc(100dvh - var(--board-safe-space)));
+  max-height:min(720px, calc(100dvh - var(--board-safe-space)));
   aspect-ratio:1/1;
   max-width:720px;
   border:2px solid var(--board-outer);
@@ -611,6 +610,19 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .board > .cell:nth-child(n+46):nth-child(-n+54){ border-bottom-width:2px;border-bottom-color:var(--cell-box) }
 
 .footer{margin-top:12px;color:var(--muted)}
+
+@media (max-height: 860px) {
+  :root{ --board-safe-space: 300px }
+  .game-layout{ padding-bottom:24px; }
+}
+
+@media (max-height: 760px) {
+  :root{ --board-safe-space: 330px }
+  .game-layout{
+    gap:6px;
+    padding-bottom:12px;
+  }
+}
 
 /* Settings modal */
 .settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:1600}
