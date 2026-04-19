@@ -5,9 +5,12 @@ import {
   saveGame,
   loadSaved,
   STORAGE_KEY,
+  BRUSH_PREFS_KEY,
   emptyCellColors,
   emptyCandidateColors,
   emptyDrawingStrokes,
+  saveBrushPrefs,
+  loadBrushPrefs,
 } from './gameStorage'
 import type { Grid } from './sudoku_types'
 
@@ -272,5 +275,29 @@ describe('saveGame / loadSaved', () => {
     saveGame(SAMPLE, BLANK, null)
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
     expect(raw.v).toBe(7)
+  })
+})
+
+describe('brush preferences', () => {
+  it('saves and loads brush and drawing colors independently', () => {
+    saveBrushPrefs(['violet'], true, ['lime'])
+    expect(loadBrushPrefs()).toEqual({
+      activeColors: ['violet'],
+      activeDrawingColors: ['lime'],
+      candidateMode: true,
+    })
+  })
+
+  it('loads legacy brush prefs without a drawing color slot', () => {
+    localStorage.setItem(BRUSH_PREFS_KEY, JSON.stringify({
+      activeColor: 'sky',
+      candidateMode: false,
+    }))
+
+    expect(loadBrushPrefs()).toEqual({
+      activeColors: ['sky'],
+      activeDrawingColors: [],
+      candidateMode: false,
+    })
   })
 })

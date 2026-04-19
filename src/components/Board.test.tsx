@@ -515,13 +515,16 @@ describe('Board with fixed puzzle', () => {
     expect(clearColorsBtn).toBeDisabled()
   })
 
-  it('persists the selected brush colors and candidate painting mode between renders', async () => {
+  it('persists brush and drawing colors independently between renders', async () => {
     const user = userEvent.setup()
     const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
 
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     await user.click(screen.getByRole('button', { name: /brush color 3/i }))
     await user.click(screen.getByRole('button', { name: /toggle candidate coloring mode/i }))
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 5/i }))
 
     firstRender.unmount()
 
@@ -531,6 +534,12 @@ describe('Board with fixed puzzle', () => {
     expect(screen.getByRole('button', { name: /brush color 3/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: /toggle candidate coloring mode/i }).getAttribute('aria-pressed')).toBe('true')
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+
+    expect(screen.getByRole('button', { name: /brush color 5/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /brush color 3/i }).getAttribute('aria-pressed')).toBe('false')
   })
 
   it('draws a freehand stroke and undo restores the previous board drawing state', async () => {

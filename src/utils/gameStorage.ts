@@ -248,6 +248,7 @@ export const BRUSH_PREFS_KEY = 'sudoku-pwa-brush-prefs'
 
 type BrushPrefs = {
   activeColors: string[]
+  activeDrawingColors: string[]
   candidateMode: boolean
 }
 
@@ -267,9 +268,13 @@ export function clearElapsed(): void {
   try { localStorage.removeItem(ELAPSED_KEY) } catch { /* ignore */ }
 }
 
-export function saveBrushPrefs(activeColors: string[], candidateMode: boolean): void {
+export function saveBrushPrefs(activeColors: string[], candidateMode: boolean, activeDrawingColors: string[]): void {
   try {
-    const payload: BrushPrefs = { activeColors: [...activeColors], candidateMode }
+    const payload: BrushPrefs = {
+      activeColors: [...activeColors],
+      activeDrawingColors: [...activeDrawingColors],
+      candidateMode,
+    }
     localStorage.setItem(BRUSH_PREFS_KEY, JSON.stringify(payload))
   } catch { /* ignore */ }
 }
@@ -284,17 +289,21 @@ export function loadBrushPrefs(): BrushPrefs | null {
       typeof parsed === 'object' &&
       typeof parsed.candidateMode === 'boolean'
     ) {
-      if (Array.isArray(parsed.activeColors)) {
-        return {
-          activeColors: parsed.activeColors.filter((entry): entry is string => typeof entry === 'string'),
-          candidateMode: parsed.candidateMode,
-        }
-      }
-      if (typeof parsed.activeColor === 'string') {
-        return {
-          activeColors: [parsed.activeColor],
-          candidateMode: parsed.candidateMode,
-        }
+      const activeColors = Array.isArray(parsed.activeColors)
+        ? parsed.activeColors.filter((entry): entry is string => typeof entry === 'string')
+        : typeof parsed.activeColor === 'string'
+          ? [parsed.activeColor]
+          : []
+      const activeDrawingColors = Array.isArray(parsed.activeDrawingColors)
+        ? parsed.activeDrawingColors.filter((entry): entry is string => typeof entry === 'string')
+        : typeof parsed.activeDrawingColor === 'string'
+          ? [parsed.activeDrawingColor]
+          : []
+
+      return {
+        activeColors,
+        activeDrawingColors,
+        candidateMode: parsed.candidateMode,
       }
     }
   } catch { /* ignore */ }

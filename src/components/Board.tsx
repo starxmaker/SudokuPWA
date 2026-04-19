@@ -253,6 +253,11 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
       ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
     return savedColors && savedColors.length > 0 ? savedColors[0] : DEFAULT_BRUSH_COLOR
   })
+  const [activeDrawingColor, setActiveDrawingColor] = useState<BrushColorId>(() => {
+    const savedColors = savedBrushPrefs?.activeDrawingColors
+      ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
+    return savedColors && savedColors.length > 0 ? savedColors[0] : DEFAULT_BRUSH_COLOR
+  })
   const [candidateBrushMode, setCandidateBrushMode] = useState<boolean>(() => savedBrushPrefs?.candidateMode ?? false)
   const [candidateOverlay, setCandidateOverlay] = useState<CandidateOverlayState | null>(null)
   const [visibleToolTray, setVisibleToolTray] = useState<ToolTrayView>('main')
@@ -314,8 +319,8 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }, [drawingMode])
 
   useEffect(() => {
-    saveBrushPrefs([activeBrushColor], candidateBrushMode)
-  }, [activeBrushColor, candidateBrushMode])
+    saveBrushPrefs([activeBrushColor], candidateBrushMode, [activeDrawingColor])
+  }, [activeBrushColor, activeDrawingColor, candidateBrushMode])
 
   useEffect(() => () => {
     if (toolTrayTimerRef.current !== null) {
@@ -1046,6 +1051,10 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   function applyBrushColor(colorId: BrushColorId) {
+    if (drawingMode) {
+      setActiveDrawingColor(colorId)
+      return
+    }
     setActiveBrushColor(colorId)
   }
 
@@ -1101,7 +1110,7 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
     drawingPointerIdRef.current = event.pointerId
     event.currentTarget.setPointerCapture?.(event.pointerId)
     setDrawingDraft({
-      color: BRUSH_SWATCH_MAP[activeBrushColor] ?? activeBrushColor,
+      color: BRUSH_SWATCH_MAP[activeDrawingColor] ?? activeDrawingColor,
       points: [point],
     })
   }
@@ -1366,15 +1375,16 @@ export default function Board({ puzzle: initialProp, setPuzzle: setPuzzleProp, o
   }
 
   function renderColorPad(tabIndex?: number) {
+    const activePaletteColor = drawingMode ? activeDrawingColor : activeBrushColor
     return (
       <>
         {BRUSH_COLORS.map((color, index) => (
           <button
             key={color.id}
             type="button"
-            className={`brush-color-button${activeBrushColor === color.id ? ' brush-color-button--active' : ''}`}
+            className={`brush-color-button${activePaletteColor === color.id ? ' brush-color-button--active' : ''}`}
             aria-label={`Brush color ${index + 1}`}
-            aria-pressed={activeBrushColor === color.id}
+            aria-pressed={activePaletteColor === color.id}
             disabled={paused || won}
             onClick={() => applyBrushColor(color.id)}
             style={{ '--annotation-color': color.fill, '--swatch-color': color.swatch } as React.CSSProperties}
