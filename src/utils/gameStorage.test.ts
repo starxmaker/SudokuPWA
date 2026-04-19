@@ -5,8 +5,12 @@ import {
   saveGame,
   loadSaved,
   STORAGE_KEY,
+  BRUSH_PREFS_KEY,
   emptyCellColors,
   emptyCandidateColors,
+  emptyDrawingStrokes,
+  saveBrushPrefs,
+  loadBrushPrefs,
 } from './gameStorage'
 import type { Grid } from './sudoku_types'
 
@@ -37,16 +41,23 @@ function sampleNotes(): number[][][] {
 
 function sampleCellColors() {
   const colors = emptyCellColors()
-  colors[0][0] = 'rose'
-  colors[4][4] = 'sky'
+  colors[0][0] = ['rose']
+  colors[4][4] = ['sky']
   return colors
 }
 
 function sampleCandidateColors() {
   const colors = emptyCandidateColors()
-  colors[0][0][0] = 'rose'
-  colors[4][4][4] = 'sky'
+  colors[0][0][0] = ['rose']
+  colors[4][4][4] = ['sky']
   return colors
+}
+
+function sampleDrawingStrokes() {
+  return [
+    { color: '#f43f5e', points: [[0.1, 0.2], [0.3, 0.4]] as [number, number][] },
+    { color: '#0ea5e9', points: [[0.7, 0.8]] as [number, number][] },
+  ]
 }
 
 beforeEach(() => localStorage.clear())
@@ -110,6 +121,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.notes).toEqual(emptyNotes())
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
+    expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
   })
 
   it('saves and loads notes correctly', () => {
@@ -125,6 +137,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.notes).toEqual(emptyNotes())
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
+    expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
   })
 
   it('returns null when nothing is saved', () => {
@@ -165,17 +178,35 @@ describe('saveGame / loadSaved', () => {
     const saved = loadSaved()
     expect(saved!.cellColors).toEqual(cellColors)
     expect(saved!.candidateColors).toEqual(candidateColors)
+    expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
   })
 
   it('does not mutate brush colors after saving', () => {
     const cellColors = sampleCellColors()
     const candidateColors = sampleCandidateColors()
     saveGame(SAMPLE, BLANK, null, emptyNotes(), cellColors, candidateColors)
-    cellColors[0][0] = 'pink'
-    candidateColors[0][0][0] = 'pink'
+    cellColors[0][0] = ['pink']
+    candidateColors[0][0][0] = ['pink']
     const saved = loadSaved()
-    expect(saved!.cellColors[0][0]).toBe('rose')
-    expect(saved!.candidateColors[0][0][0]).toBe('rose')
+    expect(saved!.cellColors[0][0]).toEqual(['rose'])
+    expect(saved!.candidateColors[0][0][0]).toEqual(['rose'])
+  })
+
+  it('saves and loads drawing strokes correctly', () => {
+    const drawingStrokes = sampleDrawingStrokes()
+    saveGame(SAMPLE, BLANK, SAMPLE, emptyNotes(), emptyCellColors(), emptyCandidateColors(), drawingStrokes)
+    const saved = loadSaved()
+    expect(saved!.drawingStrokes).toEqual(drawingStrokes)
+  })
+
+  it('does not mutate drawing strokes after saving', () => {
+    const drawingStrokes = sampleDrawingStrokes()
+    saveGame(SAMPLE, BLANK, null, emptyNotes(), emptyCellColors(), emptyCandidateColors(), drawingStrokes)
+    drawingStrokes[0].points[0][0] = 0.9
+    drawingStrokes[1].color = '#000000'
+    const saved = loadSaved()
+    expect(saved!.drawingStrokes[0].points[0][0]).toBe(0.1)
+    expect(saved!.drawingStrokes[1].color).toBe('#0ea5e9')
   })
 
   it('loads legacy V3 saves with empty notes', () => {
@@ -187,6 +218,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.notes).toEqual(emptyNotes())
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
+    expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
   })
 
   it('loads legacy V2 saves with empty notes', () => {
@@ -198,6 +230,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.notes).toEqual(emptyNotes())
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
+    expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
   })
 
   it('loads legacy array-format saves with empty notes', () => {
@@ -208,6 +241,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.notes).toEqual(emptyNotes())
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
+    expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
   })
 
   it('loads legacy V4 saves with empty brush colors', () => {
@@ -218,11 +252,52 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.notes).toEqual(sampleNotes())
     expect(saved!.cellColors).toEqual(emptyCellColors())
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
+    expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
   })
 
-  it('stores V5 version tag', () => {
+  it('loads legacy V6 saves with empty drawings', () => {
+    const legacy = {
+      v: 6,
+      initial: SAMPLE,
+      current: BLANK,
+      solution: SAMPLE,
+      notes: sampleNotes(),
+      cellColors: sampleCellColors(),
+      candidateColors: sampleCandidateColors(),
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy))
+    const saved = loadSaved()
+    expect(saved).not.toBeNull()
+    expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
+  })
+
+  it('stores V7 version tag', () => {
     saveGame(SAMPLE, BLANK, null)
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
-    expect(raw.v).toBe(5)
+    expect(raw.v).toBe(7)
+  })
+})
+
+describe('brush preferences', () => {
+  it('saves and loads brush and drawing colors independently', () => {
+    saveBrushPrefs(['violet'], true, ['lime'])
+    expect(loadBrushPrefs()).toEqual({
+      activeColors: ['violet'],
+      activeDrawingColors: ['lime'],
+      candidateMode: true,
+    })
+  })
+
+  it('loads legacy brush prefs without a drawing color slot', () => {
+    localStorage.setItem(BRUSH_PREFS_KEY, JSON.stringify({
+      activeColor: 'sky',
+      candidateMode: false,
+    }))
+
+    expect(loadBrushPrefs()).toEqual({
+      activeColors: ['sky'],
+      activeDrawingColors: [],
+      candidateMode: false,
+    })
   })
 })
