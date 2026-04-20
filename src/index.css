@@ -692,7 +692,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   border:1px solid #555 !important;
 }
 .number-pad .num-key.num-key--notes{
-  font-size:clamp(1.2rem, 4.5vw, 2rem);
+  font-size:inherit;
   color:#a0aec0 !important;
 }
 .number-pad .num-key.num-key--notes::before{
