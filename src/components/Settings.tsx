@@ -11,9 +11,15 @@ type Props = {
   setAutoRemove: (v: boolean) => void
   haptic: boolean
   setHaptic: (v: boolean) => void
+  pencilMode: boolean
+  setPencilMode: (v: boolean) => void
+  paintingScope: 'digit' | 'candidate'
+  setPaintingScope: (v: 'digit' | 'candidate') => void
+  firstColorFlag: boolean
+  setFirstColorFlag: (v: boolean) => void
 }
 
-export default function Settings({ open, onClose, theme, setTheme, autoCheck, setAutoCheck, autoRemove, setAutoRemove, haptic, setHaptic }: Props){
+export default function Settings({ open, onClose, theme, setTheme, autoCheck, setAutoCheck, autoRemove, setAutoRemove, haptic, setHaptic, pencilMode, setPencilMode, paintingScope, setPaintingScope, firstColorFlag, setFirstColorFlag }: Props){
   React.useEffect(()=>{
     function onKey(e: KeyboardEvent){ if(e.key === 'Escape') onClose() }
     if(open){ window.addEventListener('keydown', onKey) }
@@ -37,6 +43,44 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
             />
             <span className="switch" />
           </label>
+        </div>
+        <div style={{marginTop:16}}>
+          <div>
+            <div>Painting scope</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Choose whether painting applies to digits or candidates</div>
+          </div>
+          <div role="group" aria-label="Painting scope" style={{display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:8,marginTop:10}}>
+            <button
+              type="button"
+              aria-pressed={paintingScope === 'digit'}
+              onClick={() => setPaintingScope('digit')}
+              style={{
+                borderRadius:12,
+                padding:'10px 14px',
+                textAlign:'center',
+                background:paintingScope === 'digit' ? 'var(--accent)' : 'var(--card)',
+                color:paintingScope === 'digit' ? '#fff' : 'var(--text)',
+                border:paintingScope === 'digit' ? 'none' : '1px solid rgba(128,128,128,0.35)',
+              }}
+            >
+              Digits
+            </button>
+            <button
+              type="button"
+              aria-pressed={paintingScope === 'candidate'}
+              onClick={() => setPaintingScope('candidate')}
+              style={{
+                borderRadius:12,
+                padding:'10px 14px',
+                textAlign:'center',
+                background:paintingScope === 'candidate' ? 'var(--accent)' : 'var(--card)',
+                color:paintingScope === 'candidate' ? '#fff' : 'var(--text)',
+                border:paintingScope === 'candidate' ? 'none' : '1px solid rgba(128,128,128,0.35)',
+              }}
+            >
+              Candidates
+            </button>
+          </div>
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
           <div>
@@ -82,6 +126,38 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
               aria-checked={haptic}
               checked={haptic}
               onChange={(e)=> setHaptic(e.target.checked)}
+            />
+            <span className="switch" />
+          </label>
+        </div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
+          <div>
+            <div>Pencil mode</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Draw digits with your finger or stylus</div>
+          </div>
+          <label className="toggle-switch" aria-label="Toggle pencil mode">
+            <input
+              type="checkbox"
+              role="switch"
+              aria-checked={pencilMode}
+              checked={pencilMode}
+              onChange={(e)=> setPencilMode(e.target.checked)}
+            />
+            <span className="switch" />
+          </label>
+        </div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
+          <div>
+            <div>First color flag</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Flag the first colored cell for quick reference</div>
+          </div>
+          <label className="toggle-switch" aria-label="Toggle first color flag">
+            <input
+              type="checkbox"
+              role="switch"
+              aria-checked={firstColorFlag}
+              checked={firstColorFlag}
+              onChange={(e)=> setFirstColorFlag(e.target.checked)}
             />
             <span className="switch" />
           </label>

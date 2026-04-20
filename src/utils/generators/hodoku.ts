@@ -45,8 +45,6 @@ function gridToString(grid: Grid): string {
   return grid.flat().map(v => v === 0 ? '.' : String(v)).join('')
 }
 
-const MAX_ATTEMPTS = 200
-
 export const hodokuGenerator: PuzzleGenerator = {
   id: 'hodoku',
   label: 'Hodoku',
@@ -56,23 +54,17 @@ export const hodokuGenerator: PuzzleGenerator = {
   async generate(difficulty: string, signal?: AbortSignal) {
     const targetDifficulty = difficulty as DifficultyType
     const qqwingTargets = QQWING_PREFILTER[difficulty] ?? []
+    if (qqwingTargets.length === 0) {
+      throw new Error(`Unsupported difficulty: ${difficulty}`)
+    }
 
     const q = new qqwingLib()
     q.setLogHistory(false)
     q.setRecordHistory(false)
     q.setPrintStyle(qqwingLib.PrintStyle.ONE_LINE)
 
-    let lastPuzzle: Grid | null = null
-    let lastSolution: Grid | null = null
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    while (true) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-
-      // Yield every 5 attempts to keep the UI responsive and allow abort checks
-      if (attempt > 0 && attempt % 5 === 0) {
-        await new Promise<void>(r => setTimeout(r, 0))
-        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-      }
 
       if (!q.generatePuzzle()) continue
 
@@ -92,19 +84,9 @@ export const hodokuGenerator: PuzzleGenerator = {
       const rating = SudokuSolver.rate(gridToString(puzzle))
       if (!rating.solved) continue
 
-      lastPuzzle = puzzle
-      lastSolution = solution
-
       if (rating.difficulty === targetDifficulty) {
         return { puzzle, solution }
       }
     }
-
-    // Fallback: return last valid puzzle even if hodoku difficulty didn't match exactly
-    if (lastPuzzle && lastSolution) {
-      return { puzzle: lastPuzzle, solution: lastSolution }
-    }
-
-    throw new Error('Failed to generate a valid puzzle')
   },
 }
