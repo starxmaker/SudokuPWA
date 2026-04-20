@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Board from './components/Board'
 import Home from './components/Home'
 import TopBar from './components/TopBar'
@@ -6,7 +6,7 @@ import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
 import { generateGame, solveGrid, Grid } from './utils/sudoku'
 import { getGenerator } from './utils/generators'
-import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid } from './utils/gameStorage'
+import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 
 /** Parse ?p= once, synchronously, and solve the puzzle. */
@@ -85,6 +85,30 @@ export default function App(){
     try { localStorage.setItem('haptic', haptic ? 'true' : 'false') } catch {}
   }, [haptic])
 
+  const [pencilMode, setPencilMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('pencilMode')
+      if (saved !== null) return saved === 'true'
+    } catch {}
+    return false
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('pencilMode', pencilMode ? 'true' : 'false') } catch {}
+  }, [pencilMode])
+
+  const [firstColorFlag, setFirstColorFlag] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('firstColorFlag')
+      if (saved !== null) return saved === 'true'
+    } catch {}
+    return false
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('firstColorFlag', firstColorFlag ? 'true' : 'false') } catch {}
+  }, [firstColorFlag])
+
   useEffect(() => { initHaptic() }, [])
 
   // Parse URL game synchronously so StrictMode double-effects don't clobber it.
@@ -122,6 +146,14 @@ export default function App(){
   const [toast, setToast] = useState<string | null>(null)
   const [gameId, setGameId] = useState(0)
   const [gameCompleted, setGameCompleted] = useState<boolean>(() => loadCompleted())
+  const boardRestartRef = useRef<(() => void) | null>(null)
+  const clearColorsRef = useRef<(() => void) | null>(null)
+  const clearDrawingsRef = useRef<(() => void) | null>(null)
+  const identifyCandidatesRef = useRef<(() => void) | null>(null)
+  const [canIdentifyCandidates, setCanIdentifyCandidates] = useState(false)
+  const [paintingScope, setPaintingScope] = useState<'digit' | 'candidate'>(() =>
+    loadBrushPrefs()?.candidateMode ? 'candidate' : 'digit'
+  )
 
   const [difficulty, setDifficulty] = useState<string | null>(() => {
     if (urlGame.type === 'game') return null
@@ -138,6 +170,20 @@ export default function App(){
       else localStorage.removeItem('difficulty')
     } catch {}
   }, [difficulty])
+
+  useEffect(() => {
+    const savedBrushPrefs = loadBrushPrefs()
+    saveBrushPrefs(
+      savedBrushPrefs?.activeColors ?? [],
+      paintingScope === 'candidate',
+      savedBrushPrefs?.activeDrawingColors ?? [],
+      savedBrushPrefs?.firstColorFlagEnabled ?? true,
+    )
+  }, [paintingScope])
+
+  useEffect(() => {
+    if (showHome) setCanIdentifyCandidates(false)
+  }, [showHome])
 
   // Clean the URL after loading (safe to run twice in StrictMode)
   useEffect(() => {
@@ -201,14 +247,48 @@ export default function App(){
 
   return (
     <div className="app-root">
-      <TopBar showBack={!showHome} onBack={() => setShowHome(true)} onOpenSettings={() => setSettingsOpen(true)} onShare={!showHome && !!initialGrid ? handleShare : undefined} title="Sudoku" />
+      <TopBar
+        showBack={!showHome}
+        onBack={() => setShowHome(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onShare={!showHome && !!initialGrid ? handleShare : undefined}
+        onRestart={!showHome && !!initialGrid ? () => boardRestartRef.current?.() : undefined}
+        onClearPainting={!showHome ? () => clearColorsRef.current?.() : undefined}
+        onClearDrawings={!showHome ? () => clearDrawingsRef.current?.() : undefined}
+        onIdentifyCandidates={!showHome ? () => identifyCandidatesRef.current?.() : undefined}
+        canIdentifyCandidates={canIdentifyCandidates}
+        title="Sudoku"
+      />
       <div className="app">
         {showHome ? (
           <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} error={urlError} />
         ) : (
-          <Board key={gameId} puzzle={puzzle || undefined} setPuzzle={(p)=> setPuzzle(p)} onBack={() => setShowHome(true)} solution={solution} autoCheck={autoCheck} autoRemove={autoRemove} haptic={haptic} onTriggerHaptic={triggerHaptic} onTriggerErrorHaptic={triggerErrorHaptic} onNew={handleNew} onShare={handleShare} onWin={() => { setGameCompleted(true); saveCompleted() }} difficulty={urlGame.type === 'game' ? null : difficulty} />
+          <Board
+            key={gameId}
+            puzzle={puzzle || undefined}
+            setPuzzle={(p)=> setPuzzle(p)}
+            onBack={() => setShowHome(true)}
+            solution={solution}
+            autoCheck={autoCheck}
+            autoRemove={autoRemove}
+            haptic={haptic}
+            onTriggerHaptic={triggerHaptic}
+            onTriggerErrorHaptic={triggerErrorHaptic}
+            onNew={handleNew}
+            onShare={handleShare}
+            onWin={() => { setGameCompleted(true); saveCompleted() }}
+            difficulty={urlGame.type === 'game' ? null : difficulty}
+            pencilMode={pencilMode}
+            firstColorFlag={firstColorFlag}
+            restartRef={boardRestartRef}
+            clearColorsRef={clearColorsRef}
+            clearDrawingsRef={clearDrawingsRef}
+            identifyCandidatesRef={identifyCandidatesRef}
+            onIdentifyCandidatesAvailabilityChange={setCanIdentifyCandidates}
+            paintingScope={paintingScope}
+          />
         )}
-        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} />
+        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
         <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} />
       </div>
       {toast && <div className="toast">{toast}</div>}

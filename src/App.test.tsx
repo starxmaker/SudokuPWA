@@ -17,6 +17,18 @@ const GRID: number[][] = [
   [3, 4, 5, 2, 8, 6, 1, 7, 9],
 ]
 
+const PUZZLE_WITH_GAPS: number[][] = [
+  [5, 3, 0, 6, 0, 8, 9, 1, 2],
+  [0, 7, 2, 1, 9, 5, 3, 4, 8],
+  [1, 9, 8, 3, 4, 2, 5, 6, 7],
+  [8, 5, 9, 7, 6, 1, 4, 2, 3],
+  [4, 2, 6, 8, 5, 3, 7, 9, 1],
+  [7, 1, 3, 9, 2, 4, 8, 5, 6],
+  [9, 6, 1, 5, 3, 7, 2, 8, 4],
+  [2, 8, 7, 4, 1, 9, 6, 3, 5],
+  [3, 4, 5, 2, 8, 6, 1, 7, 9],
+]
+
 beforeEach(() => {
   localStorage.clear()
   document.documentElement.classList.remove('dark')
@@ -51,6 +63,7 @@ describe('App', () => {
     await user.click(screen.getByRole('menuitem', { name: /settings/i }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /^settings$/i })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /painting scope/i })).toBeInTheDocument()
   })
 
   it('closes settings dialog when Close clicked', async () => {
@@ -106,6 +119,46 @@ describe('App', () => {
     await screen.findAllByRole('gridcell')
     await user.click(screen.getByRole('button', { name: /back/i }))
     expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
+  })
+
+  it('identifies candidates from the hamburger menu on the board', async () => {
+    saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
+    render(<App />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /continue/i }))
+    const cells = await screen.findAllByRole('gridcell')
+
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    const identifyItem = screen.getByRole('menuitem', { name: /show basic candidates/i })
+    expect(identifyItem).not.toBeDisabled()
+    await user.click(identifyItem)
+
+    expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+  })
+
+  it('toggles painting scope from settings and enables candidate painting', async () => {
+    saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
+    render(<App />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /continue/i }))
+    const cells = await screen.findAllByRole('gridcell')
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /toggle notes mode/i }))
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
+    await user.click(screen.getByRole('button', { name: /candidates/i }))
+    await user.click(screen.getByRole('button', { name: /close/i }))
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+    await user.click(cells[2])
+
+    expect(screen.getByRole('dialog', { name: /candidate painter/i })).toBeInTheDocument()
   })
 
   it('clears elapsed time when starting a new game so the clock resets to 0:00', async () => {

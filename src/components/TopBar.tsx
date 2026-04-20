@@ -1,15 +1,34 @@
 import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { FaEraser } from 'react-icons/fa'
+import { MdOutlineFormatColorReset } from 'react-icons/md'
+import { TbNumbers } from 'react-icons/tb'
 
 type Props = {
   showBack?: boolean
   onBack?: () => void
   onOpenSettings: () => void
   onShare?: () => void
+  onRestart?: () => void
+  onClearPainting?: () => void
+  onClearDrawings?: () => void
+  onIdentifyCandidates?: () => void
+  canIdentifyCandidates?: boolean
   title?: string
 }
 
-export default function TopBar({ showBack, onBack, onOpenSettings, onShare, title = 'Sudoku PWA' }: Props) {
+export default function TopBar({
+  showBack,
+  onBack,
+  onOpenSettings,
+  onShare,
+  onRestart,
+  onClearPainting,
+  onClearDrawings,
+  onIdentifyCandidates,
+  canIdentifyCandidates = false,
+  title = 'Sudoku PWA',
+}: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
 
   // Close on Escape
@@ -42,6 +61,37 @@ export default function TopBar({ showBack, onBack, onOpenSettings, onShare, titl
             </svg>
           </button>
         </div>
+        {onRestart && (
+          <button role="menuitem" onClick={() => { setMenuOpen(false); onRestart() }}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+            </svg>
+            Restart
+          </button>
+        )}
+        {onClearPainting && (
+          <button role="menuitem" onClick={() => { setMenuOpen(false); onClearPainting() }}>
+            <MdOutlineFormatColorReset size={20} style={{flexShrink:0}} />
+            Clean painting
+          </button>
+        )}
+        {onClearDrawings && (
+          <button role="menuitem" onClick={() => { setMenuOpen(false); onClearDrawings() }}>
+            <FaEraser size={18} style={{flexShrink:0}} />
+            Clean drawings
+          </button>
+        )}
+        {onIdentifyCandidates && (
+          <button
+            role="menuitem"
+            disabled={!canIdentifyCandidates}
+            onClick={() => { setMenuOpen(false); onIdentifyCandidates() }}
+          >
+            <TbNumbers size={20} style={{flexShrink:0}} />
+            Show basic candidates
+          </button>
+        )}
         {onShare && (
           <button role="menuitem" onClick={() => { setMenuOpen(false); onShare() }}>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>

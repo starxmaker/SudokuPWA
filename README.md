@@ -22,6 +22,7 @@ You can try it  [here](https://starxmaker.github.io/SudokuPWA/)
 - Share and import puzzles
 - Haptics support
 - Free drawing
+- Pencil mode for tablets
 
 ## Limitations
 

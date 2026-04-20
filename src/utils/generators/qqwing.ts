@@ -35,8 +35,6 @@ function parseGrid(str: string): Grid {
   return grid
 }
 
-const MAX_ATTEMPTS = 50
-
 export const qqwingGenerator: PuzzleGenerator = {
   id: 'qqwing',
   label: 'QQWing',
@@ -45,27 +43,18 @@ export const qqwingGenerator: PuzzleGenerator = {
 
   async generate(difficulty: string, signal?: AbortSignal) {
     const targets = TARGET_MAP[difficulty] ?? []
+    if (targets.length === 0) {
+      throw new Error(`Unsupported difficulty: ${difficulty}`)
+    }
     const q = new qqwingLib()
     q.setLogHistory(false)
     q.setRecordHistory(false)
     q.setPrintStyle(qqwingLib.PrintStyle.ONE_LINE)
 
-    let lastPuzzle = ''
-    let lastSolution = ''
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    while (true) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
-      // Yield every 5 attempts to keep the UI responsive and allow abort checks
-      if (attempt > 0 && attempt % 5 === 0) {
-        await new Promise<void>(r => setTimeout(r, 0))
-        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-      }
-
       if (!q.generatePuzzle()) continue
-
-      lastPuzzle   = q.getPuzzleString()
-      lastSolution = q.getSolutionString()
 
       // Re-solve with history recording to analyse which techniques were needed
       q.setRecordHistory(true)
@@ -74,16 +63,10 @@ export const qqwingGenerator: PuzzleGenerator = {
 
       if (targets.includes(q.getDifficulty())) {
         return {
-          puzzle:   parseGrid(lastPuzzle),
+          puzzle:   parseGrid(q.getPuzzleString()),
           solution: parseGrid(q.getSolutionString()),
         }
       }
-    }
-
-    // Fallback: return the last generated puzzle even if difficulty didn't match
-    return {
-      puzzle:   parseGrid(lastPuzzle),
-      solution: parseGrid(lastSolution),
     }
   },
 }

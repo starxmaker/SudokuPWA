@@ -13,6 +13,14 @@ const base = {
   setAutoCheck: vi.fn(),
   autoRemove: false,
   setAutoRemove: vi.fn(),
+  haptic: false,
+  setHaptic: vi.fn(),
+  pencilMode: false,
+  setPencilMode: vi.fn(),
+  paintingScope: 'digit' as const,
+  setPaintingScope: vi.fn(),
+  firstColorFlag: false,
+  setFirstColorFlag: vi.fn(),
 }
 
 describe('Settings', () => {
@@ -28,6 +36,9 @@ describe('Settings', () => {
     expect(screen.getByRole('switch', { name: /dark mode/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /auto-check/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /auto-remove/i })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /painting scope/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /digits/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /candidates/i })).toBeInTheDocument()
   })
 
   it('calls onClose when Close button clicked', async () => {
@@ -84,6 +95,13 @@ describe('Settings', () => {
     render(<Settings {...base} autoRemove={false} setAutoRemove={setAutoRemove} />)
     await userEvent.click(screen.getByRole('switch', { name: /auto-remove/i }))
     expect(setAutoRemove).toHaveBeenCalledWith(true)
+  })
+
+  it('calls setPaintingScope("candidate") when painting scope toggled on', async () => {
+    const setPaintingScope = vi.fn()
+    render(<Settings {...base} paintingScope="digit" setPaintingScope={setPaintingScope} />)
+    await userEvent.click(screen.getByRole('button', { name: /candidates/i }))
+    expect(setPaintingScope).toHaveBeenCalledWith('candidate')
   })
 
   it('does not register Escape listener when closed', () => {

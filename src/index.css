@@ -1,6 +1,6 @@
 
 :root{ --gap:4px; --bg: #f5f7fb; --text: #0b2135; --muted: #556; --card: #fff; --accent: #0b6cff; --accent-soft: rgba(11,108,255,0.06); --board-outer: #000000; --board-radius: 14px; --cell-inner: #b8c0cc; --cell-box: #8a96a8; --cell-cross-bg: rgba(0,0,0,0.08); --cell-clue-text: #4a5568; --cell-user-text: #0055d4; --cell-selected-bg: rgba(11,108,255,0.22); --board-safe-space: 260px }
-*{box-sizing:border-box}
+*{box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 html,body{height:100%;margin:0;overscroll-behavior:none}
 body{font-family:system-ui,Arial;}
 
@@ -231,6 +231,9 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   align-items:flex-start;
   flex:0 0 auto;
   position:relative;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-touch-callout:none;
 }
 .board{
   display:grid;
@@ -246,6 +249,9 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   overflow:hidden;
   container-type:inline-size;
   position:relative;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-touch-callout:none;
 }
 .row{display:block}
 .board .cell{
@@ -496,10 +502,12 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .brush-toggle--active,
 .drawing-toggle--active,
 .flag-toggle--active,
+.eraser-toggle--active,
 .num-pad-toolbar .num-key.notes-toggle.notes-toggle--active,
 .num-pad-toolbar .num-key.brush-toggle.brush-toggle--active,
 .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active,
 .num-pad-toolbar .num-key.clear.flag-toggle--active,
+.num-pad-toolbar .num-key.clear.eraser-toggle--active,
 .num-pad-toolbar .num-key.clear.brush-mode-toggle--active{
   background:#1a3a6b !important;
   color:#fff !important;
@@ -509,6 +517,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .num-pad-toolbar .num-key.brush-toggle.brush-toggle--active:disabled,
 .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.flag-toggle--active:disabled,
+.num-pad-toolbar .num-key.clear.eraser-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.brush-mode-toggle--active:disabled{
   background:transparent !important;
   color:var(--muted) !important;
@@ -522,6 +531,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .dark .num-pad-toolbar .num-key.brush-toggle.brush-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.flag-toggle--active:disabled,
+.dark .num-pad-toolbar .num-key.clear.eraser-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.brush-mode-toggle--active:disabled{
   border:2px solid #555 !important;
 }
@@ -682,11 +692,33 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   border:1px solid #555 !important;
 }
 .number-pad .num-key.num-key--notes{
-  font-size:clamp(1.2rem, 4.5vw, 2rem);
+  font-size:inherit;
   color:#a0aec0 !important;
 }
 .number-pad .num-key.num-key--notes::before{
   color:#a0aec0;
+}
+.number-pad .num-key.num-key--reference{
+  background:#f2f4f7 !important;
+  color:#98a2b3 !important;
+  border-color:#d0d5dd !important;
+  filter:grayscale(0.95);
+  opacity:0.92;
+}
+.number-pad .num-key.num-key--reference::before{
+  background:#f2f4f7;
+  color:#98a2b3;
+  border-color:#d0d5dd;
+}
+.dark .number-pad .num-key.num-key--reference{
+  background:#23262f !important;
+  color:#98a2b3 !important;
+  border-color:#3a3f4b !important;
+}
+.dark .number-pad .num-key.num-key--reference::before{
+  background:#23262f;
+  color:#98a2b3;
+  border-color:#3a3f4b;
 }
 .num-key__digit{
   display:flex;
@@ -1045,8 +1077,8 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 }
 
 /* Settings modal */
-.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:1600}
-.settings-panel{background:var(--card);color:var(--text);padding:16px;border-radius:12px;min-width:280px;max-width:90%}
+.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:1600;padding:16px;overflow:auto}
+.settings-panel{background:var(--card);color:var(--text);padding:16px;border-radius:12px;min-width:280px;max-width:90%;max-height:calc(100vh - 32px);overflow:auto}
 .settings-panel button{min-width:84px}
 
 /* Generator selector */
@@ -1135,3 +1167,49 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 }
 .victory-actions button{width:100%;font-size:1rem;padding:12px 0}
 .victory-actions button.copied{background:#1565c0}
+
+/* ─── Pencil mode overlay (in-cell drawing) ─── */
+.pencil-cell-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0,0,0,0.25);
+  -webkit-tap-highlight-color: transparent;
+}
+.pencil-cell-canvas {
+  border-radius: 4px;
+  outline: 2px solid var(--primary, #0b6cff);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px rgba(11,108,255,0.15);
+}
+/* Floating chip above/below cell */
+.pencil-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg, #fff);
+  border: 1.5px solid var(--border, #ccc);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  white-space: nowrap;
+  pointer-events: all;
+}
+.pencil-chip--confirm { border-color: var(--primary, #0b6cff); }
+.pencil-chip--failed  { border-color: var(--error-color, #d32f2f); }
+.pencil-chip-text { min-width: 1.2em; text-align: center; }
+.pencil-chip-conf { font-size: 0.75em; font-weight: 400; color: var(--muted); margin-left: 2px; }
+.pencil-chip-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 4px;
+  border-radius: 50%;
+  line-height: 1;
+  color: var(--fg);
+}
+.pencil-chip-btn--ok    { color: var(--primary, #0b6cff); font-size: 1.1rem; }
+.pencil-chip-btn--retry { color: var(--error-color, #d32f2f); }

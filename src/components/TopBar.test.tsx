@@ -78,6 +78,36 @@ describe('TopBar', () => {
     expect(onShare).toHaveBeenCalledOnce()
   })
 
+  it('shows clean painting item and calls onClearPainting when provided', async () => {
+    const onClearPainting = vi.fn()
+    render(<TopBar onOpenSettings={vi.fn()} onClearPainting={onClearPainting} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /clean painting/i }))
+    expect(onClearPainting).toHaveBeenCalledOnce()
+  })
+
+  it('shows clean drawings item and calls onClearDrawings when provided', async () => {
+    const onClearDrawings = vi.fn()
+    render(<TopBar onOpenSettings={vi.fn()} onClearDrawings={onClearDrawings} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /clean drawings/i }))
+    expect(onClearDrawings).toHaveBeenCalledOnce()
+  })
+
+  it('shows identify candidates item disabled when unavailable', async () => {
+    render(<TopBar onOpenSettings={vi.fn()} onIdentifyCandidates={vi.fn()} canIdentifyCandidates={false} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    expect(screen.getByRole('menuitem', { name: /show basic candidates/i })).toBeDisabled()
+  })
+
+  it('calls onIdentifyCandidates when available', async () => {
+    const onIdentifyCandidates = vi.fn()
+    render(<TopBar onOpenSettings={vi.fn()} onIdentifyCandidates={onIdentifyCandidates} canIdentifyCandidates />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /show basic candidates/i }))
+    expect(onIdentifyCandidates).toHaveBeenCalledOnce()
+  })
+
   it('closes menu on Escape key', async () => {
     render(<TopBar onOpenSettings={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /menu/i }))
