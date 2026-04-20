@@ -80,8 +80,8 @@ export const hodokuGenerator: PuzzleGenerator = {
       const solution = sudokujsSolve(puzzle) as Grid | null
       if (!solution) continue
 
-      // Confirm difficulty with hodoku rating (expensive, only reached after qqwing pre-filter)
-      const rating = SudokuSolver.rate(gridToString(puzzle))
+      // Stop early when the puzzle exceeds the requested difficulty band.
+      const rating = SudokuSolver.rate(gridToString(puzzle), targetDifficulty)
       if (!rating.solved) continue
 
       if (rating.difficulty === targetDifficulty) {

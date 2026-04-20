@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { generateGame, solveGrid } from './sudoku'
+import { SudokuSolver } from 'hodoku-difficulty-rating-ts'
 
 const HODOKU_DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD', 'UNFAIR', 'EXTREME'] as const
 type HodokuDifficulty = typeof HODOKU_DIFFICULTIES[number]
@@ -36,6 +37,13 @@ describe('sudoku utils', () => {
     for (let r = 0; r < 9; r++)
       for (let c = 0; c < 9; c++)
         if (puzzle[r][c] !== 0) expect(puzzle[r][c]).toBe(solution[r][c])
+  }, 30_000)
+
+  it('generateGame EASY returns a Hodoku-rated easy puzzle', async () => {
+    const { puzzle } = await generateGame('EASY')
+    const rating = SudokuSolver.rate(puzzle.flat().map(n => n === 0 ? '.' : String(n)).join(''))
+    expect(rating.solved).toBe(true)
+    expect(rating.difficulty).toBe('EASY')
   }, 30_000)
 
   it.each(HODOKU_DIFFICULTIES)('generateGame difficulty=%s returns valid puzzle and solution', async (diff: HodokuDifficulty) => {
