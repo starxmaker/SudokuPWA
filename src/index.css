@@ -398,11 +398,11 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 }
 .tool-tray__content--notes{
   position:relative;
-  z-index:1700;
+  z-index:20;
 }
 .tool-tray__content--drawing{
   position:relative;
-  z-index:1700;
+  z-index:20;
 }
 .tool-tray__main-button{
   opacity:1;
@@ -543,12 +543,12 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   flex-wrap:wrap;
   gap:10px;
   position:relative;
-  z-index:1700;
+  z-index:20;
 }
 .brush-actions-row{
   margin-top:8px;
   position:relative;
-  z-index:1700;
+  z-index:20;
 }
 .brush-color-button{
   width:32px;
@@ -592,7 +592,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   position:relative;
   width:100%;
   margin-top:22px;
-  z-index:1700;
+  z-index:20;
 }
 .input-pad-switcher .number-pad{
   margin-top:0;
@@ -820,7 +820,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   box-shadow:none !important;
   border-radius:0 !important;
   padding:0 !important;
-  z-index:1699;
+  z-index:21;
 }
 .brush-candidate-overlay{
   position:fixed;
@@ -833,7 +833,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   border:1px solid var(--cell-box);
   border-radius:18px;
   box-shadow:0 14px 30px rgba(0,0,0,0.2);
-  z-index:1701;
+  z-index:22;
   user-select:none;
   -webkit-user-select:none;
 }
