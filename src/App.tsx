@@ -97,6 +97,18 @@ export default function App(){
     try { localStorage.setItem('pencilMode', pencilMode ? 'true' : 'false') } catch {}
   }, [pencilMode])
 
+  const [coordinateLabels, setCoordinateLabels] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('coordinateLabels')
+      if (saved !== null) return saved === 'true'
+    } catch {}
+    return false
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('coordinateLabels', coordinateLabels ? 'true' : 'false') } catch {}
+  }, [coordinateLabels])
+
   const [firstColorFlag, setFirstColorFlag] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('firstColorFlag')
@@ -287,6 +299,7 @@ export default function App(){
             onWin={() => { setGameCompleted(true); saveCompleted() }}
             difficulty={urlGame.type === 'game' ? null : difficulty}
             pencilMode={pencilMode}
+            coordinateLabels={coordinateLabels}
             firstColorFlag={firstColorFlag}
             restartRef={boardRestartRef}
             clearColorsRef={clearColorsRef}
@@ -298,7 +311,7 @@ export default function App(){
             paintingScope={paintingScope}
           />
         )}
-        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
+        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
         <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} />
       </div>
       {toast && <div className="toast">{toast}</div>}

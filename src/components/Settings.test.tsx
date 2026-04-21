@@ -17,6 +17,8 @@ const base = {
   setHaptic: vi.fn(),
   pencilMode: false,
   setPencilMode: vi.fn(),
+  coordinateLabels: false,
+  setCoordinateLabels: vi.fn(),
   paintingScope: 'digit' as const,
   setPaintingScope: vi.fn(),
   firstColorFlag: false,
@@ -36,6 +38,7 @@ describe('Settings', () => {
     expect(screen.getByRole('switch', { name: /dark mode/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /auto-check/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /auto-remove/i })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: /coordinate labels/i })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: /painting scope/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /digits/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /candidates/i })).toBeInTheDocument()
@@ -95,6 +98,13 @@ describe('Settings', () => {
     render(<Settings {...base} autoRemove={false} setAutoRemove={setAutoRemove} />)
     await userEvent.click(screen.getByRole('switch', { name: /auto-remove/i }))
     expect(setAutoRemove).toHaveBeenCalledWith(true)
+  })
+
+  it('calls setCoordinateLabels(true) when coordinate labels toggled on', async () => {
+    const setCoordinateLabels = vi.fn()
+    render(<Settings {...base} coordinateLabels={false} setCoordinateLabels={setCoordinateLabels} />)
+    await userEvent.click(screen.getByRole('switch', { name: /coordinate labels/i }))
+    expect(setCoordinateLabels).toHaveBeenCalledWith(true)
   })
 
   it('calls setPaintingScope("candidate") when painting scope toggled on', async () => {

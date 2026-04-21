@@ -142,6 +142,20 @@ describe('Board component', () => {
     }
   })
 
+  it('does not render coordinate labels by default', async () => {
+    render(<Board />)
+    await waitForBoard()
+    expect(screen.queryByTestId('board-coordinate-columns')).toBeNull()
+    expect(screen.queryByTestId('board-coordinate-rows')).toBeNull()
+  })
+
+  it('renders coordinate labels when enabled', async () => {
+    render(<Board coordinateLabels />)
+    await waitForBoard()
+    expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('123456789')
+    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('ABCDEFGHI')
+  })
+
   it('selects a cell on click', async () => {
     render(<Board />)
     const cells = await screen.findAllByRole('gridcell')

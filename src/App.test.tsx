@@ -174,6 +174,24 @@ describe('App', () => {
     expect(screen.getByRole('dialog', { name: /candidate painter/i })).toBeInTheDocument()
   })
 
+  it('shows coordinate labels when enabled from settings', async () => {
+    saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
+    render(<App />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /continue/i }))
+    await screen.findAllByRole('gridcell')
+    expect(screen.queryByTestId('board-coordinate-columns')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
+    await user.click(screen.getByRole('switch', { name: /coordinate labels/i }))
+
+    expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('123456789')
+    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('ABCDEFGHI')
+    expect(localStorage.getItem('coordinateLabels')).toBe('true')
+  })
+
   it('clears elapsed time when starting a new game so the clock resets to 0:00', async () => {
     saveGame(GRID, GRID, GRID)
     saveElapsed(300) // simulate 5 minutes elapsed on the previous game

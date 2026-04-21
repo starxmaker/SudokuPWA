@@ -235,6 +235,51 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   -webkit-user-select:none;
   -webkit-touch-callout:none;
 }
+.board-shell{
+  width:100%;
+}
+.board-shell--with-coordinates{
+  display:grid;
+  grid-template-columns:clamp(18px, 4vw, 28px) minmax(0, 1fr);
+  grid-template-rows:auto minmax(0, 1fr);
+  column-gap:8px;
+  row-gap:6px;
+  align-items:stretch;
+}
+.board-coordinate-corner{
+  grid-column:1;
+  grid-row:1;
+}
+.board-coordinate-columns{
+  grid-column:2;
+  grid-row:1;
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(9, minmax(0, 1fr));
+  justify-self:center;
+}
+.board-coordinate-rows{
+  grid-column:1;
+  grid-row:2;
+  display:grid;
+  grid-template-rows:repeat(9, minmax(0, 1fr));
+  justify-items:center;
+  align-items:center;
+}
+.board-shell--with-coordinates .board{
+  grid-column:2;
+  grid-row:2;
+  justify-self:center;
+}
+.board-coordinate-label{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:clamp(0.72rem, 2.4vw, 0.95rem);
+  font-weight:600;
+  color:var(--muted);
+  line-height:1;
+}
 .board{
   display:grid;
   grid-template-columns:repeat(9,minmax(0,1fr));

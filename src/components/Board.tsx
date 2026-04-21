@@ -42,6 +42,7 @@ type Props = {
   onWin?: () => void
   difficulty?: string | null
   pencilMode?: boolean
+  coordinateLabels?: boolean
   firstColorFlag?: boolean
   restartRef?: React.MutableRefObject<(() => void) | null>
   clearColorsRef?: React.MutableRefObject<(() => void) | null>
@@ -203,6 +204,8 @@ const BRUSH_SWATCH_MAP: Record<BrushColorId, string> = Object.fromEntries(
 ) as Record<BrushColorId, string>
 const DEFAULT_BRUSH_COLOR: BrushColorId = BRUSH_COLORS[0].id
 const DRAWING_STROKE_WIDTH = 0.018
+const COORDINATE_ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
+const COORDINATE_COLUMN_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 
 function toggleColorInSelection(current: readonly string[], colorId: BrushColorId) {
   return current.includes(colorId) ? current.filter(color => color !== colorId) : [...current, colorId]
@@ -252,6 +255,7 @@ export default function Board({
   onWin,
   difficulty,
   pencilMode,
+  coordinateLabels,
   firstColorFlag,
   restartRef,
   clearColorsRef,
@@ -1797,52 +1801,69 @@ export default function Board({
             </div>
           </div>
           <div className="board-wrapper" style={pencilMode ? ({ '--board-safe-space': '140px' } as React.CSSProperties) : undefined}>
-            <div className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label="Sudoku grid">
-              {cells}
-              <svg
-                className={`board-drawing-layer${drawingMode && !paused && !won ? ' board-drawing-layer--interactive' : ''}`}
-                aria-label="Free drawing canvas"
-                viewBox="0 0 1 1"
-                preserveAspectRatio="none"
-                onPointerDown={startDrawing}
-                onPointerMove={moveDrawing}
-                onPointerUp={stopDrawing}
-                onPointerCancel={cancelDrawing}
-              >
-                {renderedDrawingStrokes.map((stroke, index) =>
-                  stroke.points.length === 1 ? (
-                    <circle
-                      key={`drawing-stroke-${index}`}
-                      className="board-drawing-layer__stroke"
-                      cx={stroke.points[0][0]}
-                      cy={stroke.points[0][1]}
-                      r={DRAWING_STROKE_WIDTH / 2}
-                      fill={stroke.color}
-                    />
-                  ) : (
-                    <polyline
-                      key={`drawing-stroke-${index}`}
-                      className="board-drawing-layer__stroke"
-                      points={buildDrawingPolyline(stroke.points)}
-                      fill="none"
-                      stroke={stroke.color}
-                      strokeWidth={DRAWING_STROKE_WIDTH}
-                    />
-                  )
-                )}
-              </svg>
-              {paused && !won && (
-                <div className="board-pause-overlay">
-                  <button
-                    type="button"
-                    className="board-pause-btn"
-                    aria-label="Resume"
-                    onClick={() => { setManualPause(false); setPaused(false) }}
-                  >
-                    <MdPlayArrow size={38} />
-                  </button>
+            <div className={`board-shell${coordinateLabels ? ' board-shell--with-coordinates' : ''}`}>
+              {coordinateLabels && <div className="board-coordinate-corner" aria-hidden="true" />}
+              {coordinateLabels && (
+                <div className="board-coordinate-columns" aria-hidden="true" data-testid="board-coordinate-columns">
+                  {COORDINATE_COLUMN_LABELS.map(label => (
+                    <span key={label} className="board-coordinate-label">{label}</span>
+                  ))}
                 </div>
               )}
+              {coordinateLabels && (
+                <div className="board-coordinate-rows" aria-hidden="true" data-testid="board-coordinate-rows">
+                  {COORDINATE_ROW_LABELS.map(label => (
+                    <span key={label} className="board-coordinate-label">{label}</span>
+                  ))}
+                </div>
+              )}
+              <div className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label="Sudoku grid">
+                {cells}
+                <svg
+                  className={`board-drawing-layer${drawingMode && !paused && !won ? ' board-drawing-layer--interactive' : ''}`}
+                  aria-label="Free drawing canvas"
+                  viewBox="0 0 1 1"
+                  preserveAspectRatio="none"
+                  onPointerDown={startDrawing}
+                  onPointerMove={moveDrawing}
+                  onPointerUp={stopDrawing}
+                  onPointerCancel={cancelDrawing}
+                >
+                  {renderedDrawingStrokes.map((stroke, index) =>
+                    stroke.points.length === 1 ? (
+                      <circle
+                        key={`drawing-stroke-${index}`}
+                        className="board-drawing-layer__stroke"
+                        cx={stroke.points[0][0]}
+                        cy={stroke.points[0][1]}
+                        r={DRAWING_STROKE_WIDTH / 2}
+                        fill={stroke.color}
+                      />
+                    ) : (
+                      <polyline
+                        key={`drawing-stroke-${index}`}
+                        className="board-drawing-layer__stroke"
+                        points={buildDrawingPolyline(stroke.points)}
+                        fill="none"
+                        stroke={stroke.color}
+                        strokeWidth={DRAWING_STROKE_WIDTH}
+                      />
+                    )
+                  )}
+                </svg>
+                {paused && !won && (
+                  <div className="board-pause-overlay">
+                    <button
+                      type="button"
+                      className="board-pause-btn"
+                      aria-label="Resume"
+                      onClick={() => { setManualPause(false); setPaused(false) }}
+                    >
+                      <MdPlayArrow size={38} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
