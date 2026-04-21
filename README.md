@@ -34,5 +34,4 @@ You can try it  [here](https://starxmaker.github.io/SudokuPWA/)
 
 ## TODO
 - i18n
-- Create game
-- More difficulties
+- Better Difficulty selection UI with notes about times on nightmare and diabolical difficulties
