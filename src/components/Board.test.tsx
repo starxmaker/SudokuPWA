@@ -120,7 +120,7 @@ function emptyNotesGrid() {
 
 describe('Board component', () => {
   it('renders 81 cells and control buttons', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = await screen.findAllByRole('gridcell')
     expect(cells.length).toBe(81)
     expect(screen.getByRole('button', { name: /new/i })).toBeInTheDocument()
@@ -132,7 +132,7 @@ describe('Board component', () => {
   })
 
   it('renders number pad with buttons 1–9', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     for (let d = 1; d <= 9; d++) {
       // aria-label is e.g. "3, 7 remaining" — anchor with leading digit + comma
@@ -143,21 +143,21 @@ describe('Board component', () => {
   })
 
   it('does not render coordinate labels by default', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     expect(screen.queryByTestId('board-coordinate-columns')).toBeNull()
     expect(screen.queryByTestId('board-coordinate-rows')).toBeNull()
   })
 
   it('renders coordinate labels when enabled', async () => {
-    render(<Board coordinateLabels />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels />)
     await waitForBoard()
     expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('123456789')
     expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('ABCDEFGHI')
   })
 
   it('selects a cell on click', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = await screen.findAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[0])
@@ -166,13 +166,13 @@ describe('Board component', () => {
   })
 
   it('undo button is disabled initially', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     expect(screen.getByRole('button', { name: /undo/i })).toBeDisabled()
   })
 
   it('renders pause button and timer', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument()
     // timer display should show a time string like 0:00
@@ -182,7 +182,7 @@ describe('Board component', () => {
   })
 
   it('pause button toggles aria-label', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     const user = userEvent.setup()
     const pauseBtn = screen.getByRole('button', { name: 'Pause' })
@@ -229,7 +229,7 @@ describe('Board component', () => {
   })
 
   it('notes toggle button changes aria-pressed state', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     const user = userEvent.setup()
     const notesBtn = screen.getByRole('button', { name: /toggle notes mode/i })
@@ -242,7 +242,7 @@ describe('Board component', () => {
   })
 
   it('brush toggle shows and hides brush colors', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     const user = userEvent.setup()
     const brushBtn = screen.getByRole('button', { name: /toggle brush mode/i })
@@ -290,7 +290,7 @@ describe('Board component', () => {
   })
 
   it('drawing toggle shows colors and drawing actions', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     const user = userEvent.setup()
     const drawingBtn = screen.getByRole('button', { name: /toggle free drawing/i })

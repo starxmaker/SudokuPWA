@@ -1,9 +1,24 @@
 import { describe, it, expect } from 'vitest'
 import { generateGame, solveGrid, validateCreatedPuzzle } from './sudoku'
 import { SudokuSolver } from 'hodoku-difficulty-rating-ts'
+import { HODOKU_ESTIMATIONS, matchesHodokuEstimation, type HodokuEstimationId } from './generators/hodoku'
 
-const HODOKU_DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD', 'UNFAIR', 'EXTREME'] as const
-type HodokuDifficulty = typeof HODOKU_DIFFICULTIES[number]
+const GENERATION_DIFFICULTIES = [
+  'VERY_EASY',
+  'EASY',
+  'MEDIUM',
+  'HARD',
+  'VERY_HARD',
+  'EXPERT',
+  'NIGHTMARE',
+  'DIABOLICAL',
+] as const
+const GENERATION_SMOKE_DIFFICULTIES = [
+  'VERY_EASY',
+  'MEDIUM',
+  'VERY_HARD',
+  'EXPERT',
+] as const satisfies readonly HodokuEstimationId[]
 const MULTI_SOLUTION_PUZZLE: number[][] = [
   [0, 3, 0, 0, 0, 8, 0, 0, 0],
   [0, 0, 2, 1, 9, 5, 3, 0, 8],
@@ -37,9 +52,13 @@ function isValidSolution(grid: number[][]): boolean {
   return true
 }
 
+function gridToString(grid: number[][]): string {
+  return grid.flat().map(n => n === 0 ? '.' : String(n)).join('')
+}
+
 describe('sudoku utils', () => {
   it('generateGame returns a valid puzzle and complete solution', async () => {
-    const { puzzle, solution } = await generateGame('EASY')
+    const { puzzle, solution } = await generateGame()
     expect(puzzle.length).toBe(9)
     expect(solution.length).toBe(9)
     expect(isValidSolution(solution)).toBe(true)
@@ -50,20 +69,39 @@ describe('sudoku utils', () => {
         if (puzzle[r][c] !== 0) expect(puzzle[r][c]).toBe(solution[r][c])
   }, 30_000)
 
-  it('generateGame EASY returns a Hodoku-rated easy puzzle', async () => {
-    const { puzzle } = await generateGame('EASY')
-    const rating = SudokuSolver.rate(puzzle.flat().map(n => n === 0 ? '.' : String(n)).join(''))
-    expect(rating.solved).toBe(true)
-    expect(rating.difficulty).toBe('EASY')
-  }, 30_000)
-
-  it.each(HODOKU_DIFFICULTIES)('generateGame difficulty=%s returns valid puzzle and solution', async (diff: HodokuDifficulty) => {
-    const { puzzle, solution } = await generateGame(diff)
+  it.each(GENERATION_SMOKE_DIFFICULTIES)('generateGame difficulty=%s respects its Hodoku estimation', async (id) => {
+    const estimation = HODOKU_ESTIMATIONS[id]
+    const { puzzle, solution } = await generateGame(id)
     expect(puzzle.length).toBe(9)
     expect(solution.length).toBe(9)
     expect(isValidSolution(solution)).toBe(true)
     const zeros = puzzle.flat().filter(n => n === 0).length
     expect(zeros).toBeGreaterThan(0)
+    const rating = SudokuSolver.rateByScore(gridToString(puzzle))
+    expect(rating.solved).toBe(true)
+    expect(matchesHodokuEstimation(rating, estimation)).toBe(true)
+  }, 30_000)
+
+  it.each(GENERATION_DIFFICULTIES)('matchesHodokuEstimation enforces estimation %s', (id) => {
+    const estimation = HODOKU_ESTIMATIONS[id]
+    const midScore = estimation.minScore !== null
+      ? estimation.maxScore !== null
+        ? Math.floor((estimation.minScore + estimation.maxScore) / 2)
+        : estimation.minScore + 100
+      : estimation.maxScore !== null
+        ? Math.floor(estimation.maxScore / 2)
+        : 2000
+
+    expect(matchesHodokuEstimation({ difficulty: estimation.difficulty, score: midScore }, estimation)).toBe(true)
+
+    if (estimation.minScore !== null) {
+      expect(matchesHodokuEstimation({ difficulty: estimation.difficulty, score: estimation.minScore - 1 }, estimation)).toBe(false)
+    }
+    if (estimation.maxScore !== null) {
+      expect(matchesHodokuEstimation({ difficulty: estimation.difficulty, score: estimation.maxScore + 1 }, estimation)).toBe(false)
+    }
+    const wrongDifficulty = estimation.difficulty === 'EASY' ? 'MEDIUM' : 'EASY'
+    expect(matchesHodokuEstimation({ difficulty: wrongDifficulty, score: midScore }, estimation)).toBe(false)
   }, 30_000)
 
   it('solveGrid solves a known easy puzzle', () => {

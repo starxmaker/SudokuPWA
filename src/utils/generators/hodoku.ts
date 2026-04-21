@@ -1,30 +1,101 @@
 import qqwingLib from 'qqwing'
 import { solve as sudokujsSolve } from '@starxmaker/sudoku.js'
-import { SudokuSolver, type DifficultyType } from 'hodoku-difficulty-rating-ts'
+import { SudokuSolver, type DifficultyType, type SolveRating } from 'hodoku-difficulty-rating-ts'
 import type { Grid } from '../sudoku_types'
 import type { PuzzleGenerator, DifficultyOption } from './types'
 
-const DIFFICULTIES: readonly DifficultyOption[] = [
-  { id: 'EASY',    label: 'Easy' },
-  { id: 'MEDIUM',  label: 'Medium' },
-  { id: 'HARD',    label: 'Hard' },
-  { id: 'UNFAIR',  label: 'Unfair' },
-  { id: 'EXTREME', label: 'Extreme' },
-]
+export type HodokuEstimationId =
+  | 'VERY_EASY'
+  | 'EASY'
+  | 'MEDIUM'
+  | 'HARD'
+  | 'VERY_HARD'
+  | 'EXPERT'
+  | 'NIGHTMARE'
+  | 'DIABOLICAL'
 
-/**
- * Pre-filter map: hodoku target difficulty → qqwing difficulty values that are
- * considered a plausible match, so we skip hodoku's expensive rating on obviously
- * wrong puzzles.
- *
- * Mapping: simple → EASY, easy → EASY, intermediate → MEDIUM, expert → HARD/UNFAIR/EXTREME
- */
-const QQWING_PREFILTER: Record<string, number[]> = {
-  EASY:    [qqwingLib.Difficulty.SIMPLE, qqwingLib.Difficulty.EASY],
-  MEDIUM:  [qqwingLib.Difficulty.INTERMEDIATE],
-  HARD:    [qqwingLib.Difficulty.EXPERT],
-  UNFAIR:  [qqwingLib.Difficulty.EXPERT],
-  EXTREME: [qqwingLib.Difficulty.EXPERT],
+type HodokuEstimation = {
+  label: string
+  difficulty: DifficultyType
+  minScore: number | null
+  maxScore: number | null
+  qqwingTargets: number[]
+}
+
+export const HODOKU_ESTIMATIONS: Record<HodokuEstimationId, HodokuEstimation> = {
+  VERY_EASY: {
+    label: 'Very Easy',
+    difficulty: 'EASY',
+    minScore: null,
+    maxScore: 300,
+    qqwingTargets: [qqwingLib.Difficulty.SIMPLE, qqwingLib.Difficulty.EASY],
+  },
+  EASY: {
+    label: 'Easy',
+    difficulty: 'EASY',
+    minScore: 300,
+    maxScore: 800,
+    qqwingTargets: [qqwingLib.Difficulty.SIMPLE, qqwingLib.Difficulty.EASY],
+  },
+  MEDIUM: {
+    label: 'Medium',
+    difficulty: 'MEDIUM',
+    minScore: null,
+    maxScore: 1000,
+    qqwingTargets: [qqwingLib.Difficulty.INTERMEDIATE],
+  },
+  HARD: {
+    label: 'Hard',
+    difficulty: 'HARD',
+    minScore: null,
+    maxScore: 1600,
+    qqwingTargets: [qqwingLib.Difficulty.EXPERT],
+  },
+  VERY_HARD: {
+    label: 'Very Hard',
+    difficulty: 'UNFAIR',
+    minScore: null,
+    maxScore: 1800,
+    qqwingTargets: [qqwingLib.Difficulty.EXPERT],
+  },
+  EXPERT: {
+    label: 'Expert',
+    difficulty: 'EXTREME',
+    minScore: null,
+    maxScore: 5000,
+    qqwingTargets: [qqwingLib.Difficulty.EXPERT],
+  },
+  NIGHTMARE: {
+    label: 'Nightmare',
+    difficulty: 'EXTREME',
+    minScore: 5000,
+    maxScore: 10000,
+    qqwingTargets: [qqwingLib.Difficulty.EXPERT],
+  },
+  DIABOLICAL: {
+    label: 'Diabolical',
+    difficulty: 'EXTREME',
+    minScore: 10000,
+    maxScore: null,
+    qqwingTargets: [qqwingLib.Difficulty.EXPERT],
+  },
+}
+
+const DIFFICULTIES: readonly DifficultyOption[] = (
+  Object.entries(HODOKU_ESTIMATIONS) as [HodokuEstimationId, HodokuEstimation][]
+).map(([id, estimation]) => ({
+  id,
+  label: estimation.label,
+}))
+
+export function matchesHodokuEstimation(
+  rating: Pick<SolveRating, 'difficulty' | 'score'>,
+  estimation: Pick<HodokuEstimation, 'difficulty' | 'minScore' | 'maxScore'>,
+) {
+  if (rating.difficulty !== estimation.difficulty) return false
+  if (estimation.minScore !== null && rating.score < estimation.minScore) return false
+  if (estimation.maxScore !== null && rating.score > estimation.maxScore) return false
+  return true
 }
 
 function parseGrid(str: string): Grid {
@@ -52,9 +123,8 @@ export const hodokuGenerator: PuzzleGenerator = {
   defaultDifficulty: 'MEDIUM',
 
   async generate(difficulty: string, signal?: AbortSignal) {
-    const targetDifficulty = difficulty as DifficultyType
-    const qqwingTargets = QQWING_PREFILTER[difficulty] ?? []
-    if (qqwingTargets.length === 0) {
+    const config = HODOKU_ESTIMATIONS[difficulty as HodokuEstimationId]
+    if (!config) {
       throw new Error(`Unsupported difficulty: ${difficulty}`)
     }
 
@@ -72,7 +142,7 @@ export const hodokuGenerator: PuzzleGenerator = {
       q.setRecordHistory(true)
       q.solve()
       q.setRecordHistory(false)
-      if (!qqwingTargets.includes(q.getDifficulty())) continue
+      if (!config.qqwingTargets.includes(q.getDifficulty())) continue
 
       const puzzle = parseGrid(q.getPuzzleString())
 
@@ -80,11 +150,14 @@ export const hodokuGenerator: PuzzleGenerator = {
       const solution = sudokujsSolve(puzzle) as Grid | null
       if (!solution) continue
 
-      // Stop early when the puzzle exceeds the requested difficulty band.
-      const rating = SudokuSolver.rate(gridToString(puzzle), targetDifficulty)
+      // Stop early when the puzzle exceeds the requested score ceiling.
+      const puzzleString = gridToString(puzzle)
+      const rating = config.maxScore === null
+        ? SudokuSolver.rateByScore(puzzleString)
+        : SudokuSolver.rateByScore(puzzleString, config.maxScore)
       if (!rating.solved) continue
 
-      if (rating.difficulty === targetDifficulty) {
+      if (matchesHodokuEstimation(rating, config)) {
         return { puzzle, solution }
       }
     }
