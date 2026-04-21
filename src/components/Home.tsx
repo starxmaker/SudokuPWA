@@ -27,6 +27,7 @@ type Props = {
   hasSaved: boolean
   onNew: () => void
   onContinue: () => void
+  onCreated: () => void
   error?: string | null
 }
 
@@ -44,7 +45,7 @@ function isAppleMobileBrowser(): boolean {
   return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
 }
 
-export default function Home({ hasSaved, onNew, onContinue, error }: Props){
+export default function Home({ hasSaved, onNew, onContinue, onCreated, error }: Props){
   const installRef = useRef<PwaInstallElement | null>(null)
   const promptEventRef = useRef<BeforeInstallPromptEvent | null>(null)
   const [isInstalledPwa, setIsInstalledPwa] = useState(() => isStandalonePwa())
@@ -140,6 +141,7 @@ export default function Home({ hasSaved, onNew, onContinue, error }: Props){
         <div style={{display:'flex',flexDirection:'column',gap:20,alignItems:'stretch',width:'100%',maxWidth:240}}>
           <button className="home-btn" onClick={onNew}>New Game</button>
           {hasSaved && <button className="home-btn" onClick={onContinue}>Continue</button>}
+          <button className="home-btn" onClick={onCreated}>Create new game</button>
         </div>
       </div>
       {error && <p style={{color:'#e53935',fontWeight:600}}>{error}</p>}

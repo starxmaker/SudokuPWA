@@ -1,9 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { generateGame, solveGrid } from './sudoku'
+import { generateGame, solveGrid, validateCreatedPuzzle } from './sudoku'
 import { SudokuSolver } from 'hodoku-difficulty-rating-ts'
 
 const HODOKU_DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD', 'UNFAIR', 'EXTREME'] as const
 type HodokuDifficulty = typeof HODOKU_DIFFICULTIES[number]
+const MULTI_SOLUTION_PUZZLE: number[][] = [
+  [0, 3, 0, 0, 0, 8, 0, 0, 0],
+  [0, 0, 2, 1, 9, 5, 3, 0, 8],
+  [0, 9, 8, 0, 4, 2, 5, 6, 7],
+  [0, 0, 9, 0, 0, 0, 0, 2, 0],
+  [4, 2, 6, 8, 0, 0, 7, 0, 1],
+  [7, 0, 3, 0, 2, 0, 0, 0, 6],
+  [0, 0, 0, 0, 0, 7, 2, 0, 0],
+  [2, 8, 7, 4, 0, 0, 0, 3, 5],
+  [3, 0, 5, 0, 8, 6, 0, 7, 9],
+]
 
 function isValidSolution(grid: number[][]): boolean {
   const expected = new Set([1,2,3,4,5,6,7,8,9])
@@ -87,5 +98,61 @@ describe('sudoku utils', () => {
       [0,0,0,0,8,0,0,7,9],
     ]
     expect(solveGrid(bad)).toBeNull()
+  })
+
+  it('validateCreatedPuzzle returns a unique solution for a valid custom puzzle', () => {
+    const puzzle = [
+      [5,3,0,0,7,0,0,0,0],
+      [6,0,0,1,9,5,0,0,0],
+      [0,9,8,0,0,0,0,6,0],
+      [8,0,0,0,6,0,0,0,3],
+      [4,0,0,8,0,3,0,0,1],
+      [7,0,0,0,2,0,0,0,6],
+      [0,6,0,0,0,0,2,8,0],
+      [0,0,0,4,1,9,0,0,5],
+      [0,0,0,0,8,0,0,7,9],
+    ]
+
+    const result = validateCreatedPuzzle(puzzle)
+    expect(result.valid).toBe(true)
+    if (result.valid) {
+      expect(isValidSolution(result.solution)).toBe(true)
+    }
+  })
+
+  it('validateCreatedPuzzle rejects puzzles with too few givens', () => {
+    const puzzle = Array.from({ length: 9 }, () => Array(9).fill(0))
+    const result = validateCreatedPuzzle(puzzle)
+    expect(result).toEqual({
+      valid: false,
+      message: 'A created puzzle needs at least 17 clues.',
+    })
+  })
+
+  it('validateCreatedPuzzle rejects puzzles with conflicting givens', () => {
+    const puzzle = [
+      [5,5,0,0,7,0,0,0,0],
+      [6,0,0,1,9,5,0,0,0],
+      [0,9,8,0,0,0,0,6,0],
+      [8,0,0,0,6,0,0,0,3],
+      [4,0,0,8,0,3,0,0,1],
+      [7,0,0,0,2,0,0,0,6],
+      [0,6,0,0,0,0,2,8,0],
+      [0,0,0,4,1,9,0,0,5],
+      [0,0,0,0,8,0,0,7,9],
+    ]
+    const result = validateCreatedPuzzle(puzzle)
+    expect(result).toEqual({
+      valid: false,
+      message: 'This puzzle has conflicting givens.',
+    })
+  })
+
+  it('validateCreatedPuzzle rejects puzzles with multiple solutions', () => {
+    const result = validateCreatedPuzzle(MULTI_SOLUTION_PUZZLE)
+    expect(result).toEqual({
+      valid: false,
+      message: 'This puzzle must have exactly one solution.',
+    })
   })
 })

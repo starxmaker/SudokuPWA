@@ -124,6 +124,26 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .difficulty-label{
   font-size:0.85rem;font-weight:600;opacity:0.6;text-transform:capitalize;
 }
+.creator-status-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  width:100%;
+}
+.creator-status-text{
+  font-size:0.85rem;
+  font-weight:500;
+  color:var(--muted);
+  text-align:right;
+}
+.creator-error{
+  width:100%;
+  margin:0;
+  color:#e53935;
+  font-weight:600;
+  text-align:center;
+}
 .home-btn{
   font-size:1.1rem;
   padding:14px 20px;

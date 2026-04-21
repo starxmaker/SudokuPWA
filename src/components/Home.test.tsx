@@ -63,12 +63,13 @@ beforeEach(() => {
 })
 
 describe('Home', () => {
-  const base = { hasSaved: false, onNew: vi.fn(), onContinue: vi.fn() }
+  const base = { hasSaved: false, onNew: vi.fn(), onContinue: vi.fn(), onCreated: vi.fn() }
 
   it('renders welcome heading and New Game button', () => {
     render(<Home {...base} />)
     expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /new game/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^new game$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create new game/i })).toBeInTheDocument()
   })
 
   it('does not show Continue button when no saved game', () => {
@@ -100,15 +101,22 @@ describe('Home', () => {
   it('calls onNew when New Game clicked', async () => {
     const onNew = vi.fn()
     render(<Home {...base} onNew={onNew} />)
-    await userEvent.click(screen.getByRole('button', { name: /new game/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^new game$/i }))
     expect(onNew).toHaveBeenCalledOnce()
   })
 
   it('calls onContinue when Continue clicked', async () => {
     const onContinue = vi.fn()
-    render(<Home hasSaved={true} onNew={vi.fn()} onContinue={onContinue} />)
+    render(<Home hasSaved={true} onNew={vi.fn()} onContinue={onContinue} onCreated={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /continue/i }))
     expect(onContinue).toHaveBeenCalledOnce()
+  })
+
+  it('calls onCreated when Create new game clicked', async () => {
+    const onCreated = vi.fn()
+    render(<Home {...base} onCreated={onCreated} />)
+    await userEvent.click(screen.getByRole('button', { name: /create new game/i }))
+    expect(onCreated).toHaveBeenCalledOnce()
   })
 
   it('renders version string', () => {
