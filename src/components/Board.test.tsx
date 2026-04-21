@@ -686,6 +686,31 @@ describe('Board with fixed puzzle', () => {
     expect(cells[4].querySelector('.cell-note--colored')).toBeNull()
   })
 
+  it('reports clear painting availability as colors are added and cleared', async () => {
+    const onClearPaintingAvailabilityChange = vi.fn()
+    const clearColorsRef: React.MutableRefObject<(() => void) | null> = { current: null }
+    render(
+      <Board
+        puzzle={PUZZLE}
+        solution={SOLUTION}
+        clearColorsRef={clearColorsRef}
+        onClearPaintingAvailabilityChange={onClearPaintingAvailabilityChange}
+      />
+    )
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(false)
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+    await user.click(cells[2])
+    await waitFor(() => expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(true))
+
+    await act(async () => { clearColorsRef.current?.() })
+    await waitFor(() => expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(false))
+  })
+
   it('persists brush and drawing colors independently between renders', async () => {
     const user = userEvent.setup()
     const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
@@ -769,6 +794,36 @@ describe('Board with fixed puzzle', () => {
     await waitFor(() =>
       expect(secondRender.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(0)
     )
+  })
+
+  it('reports clear drawings availability as strokes are added and cleared', async () => {
+    const onClearDrawingsAvailabilityChange = vi.fn()
+    const clearDrawingsRef: React.MutableRefObject<(() => void) | null> = { current: null }
+    const view = render(
+      <Board
+        puzzle={PUZZLE}
+        solution={SOLUTION}
+        clearDrawingsRef={clearDrawingsRef}
+        onClearDrawingsAvailabilityChange={onClearDrawingsAvailabilityChange}
+      />
+    )
+    const user = userEvent.setup()
+
+    expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(false)
+
+    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+    const drawingLayer = view.container.querySelector('.board-drawing-layer')
+    expect(drawingLayer).not.toBeNull()
+    mockDrawingLayerRect(drawingLayer!)
+
+    fireEvent.pointerDown(drawingLayer!, { pointerId: 9, clientX: 30, clientY: 30, button: 0 })
+    fireEvent.pointerMove(drawingLayer!, { pointerId: 9, clientX: 140, clientY: 120 })
+    fireEvent.pointerUp(drawingLayer!, { pointerId: 9, clientX: 180, clientY: 160 })
+
+    await waitFor(() => expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(true))
+
+    await act(async () => { clearDrawingsRef.current?.() })
+    await waitFor(() => expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(false))
   })
 
   it('fills simple candidates for all empty cells', async () => {

@@ -137,6 +137,19 @@ describe('App', () => {
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
   })
 
+  it('disables clean painting and clean drawings when there is nothing to clear', async () => {
+    saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
+    render(<App />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /continue/i }))
+    await screen.findAllByRole('gridcell')
+
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    expect(screen.getByRole('menuitem', { name: /clean painting/i })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: /clean drawings/i })).toBeDisabled()
+  })
+
   it('toggles painting scope from settings and enables candidate painting', async () => {
     saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
     render(<App />)

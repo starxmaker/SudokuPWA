@@ -150,6 +150,8 @@ export default function App(){
   const clearColorsRef = useRef<(() => void) | null>(null)
   const clearDrawingsRef = useRef<(() => void) | null>(null)
   const identifyCandidatesRef = useRef<(() => void) | null>(null)
+  const [canClearPainting, setCanClearPainting] = useState(false)
+  const [canClearDrawings, setCanClearDrawings] = useState(false)
   const [canIdentifyCandidates, setCanIdentifyCandidates] = useState(false)
   const [paintingScope, setPaintingScope] = useState<'digit' | 'candidate'>(() =>
     loadBrushPrefs()?.candidateMode ? 'candidate' : 'digit'
@@ -182,7 +184,11 @@ export default function App(){
   }, [paintingScope])
 
   useEffect(() => {
-    if (showHome) setCanIdentifyCandidates(false)
+    if (showHome) {
+      setCanClearPainting(false)
+      setCanClearDrawings(false)
+      setCanIdentifyCandidates(false)
+    }
   }, [showHome])
 
   // Clean the URL after loading (safe to run twice in StrictMode)
@@ -254,7 +260,9 @@ export default function App(){
         onShare={!showHome && !!initialGrid ? handleShare : undefined}
         onRestart={!showHome && !!initialGrid ? () => boardRestartRef.current?.() : undefined}
         onClearPainting={!showHome ? () => clearColorsRef.current?.() : undefined}
+        canClearPainting={canClearPainting}
         onClearDrawings={!showHome ? () => clearDrawingsRef.current?.() : undefined}
+        canClearDrawings={canClearDrawings}
         onIdentifyCandidates={!showHome ? () => identifyCandidatesRef.current?.() : undefined}
         canIdentifyCandidates={canIdentifyCandidates}
         title="Sudoku"
@@ -284,6 +292,8 @@ export default function App(){
             clearColorsRef={clearColorsRef}
             clearDrawingsRef={clearDrawingsRef}
             identifyCandidatesRef={identifyCandidatesRef}
+            onClearPaintingAvailabilityChange={setCanClearPainting}
+            onClearDrawingsAvailabilityChange={setCanClearDrawings}
             onIdentifyCandidatesAvailabilityChange={setCanIdentifyCandidates}
             paintingScope={paintingScope}
           />

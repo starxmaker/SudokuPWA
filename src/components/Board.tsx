@@ -47,6 +47,8 @@ type Props = {
   clearColorsRef?: React.MutableRefObject<(() => void) | null>
   clearDrawingsRef?: React.MutableRefObject<(() => void) | null>
   identifyCandidatesRef?: React.MutableRefObject<(() => void) | null>
+  onClearPaintingAvailabilityChange?: (available: boolean) => void
+  onClearDrawingsAvailabilityChange?: (available: boolean) => void
   onIdentifyCandidatesAvailabilityChange?: (available: boolean) => void
   paintingScope?: 'digit' | 'candidate'
 }
@@ -255,6 +257,8 @@ export default function Board({
   clearColorsRef,
   clearDrawingsRef,
   identifyCandidatesRef,
+  onClearPaintingAvailabilityChange,
+  onClearDrawingsAvailabilityChange,
   onIdentifyCandidatesAvailabilityChange,
   paintingScope,
 }: Props){
@@ -1375,6 +1379,14 @@ export default function Board({
   const hasAnyFillableCell = internalPuzzle.some((row, r) =>
     row.some((n, c) => !isClue(r, c) && n === 0 && notes[r][c].length === 0)
   )
+  const hasAnyColors = hasAnyBrushColorsOnBoard(cellColors, candidateColors)
+  const hasAnyDrawings = drawingStrokes.length > 0
+  useEffect(() => {
+    onClearPaintingAvailabilityChange?.(hasAnyColors)
+  }, [hasAnyColors, onClearPaintingAvailabilityChange])
+  useEffect(() => {
+    onClearDrawingsAvailabilityChange?.(hasAnyDrawings)
+  }, [hasAnyDrawings, onClearDrawingsAvailabilityChange])
   useEffect(() => {
     onIdentifyCandidatesAvailabilityChange?.(hasAnyFillableCell)
   }, [hasAnyFillableCell, onIdentifyCandidatesAvailabilityChange])
@@ -1395,8 +1407,6 @@ export default function Board({
     !isClue(selected.r, selected.c) &&
     internalPuzzle[selected.r][selected.c] === 0 &&
     notes[selected.r][selected.c].length === 0
-  const hasAnyColors = hasAnyBrushColorsOnBoard(cellColors, candidateColors)
-  const hasAnyDrawings = drawingStrokes.length > 0
   const candidateEntryMode = notesMode
   const selectedHasCellColor =
     selected !== null && cellColors[selected.r][selected.c].length > 0

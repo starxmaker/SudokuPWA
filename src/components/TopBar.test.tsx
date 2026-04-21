@@ -78,17 +78,29 @@ describe('TopBar', () => {
     expect(onShare).toHaveBeenCalledOnce()
   })
 
+  it('shows clean painting item disabled when unavailable', async () => {
+    render(<TopBar onOpenSettings={vi.fn()} onClearPainting={vi.fn()} canClearPainting={false} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    expect(screen.getByRole('menuitem', { name: /clean painting/i })).toBeDisabled()
+  })
+
   it('shows clean painting item and calls onClearPainting when provided', async () => {
     const onClearPainting = vi.fn()
-    render(<TopBar onOpenSettings={vi.fn()} onClearPainting={onClearPainting} />)
+    render(<TopBar onOpenSettings={vi.fn()} onClearPainting={onClearPainting} canClearPainting />)
     await userEvent.click(screen.getByRole('button', { name: /menu/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /clean painting/i }))
     expect(onClearPainting).toHaveBeenCalledOnce()
   })
 
+  it('shows clean drawings item disabled when unavailable', async () => {
+    render(<TopBar onOpenSettings={vi.fn()} onClearDrawings={vi.fn()} canClearDrawings={false} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    expect(screen.getByRole('menuitem', { name: /clean drawings/i })).toBeDisabled()
+  })
+
   it('shows clean drawings item and calls onClearDrawings when provided', async () => {
     const onClearDrawings = vi.fn()
-    render(<TopBar onOpenSettings={vi.fn()} onClearDrawings={onClearDrawings} />)
+    render(<TopBar onOpenSettings={vi.fn()} onClearDrawings={onClearDrawings} canClearDrawings />)
     await userEvent.click(screen.getByRole('button', { name: /menu/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /clean drawings/i }))
     expect(onClearDrawings).toHaveBeenCalledOnce()
