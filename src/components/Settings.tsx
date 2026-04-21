@@ -13,13 +13,15 @@ type Props = {
   setHaptic: (v: boolean) => void
   pencilMode: boolean
   setPencilMode: (v: boolean) => void
+  coordinateLabels: boolean
+  setCoordinateLabels: (v: boolean) => void
   paintingScope: 'digit' | 'candidate'
   setPaintingScope: (v: 'digit' | 'candidate') => void
   firstColorFlag: boolean
   setFirstColorFlag: (v: boolean) => void
 }
 
-export default function Settings({ open, onClose, theme, setTheme, autoCheck, setAutoCheck, autoRemove, setAutoRemove, haptic, setHaptic, pencilMode, setPencilMode, paintingScope, setPaintingScope, firstColorFlag, setFirstColorFlag }: Props){
+export default function Settings({ open, onClose, theme, setTheme, autoCheck, setAutoCheck, autoRemove, setAutoRemove, haptic, setHaptic, pencilMode, setPencilMode, coordinateLabels, setCoordinateLabels, paintingScope, setPaintingScope, firstColorFlag, setFirstColorFlag }: Props){
   React.useEffect(()=>{
     function onKey(e: KeyboardEvent){ if(e.key === 'Escape') onClose() }
     if(open){ window.addEventListener('keydown', onKey) }
@@ -142,6 +144,22 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
               aria-checked={pencilMode}
               checked={pencilMode}
               onChange={(e)=> setPencilMode(e.target.checked)}
+            />
+            <span className="switch" />
+          </label>
+        </div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
+          <div>
+            <div>Coordinate labels</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Show row letters A-I and column numbers 1-9</div>
+          </div>
+          <label className="toggle-switch" aria-label="Toggle coordinate labels">
+            <input
+              type="checkbox"
+              role="switch"
+              aria-checked={coordinateLabels}
+              checked={coordinateLabels}
+              onChange={(e)=> setCoordinateLabels(e.target.checked)}
             />
             <span className="switch" />
           </label>

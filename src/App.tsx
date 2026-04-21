@@ -4,6 +4,7 @@ import Home from './components/Home'
 import TopBar from './components/TopBar'
 import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
+import PuzzleCreator from './components/PuzzleCreator'
 import { generateGame, solveGrid, Grid } from './utils/sudoku'
 import { getGenerator } from './utils/generators'
 import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs } from './utils/gameStorage'
@@ -97,6 +98,18 @@ export default function App(){
     try { localStorage.setItem('pencilMode', pencilMode ? 'true' : 'false') } catch {}
   }, [pencilMode])
 
+  const [coordinateLabels, setCoordinateLabels] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('coordinateLabels')
+      if (saved !== null) return saved === 'true'
+    } catch {}
+    return false
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('coordinateLabels', coordinateLabels ? 'true' : 'false') } catch {}
+  }, [coordinateLabels])
+
   const [firstColorFlag, setFirstColorFlag] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('firstColorFlag')
@@ -124,6 +137,7 @@ export default function App(){
   const urlError = urlGame.type === 'error' ? urlGame.message : null
 
   const [showHome, setShowHome] = useState(() => urlGame.type !== 'game')
+  const [creatorMode, setCreatorMode] = useState(false)
   const [puzzle, setPuzzle] = useState<Grid | null>(() => {
     if (urlGame.type === 'game') return cloneGrid(urlGame.initial)
     return loadSaved()?.current ?? null
@@ -150,6 +164,8 @@ export default function App(){
   const clearColorsRef = useRef<(() => void) | null>(null)
   const clearDrawingsRef = useRef<(() => void) | null>(null)
   const identifyCandidatesRef = useRef<(() => void) | null>(null)
+  const [canClearPainting, setCanClearPainting] = useState(false)
+  const [canClearDrawings, setCanClearDrawings] = useState(false)
   const [canIdentifyCandidates, setCanIdentifyCandidates] = useState(false)
   const [paintingScope, setPaintingScope] = useState<'digit' | 'candidate'>(() =>
     loadBrushPrefs()?.candidateMode ? 'candidate' : 'digit'
@@ -182,8 +198,12 @@ export default function App(){
   }, [paintingScope])
 
   useEffect(() => {
-    if (showHome) setCanIdentifyCandidates(false)
-  }, [showHome])
+    if (showHome || creatorMode) {
+      setCanClearPainting(false)
+      setCanClearDrawings(false)
+      setCanIdentifyCandidates(false)
+    }
+  }, [showHome, creatorMode])
 
   // Clean the URL after loading (safe to run twice in StrictMode)
   useEffect(() => {
@@ -211,7 +231,13 @@ export default function App(){
   }
 
   function handleNew(){
+    setCreatorMode(false)
     setNewGameOpen(true)
+  }
+
+  function handleCreated() {
+    setCreatorMode(true)
+    setShowHome(false)
   }
 
   async function startNewWithDifficulty(generatorId: string, difficultyId: string, signal: AbortSignal){
@@ -230,6 +256,22 @@ export default function App(){
     saveGame(initial, p, s)
     setDifficulty(diffLabel)
     setGameId(id => id + 1)
+    setCreatorMode(false)
+    setShowHome(false)
+  }
+
+  function startCreatedPuzzle(initial: Grid, solved: Grid) {
+    const current = cloneGrid(initial)
+    setPuzzle(current)
+    setSolution(solved)
+    setInitialGrid(cloneGrid(initial))
+    clearElapsed()
+    clearCompleted()
+    setGameCompleted(false)
+    saveGame(initial, current, solved)
+    setDifficulty(null)
+    setGameId(id => id + 1)
+    setCreatorMode(false)
     setShowHome(false)
   }
 
@@ -239,35 +281,52 @@ export default function App(){
       setPuzzle(saved.current)
       setSolution(saved.solution ?? null)
       setInitialGrid(saved.initial)
+      setCreatorMode(false)
       setShowHome(false)
     } else {
       handleNew()
     }
   }
 
+  function handleBackToHome() {
+    setCreatorMode(false)
+    setShowHome(true)
+  }
+
   return (
     <div className="app-root">
       <TopBar
         showBack={!showHome}
-        onBack={() => setShowHome(true)}
+        onBack={handleBackToHome}
         onOpenSettings={() => setSettingsOpen(true)}
-        onShare={!showHome && !!initialGrid ? handleShare : undefined}
-        onRestart={!showHome && !!initialGrid ? () => boardRestartRef.current?.() : undefined}
-        onClearPainting={!showHome ? () => clearColorsRef.current?.() : undefined}
-        onClearDrawings={!showHome ? () => clearDrawingsRef.current?.() : undefined}
-        onIdentifyCandidates={!showHome ? () => identifyCandidatesRef.current?.() : undefined}
+        onShare={!showHome && !creatorMode && !!initialGrid ? handleShare : undefined}
+        onRestart={!showHome && !creatorMode && !!initialGrid ? () => boardRestartRef.current?.() : undefined}
+        onClearPainting={!showHome && !creatorMode ? () => clearColorsRef.current?.() : undefined}
+        canClearPainting={canClearPainting}
+        onClearDrawings={!showHome && !creatorMode ? () => clearDrawingsRef.current?.() : undefined}
+        canClearDrawings={canClearDrawings}
+        onIdentifyCandidates={!showHome && !creatorMode ? () => identifyCandidatesRef.current?.() : undefined}
         canIdentifyCandidates={canIdentifyCandidates}
         title="Sudoku"
       />
       <div className="app">
         {showHome ? (
-          <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} error={urlError} />
+          <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} onCreated={handleCreated} error={urlError} />
+        ) : creatorMode ? (
+          <PuzzleCreator
+            onStart={startCreatedPuzzle}
+            coordinateLabels={coordinateLabels}
+            pencilMode={pencilMode}
+            haptic={haptic}
+            onTriggerHaptic={triggerHaptic}
+            onTriggerErrorHaptic={triggerErrorHaptic}
+          />
         ) : (
           <Board
             key={gameId}
             puzzle={puzzle || undefined}
             setPuzzle={(p)=> setPuzzle(p)}
-            onBack={() => setShowHome(true)}
+            onBack={handleBackToHome}
             solution={solution}
             autoCheck={autoCheck}
             autoRemove={autoRemove}
@@ -279,16 +338,19 @@ export default function App(){
             onWin={() => { setGameCompleted(true); saveCompleted() }}
             difficulty={urlGame.type === 'game' ? null : difficulty}
             pencilMode={pencilMode}
+            coordinateLabels={coordinateLabels}
             firstColorFlag={firstColorFlag}
             restartRef={boardRestartRef}
             clearColorsRef={clearColorsRef}
             clearDrawingsRef={clearDrawingsRef}
             identifyCandidatesRef={identifyCandidatesRef}
+            onClearPaintingAvailabilityChange={setCanClearPainting}
+            onClearDrawingsAvailabilityChange={setCanClearDrawings}
             onIdentifyCandidatesAvailabilityChange={setCanIdentifyCandidates}
             paintingScope={paintingScope}
           />
         )}
-        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
+        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
         <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} />
       </div>
       {toast && <div className="toast">{toast}</div>}

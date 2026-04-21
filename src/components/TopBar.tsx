@@ -11,7 +11,9 @@ type Props = {
   onShare?: () => void
   onRestart?: () => void
   onClearPainting?: () => void
+  canClearPainting?: boolean
   onClearDrawings?: () => void
+  canClearDrawings?: boolean
   onIdentifyCandidates?: () => void
   canIdentifyCandidates?: boolean
   title?: string
@@ -24,7 +26,9 @@ export default function TopBar({
   onShare,
   onRestart,
   onClearPainting,
+  canClearPainting = false,
   onClearDrawings,
+  canClearDrawings = false,
   onIdentifyCandidates,
   canIdentifyCandidates = false,
   title = 'Sudoku PWA',
@@ -71,13 +75,21 @@ export default function TopBar({
           </button>
         )}
         {onClearPainting && (
-          <button role="menuitem" onClick={() => { setMenuOpen(false); onClearPainting() }}>
+          <button
+            role="menuitem"
+            disabled={!canClearPainting}
+            onClick={() => { setMenuOpen(false); onClearPainting() }}
+          >
             <MdOutlineFormatColorReset size={20} style={{flexShrink:0}} />
             Clean painting
           </button>
         )}
         {onClearDrawings && (
-          <button role="menuitem" onClick={() => { setMenuOpen(false); onClearDrawings() }}>
+          <button
+            role="menuitem"
+            disabled={!canClearDrawings}
+            onClick={() => { setMenuOpen(false); onClearDrawings() }}
+          >
             <FaEraser size={18} style={{flexShrink:0}} />
             Clean drawings
           </button>

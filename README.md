@@ -30,4 +30,8 @@ You can try it  [here](https://starxmaker.github.io/SudokuPWA/)
 - No score or time tracking
 - No hints
 - Hodoku difficulty calibration is based on [Hodoku partial port on TS](https://github.com/starxmaker/hodoku-difficulty-rating-ts).  As you see, parity on difficulty rating is not still 100% on expert puzzles compared with the original Java version.
-- For the moment, only difficulty rating is relevant to the project, although score rating will be used in the future for more difficulty options.
+- Hodoku score caps and score ranges are now used during generation for finer-grained estimation tiers.
+
+## TODO
+- i18n
+- Better Difficulty selection UI with notes about times on nightmare and diabolical difficulties

@@ -120,7 +120,7 @@ function emptyNotesGrid() {
 
 describe('Board component', () => {
   it('renders 81 cells and control buttons', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = await screen.findAllByRole('gridcell')
     expect(cells.length).toBe(81)
     expect(screen.getByRole('button', { name: /new/i })).toBeInTheDocument()
@@ -132,7 +132,7 @@ describe('Board component', () => {
   })
 
   it('renders number pad with buttons 1–9', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     for (let d = 1; d <= 9; d++) {
       // aria-label is e.g. "3, 7 remaining" — anchor with leading digit + comma
@@ -142,8 +142,22 @@ describe('Board component', () => {
     }
   })
 
+  it('does not render coordinate labels by default', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    expect(screen.queryByTestId('board-coordinate-columns')).toBeNull()
+    expect(screen.queryByTestId('board-coordinate-rows')).toBeNull()
+  })
+
+  it('renders coordinate labels when enabled', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels />)
+    await waitForBoard()
+    expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('123456789')
+    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('ABCDEFGHI')
+  })
+
   it('selects a cell on click', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = await screen.findAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[0])
@@ -152,13 +166,13 @@ describe('Board component', () => {
   })
 
   it('undo button is disabled initially', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     expect(screen.getByRole('button', { name: /undo/i })).toBeDisabled()
   })
 
   it('renders pause button and timer', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument()
     // timer display should show a time string like 0:00
@@ -168,7 +182,7 @@ describe('Board component', () => {
   })
 
   it('pause button toggles aria-label', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     const user = userEvent.setup()
     const pauseBtn = screen.getByRole('button', { name: 'Pause' })
@@ -215,7 +229,7 @@ describe('Board component', () => {
   })
 
   it('notes toggle button changes aria-pressed state', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     const user = userEvent.setup()
     const notesBtn = screen.getByRole('button', { name: /toggle notes mode/i })
@@ -228,7 +242,7 @@ describe('Board component', () => {
   })
 
   it('brush toggle shows and hides brush colors', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     const user = userEvent.setup()
     const brushBtn = screen.getByRole('button', { name: /toggle brush mode/i })
@@ -276,7 +290,7 @@ describe('Board component', () => {
   })
 
   it('drawing toggle shows colors and drawing actions', async () => {
-    render(<Board />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     const user = userEvent.setup()
     const drawingBtn = screen.getByRole('button', { name: /toggle free drawing/i })
@@ -686,6 +700,31 @@ describe('Board with fixed puzzle', () => {
     expect(cells[4].querySelector('.cell-note--colored')).toBeNull()
   })
 
+  it('reports clear painting availability as colors are added and cleared', async () => {
+    const onClearPaintingAvailabilityChange = vi.fn()
+    const clearColorsRef: React.MutableRefObject<(() => void) | null> = { current: null }
+    render(
+      <Board
+        puzzle={PUZZLE}
+        solution={SOLUTION}
+        clearColorsRef={clearColorsRef}
+        onClearPaintingAvailabilityChange={onClearPaintingAvailabilityChange}
+      />
+    )
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(false)
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(screen.getByRole('button', { name: /brush color 1/i }))
+    await user.click(cells[2])
+    await waitFor(() => expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(true))
+
+    await act(async () => { clearColorsRef.current?.() })
+    await waitFor(() => expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(false))
+  })
+
   it('persists brush and drawing colors independently between renders', async () => {
     const user = userEvent.setup()
     const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
@@ -769,6 +808,36 @@ describe('Board with fixed puzzle', () => {
     await waitFor(() =>
       expect(secondRender.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(0)
     )
+  })
+
+  it('reports clear drawings availability as strokes are added and cleared', async () => {
+    const onClearDrawingsAvailabilityChange = vi.fn()
+    const clearDrawingsRef: React.MutableRefObject<(() => void) | null> = { current: null }
+    const view = render(
+      <Board
+        puzzle={PUZZLE}
+        solution={SOLUTION}
+        clearDrawingsRef={clearDrawingsRef}
+        onClearDrawingsAvailabilityChange={onClearDrawingsAvailabilityChange}
+      />
+    )
+    const user = userEvent.setup()
+
+    expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(false)
+
+    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+    const drawingLayer = view.container.querySelector('.board-drawing-layer')
+    expect(drawingLayer).not.toBeNull()
+    mockDrawingLayerRect(drawingLayer!)
+
+    fireEvent.pointerDown(drawingLayer!, { pointerId: 9, clientX: 30, clientY: 30, button: 0 })
+    fireEvent.pointerMove(drawingLayer!, { pointerId: 9, clientX: 140, clientY: 120 })
+    fireEvent.pointerUp(drawingLayer!, { pointerId: 9, clientX: 180, clientY: 160 })
+
+    await waitFor(() => expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(true))
+
+    await act(async () => { clearDrawingsRef.current?.() })
+    await waitFor(() => expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(false))
   })
 
   it('fills simple candidates for all empty cells', async () => {
