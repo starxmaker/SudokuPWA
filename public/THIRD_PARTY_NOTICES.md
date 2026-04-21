@@ -1,0 +1,88 @@
+# Third-party notices
+
+Sudoku PWA is distributed under the GNU General Public License, version 3 or any later version (`GPL-3.0-or-later`). The production bundle also includes third-party software and icon artwork listed below.
+
+## Included GPL-covered components
+
+| Component | Version | Role in this project | License | Source |
+| --- | --- | --- | --- | --- |
+| `hodoku-difficulty-rating-ts` | `0.2.0` | HoDoKu logical difficulty rating used by `src\utils\generators\hodoku.ts` | `GPL-3.0-only` | <https://github.com/starxmaker/hodoku-difficulty-rating-ts> |
+| `qqwing` | `1.3.4` | Sudoku generation and coarse difficulty prefiltering used by `src\utils\generators\hodoku.ts` and `src\utils\generators\qqwing.ts` | `GPL-2.0-or-later` per the distributed source header | <https://github.com/stephenostermiller/qqwing> |
+
+## Other shipped runtime packages
+
+| Package | Version | Role in this project | License | Source |
+| --- | --- | --- | --- | --- |
+| `react` | `18.3.1` | UI runtime | MIT | <https://github.com/facebook/react> |
+| `react-dom` | `18.3.1` | DOM renderer for the React app | MIT | <https://github.com/facebook/react> |
+| `@khmyznikov/pwa-install` | `0.6.3` | Install prompt custom element used on the home screen | MIT | <https://github.com/khmyznikov/pwa-install> |
+| `@starxmaker/sudoku.js` | `1.0.2` | Sudoku solvability/solution checks during generation and creator validation | MIT | <https://github.com/starxmaker/sudoku.js> |
+| `web-haptics` | `0.0.6` | Haptic feedback support | MIT | <https://github.com/lochie/web-haptics> |
+| `react-icons` | `5.6.0` | React wrapper that ships the icon component code used by the UI | MIT | <https://github.com/react-icons/react-icons> |
+| `workbox-sw` / `workbox-window` and related Workbox runtime modules | `7.4.0` | Service worker runtime files emitted into `dist\` by `vite-plugin-pwa` | MIT | <https://github.com/GoogleChrome/workbox> |
+
+## UI icon libraries used through `react-icons`
+
+The app uses `react-icons@5.6.0` as an MIT-licensed wrapper that exposes icon sets as React components rendering inline SVG. The actual icon artwork licenses come from the source icon families below.
+
+| Import path | Upstream icon family | License | Used icons in this app | Source |
+| --- | --- | --- | --- | --- |
+| `react-icons/md` | Material Design Icons | Apache-2.0 | `MdPlayArrow`, `MdPause`, `MdUndo`, `MdOutlineFormatColorReset` | <https://github.com/google/material-design-icons> |
+| `react-icons/fa` | Font Awesome 5 | CC BY 4.0 | `FaEraser`, `FaGithub` | <https://fontawesome.com/> |
+| `react-icons/fa6` | Font Awesome 6 | CC BY 4.0 | `FaBrush`, `FaWandMagic` | <https://fontawesome.com/> |
+| `react-icons/gi` | Game Icons | CC BY 3.0 | `GiMagicBroom` | <https://game-icons.net/> |
+| `react-icons/lia` | Icons8 Line Awesome | MIT | `LiaMarkerSolid` | <https://github.com/icons8/line-awesome> |
+| `react-icons/pi` | Phosphor Icons | MIT | `PiFlagCheckeredFill` | <https://github.com/phosphor-icons/core> |
+| `react-icons/tb` | Tabler Icons | MIT | `TbNumbers` | <https://github.com/tabler/tabler-icons> |
+| `react-icons/fc` | Flat Color Icons | MIT | `FcOk` | <https://github.com/icons8/flat-color-icons> |
+
+## App icons versus UI icons
+
+The static files in `public\icons\` are the PWA/app icons used by the web manifest and install surfaces. They are separate assets from the runtime UI icons imported from `react-icons`.
+
+## qqwing licensing note
+
+The `qqwing` npm package metadata currently reports `GPL-2.0`, but the distributed source file bundled from that package (`node_modules\qqwing\qqwing-1.3.4.js`) contains this notice:
+
+> This program is free software; you can redistribute it and/or modify
+> it under the terms of the GNU General Public License as published by
+> the Free Software Foundation; either version 2 of the License, or
+> (at your option) any later version.
+
+Sudoku PWA relies on that "`or any later version`" clause and distributes the combined work under `GPL-3.0-or-later`, which is compatible with the `GPL-3.0-only` HoDoKu TypeScript port.
+
+## Corresponding source and rebuild information
+
+The preferred form of the work for making modifications is available from:
+
+1. This repository for the Sudoku PWA application source.
+2. The exact dependency versions pinned in `package-lock.json`.
+3. The upstream repositories listed above, or the exact npm source tarballs for the bundled versions.
+
+To rebuild the production bundle from source:
+
+```bash
+npm ci
+npm run build
+```
+
+The production build also copies this notice file and the GPL text into `dist\` (`THIRD_PARTY_NOTICES.md` and `LICENSE.txt`) so deployed static bundles carry the relevant license materials.
+
+To fetch npm source tarballs for the exact package versions used by this project:
+
+```bash
+npm pack hodoku-difficulty-rating-ts@0.2.0
+npm pack qqwing@1.3.4
+npm pack react@18.3.1
+npm pack react-dom@18.3.1
+npm pack @khmyznikov/pwa-install@0.6.3
+npm pack @starxmaker/sudoku.js@1.0.2
+npm pack react-icons@5.6.0
+npm pack web-haptics@0.0.6
+npm pack workbox-window@7.4.0
+npm pack workbox-sw@7.4.0
+```
+
+## No warranty
+
+As required by the GNU GPL, this software is provided without any warranty; see `LICENSE` for details.
