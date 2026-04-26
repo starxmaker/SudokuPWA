@@ -1,67 +1,50 @@
 import * as qqwing from './qqwing'
 import { solve as sudokujsSolve } from '@starxmaker/sudoku.js'
 import { Grid } from '../sudoku_types'
-import { findComplaint } from './hodoku'
+import { findComplaint, HODOKU_ESTIMATIONS } from './hodoku'
 import { GameDifficulty, DifficultyConfiguration, PuzzleSolutionPair, QQWingDifficulty} from './types'
 
 
 export const DIFFICULTY_CONFIGURATIONS: Record<GameDifficulty, DifficultyConfiguration> = {
   VERY_EASY: {
     label: 'Very Easy',
+    hodokuConstraint: HODOKU_ESTIMATIONS.VERY_EASY,
     qqwingConstraint: { difficulty: QQWingDifficulty.SIMPLE }
   },
   EASY: {
     label: 'Easy',
+    hodokuConstraint: HODOKU_ESTIMATIONS.EASY,
     qqwingConstraint: { difficulty: QQWingDifficulty.EASY }
   },
   MEDIUM: {
     label: 'Medium',
+    hodokuConstraint: HODOKU_ESTIMATIONS.MEDIUM,
     qqwingConstraint: { difficulty: QQWingDifficulty.INTERMEDIATE }
   },
   HARD: {
     label: 'Hard',
-    hodokuConstraint: {
-        difficulty: 'HARD',
-        minScore: null,
-        maxScore: 1600
-    },
+    hodokuConstraint: HODOKU_ESTIMATIONS.HARD,
     qqwingConstraint: { difficulty: QQWingDifficulty.EXPERT }
   },
   VERY_HARD: {
     label: 'Very Hard',
-    hodokuConstraint: {
-        difficulty: 'UNFAIR',
-        minScore: null,
-        maxScore: 1800,
-    },
+    hodokuConstraint: HODOKU_ESTIMATIONS.VERY_HARD,
     qqwingConstraint: { difficulty: QQWingDifficulty.EXPERT }
   },
   EXPERT: {
     label: 'Expert',
-    hodokuConstraint: {
-        difficulty: 'EXTREME',
-        minScore: null,
-        maxScore: 5000
-    },
+    hodokuConstraint: HODOKU_ESTIMATIONS.EXPERT,
     qqwingConstraint: { difficulty: QQWingDifficulty.EXPERT }
   },
   NIGHTMARE: {
     label: 'Nightmare',
-    hodokuConstraint: {
-        difficulty: 'EXTREME',
-        minScore: 3000,
-        maxScore: 7000
-    },
-    qqwingConstraint: { difficulty: QQWingDifficulty.EXPERT }
+    hodokuConstraint: HODOKU_ESTIMATIONS.NIGHTMARE,
+    qqwingConstraint: { quantity:10, difficulty: QQWingDifficulty.EXPERT }
   },
   DIABOLICAL: {
     label: 'Diabolical',
-    hodokuConstraint: {
-        difficulty: 'EXTREME',
-        minScore: 7000,
-        maxScore: null
-    },
-    qqwingConstraint: { difficulty: QQWingDifficulty.EXPERT }
+    hodokuConstraint: HODOKU_ESTIMATIONS.DIABOLICAL,
+    qqwingConstraint: { quantity:10, difficulty: QQWingDifficulty.EXPERT }
   },
 }
 
@@ -100,6 +83,13 @@ export async function generate(difficulty: GameDifficulty, signal?: AbortSignal)
         // Calibrate difficulty by human techniques 
         // Very resource intensive, so it should be done after filtering.
         const puzzleStrings = Object.keys(solvablePuzzles)
+        if (!config.hodokuConstraint) {
+            const firstCompliantPuzzle = puzzleStrings[0]
+            return {
+                puzzle: parseGrid(firstCompliantPuzzle),
+                solution: solvablePuzzles[firstCompliantPuzzle]
+            }
+        }
         const compliantPuzzle = await findComplaint(puzzleStrings, config.hodokuConstraint!, signal)
         if (!compliantPuzzle) continue
         const solution = solvablePuzzles[compliantPuzzle]

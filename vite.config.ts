@@ -33,6 +33,9 @@ export default defineConfig(async () => {
         }
       })
     ],
+    optimizeDeps: {
+      exclude: ['hodoku-core-js'],
+    },
     define: { __APP_VERSION__: JSON.stringify(pkg.version), __REPO_URL__: JSON.stringify(pkg.homepage) },
     server: { port: 5173 }
   }

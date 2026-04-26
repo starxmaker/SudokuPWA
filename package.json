@@ -1,6 +1,6 @@
 {
   "name": "sudoku-pwa",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/starxmaker/SudokuPWA/",
@@ -19,7 +19,6 @@
     "@khmyznikov/pwa-install": "^0.6.3",
     "@starxmaker/sudoku.js": "^1.0.2",
     "hodoku-core-js": "^0.2.0",
-    "hodoku-difficulty-rating-ts": "^0.2.0",
     "qqwing": "^1.3.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -2,10 +2,11 @@ import React from 'react'
 import { DIFFICULTY_CONFIGURATIONS } from '../utils/generators/orchestrator' 
 import { GameDifficulty } from '../utils/generators/types'
 
-const DEFAULT_DIFFICULTY: GameDifficulty = 'EASY'
+const LAST_DIFFICULTY_KEY = 'lastDifficulty:hodoku'
+const DEFAULT_DIFFICULTY: GameDifficulty = 'MEDIUM'
 function loadLastDifficulty(): GameDifficulty {
   try {
-    const v = localStorage.getItem(`lastDifficulty`)
+    const v = localStorage.getItem(LAST_DIFFICULTY_KEY)
     if (v && Object.keys(DIFFICULTY_CONFIGURATIONS).includes(v)) return v as GameDifficulty
     return DEFAULT_DIFFICULTY
   } catch {}
@@ -28,7 +29,7 @@ export default function NewGameModal({ open, onClose, onStart }: Props){
 
   async function handleStart(){
     try {
-      localStorage.setItem(`lastDifficulty`, choice)
+      localStorage.setItem(LAST_DIFFICULTY_KEY, choice)
     } catch {}
     cancelledRef.current = false
     const controller = new AbortController()

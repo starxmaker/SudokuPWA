@@ -49,14 +49,14 @@ describe('NewGameModal', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('calls onStart with selected difficulty, generator id, and signal, then closes', async () => {
+  it('calls onStart with selected difficulty and signal, then closes', async () => {
     const onStart = vi.fn().mockResolvedValue(undefined)
     const onClose = vi.fn()
     render(<NewGameModal open={true} onClose={onClose} onStart={onStart} />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^hard$/i }))
     await user.click(screen.getByRole('button', { name: 'Start' }))
-    await waitFor(() => expect(onStart).toHaveBeenCalledWith('hodoku', 'HARD', expect.any(AbortSignal)))
+    await waitFor(() => expect(onStart).toHaveBeenCalledWith('HARD', expect.any(AbortSignal)))
     await waitFor(() => expect(onClose).toHaveBeenCalled())
   })
 
