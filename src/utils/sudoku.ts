@@ -1,7 +1,8 @@
 import { get_candidates as libGetCandidates, solve as libSolve } from '@starxmaker/sudoku.js'
 import type { Grid, Difficulty } from './sudoku_types'
-import { getGenerator, DEFAULT_GENERATOR_ID } from './generators'
+import { generate } from './generators/orchestrator'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
+import { GameDifficulty } from './generators/types'
 
 export type { Grid, Difficulty }
 
@@ -17,11 +18,10 @@ function shouldUseGenerationWorker() {
 }
 
 function generateGameOnCurrentThread(
-  difficulty: string,
-  generatorId: string,
+  difficulty: GameDifficulty,
   signal?: AbortSignal,
 ) {
-  return getGenerator(generatorId).generate(difficulty, signal)
+  return generate(difficulty, signal)
 }
 
 export function setGenerationWorkerFactoryForTests(factory: GenerationWorkerFactory | null) {
@@ -86,12 +86,11 @@ export function validateCreatedPuzzle(puzzle: Grid): CreatedPuzzleValidationResu
 }
 
 export async function generateGame(
-  difficulty: string = 'MEDIUM',
-  generatorId: string = DEFAULT_GENERATOR_ID,
+  difficulty: GameDifficulty = 'MEDIUM',
   signal?: AbortSignal,
 ): Promise<{ puzzle: Grid; solution: Grid }> {
   if (!shouldUseGenerationWorker()) {
-    return generateGameOnCurrentThread(difficulty, generatorId, signal)
+    return generateGameOnCurrentThread(difficulty, signal)
   }
 
   return new Promise<{ puzzle: Grid; solution: Grid }>((resolve, reject) => {
@@ -149,7 +148,6 @@ export async function generateGame(
     const request: GenerateWorkerRequest = {
       type: 'generate',
       difficulty,
-      generatorId,
     }
     worker.postMessage(request)
   })

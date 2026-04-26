@@ -3,7 +3,6 @@ import type { Grid } from './sudoku_types'
 export type GenerateWorkerRequest = {
   type: 'generate'
   difficulty: string
-  generatorId: string
 }
 
 export type GenerateWorkerResponse =

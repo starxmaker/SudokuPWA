@@ -6,9 +6,10 @@ import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
 import PuzzleCreator from './components/PuzzleCreator'
 import { generateGame, solveGrid, Grid } from './utils/sudoku'
-import { getGenerator } from './utils/generators'
+import { DIFFICULTY_CONFIGURATIONS } from './utils/generators/orchestrator'
 import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
+import { GameDifficulty } from './utils/generators/types'
 
 /** Parse ?p= once, synchronously, and solve the puzzle. */
 type ParsedUrl =
@@ -240,9 +241,9 @@ export default function App(){
     setShowHome(false)
   }
 
-  async function startNewWithDifficulty(generatorId: string, difficultyId: string, signal: AbortSignal){
-    const { puzzle: p, solution: s } = await generateGame(difficultyId, generatorId, signal)
-    const diffLabel = getGenerator(generatorId).difficulties.find(d => d.id === difficultyId)?.label ?? difficultyId
+  async function startNewWithDifficulty(difficultyId: GameDifficulty, signal: AbortSignal){
+    const { puzzle: p, solution: s } = await generateGame(difficultyId, signal)
+    const diffLabel = DIFFICULTY_CONFIGURATIONS[difficultyId].label
     // Yield to the event loop so any queued cancel clicks fire before we apply state
     await new Promise<void>(r => setTimeout(r, 0))
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')

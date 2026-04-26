@@ -7,7 +7,7 @@ declare module 'qqwing' {
     generatePuzzle(): boolean
     generatePuzzleSymmetry(symmetry: number): boolean
     solve(): boolean
-    getDifficulty(): number
+    getDifficulty(): QQWingDifficulty
     getPuzzleString(): string
     getSolutionString(): string
     isSolved(): boolean
@@ -15,7 +15,7 @@ declare module 'qqwing' {
 
   interface QQWingConstructor {
     new(): QQWingInstance
-    Difficulty: Readonly<{ UNKNOWN: 0; SIMPLE: 1; EASY: 2; INTERMEDIATE: 3; EXPERT: 4 }>
+    Difficulty: Readonly<number>
     PrintStyle: Readonly<{ ONE_LINE: 0; COMPACT: 1; READABLE: 2; CSV: 3 }>
     Symmetry: Readonly<{ NONE: 0; ROTATE90: 1; ROTATE180: 2; MIRROR: 3; FLIP: 4; RANDOM: 5 }>
   }
