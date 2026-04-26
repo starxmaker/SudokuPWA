@@ -47,5 +47,8 @@
     "globals": true,
     "environment": "jsdom",
     "setupFiles": "./src/setupTests.ts"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.60.2"
   }
 }
