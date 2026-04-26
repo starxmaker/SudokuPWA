@@ -35,6 +35,14 @@ vi.mock('./utils/sudoku', async (importOriginal) => {
   }
 })
 
+vi.mock('./utils/generators/hodoku', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./utils/generators/hodoku')>()
+  return {
+    ...actual,
+    warmupHodoku: vi.fn().mockResolvedValue(true),
+  }
+})
+
 const GRID: number[][] = [
   [5, 3, 4, 6, 7, 8, 9, 1, 2],
   [6, 7, 2, 1, 9, 5, 3, 4, 8],
@@ -69,10 +77,10 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  it('shows Home page on first load', () => {
+  it('shows Home page on first load', async () => {
     render(<App />)
     expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^new game$/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^new game$/i })).toBeInTheDocument()
   })
 
   it('does not show Continue when no saved game', () => {
@@ -117,7 +125,7 @@ describe('App', () => {
 
   it('opens new game modal when New Game clicked', async () => {
     render(<App />)
-    await userEvent.click(screen.getByRole('button', { name: /^new game$/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^new game$/i }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     // modal heading is an h2 inside the dialog
     expect(screen.getByRole('heading', { name: /^new game$/i })).toBeInTheDocument()
@@ -134,7 +142,7 @@ describe('App', () => {
   it('cancels new game modal on Cancel click', async () => {
     render(<App />)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /^new game$/i }))
+    await user.click(await screen.findByRole('button', { name: /^new game$/i }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /cancel/i }))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -235,7 +243,7 @@ describe('App', () => {
     saveElapsed(300) // simulate 5 minutes elapsed on the previous game
     render(<App />)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /^new game$/i }))
+    await user.click(await screen.findByRole('button', { name: /^new game$/i }))
     await user.click(screen.getByRole('button', { name: /^start$/i }))
     await screen.findAllByRole('gridcell')
     // clearElapsed() must have been called — localStorage key should be gone
@@ -319,7 +327,7 @@ describe('App', () => {
     render(<App />)
     expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
     // Start a new game — clears the completed flag
-    await userEvent.click(screen.getByRole('button', { name: /^new game$/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /^new game$/i }))
     await userEvent.click(screen.getByRole('button', { name: /^start$/i }))
     await screen.findAllByRole('gridcell')
     expect(localStorage.getItem(COMPLETED_KEY)).toBeNull()

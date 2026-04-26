@@ -10,6 +10,7 @@ import { DIFFICULTY_CONFIGURATIONS } from './utils/generators/orchestrator'
 import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 import { GameDifficulty } from './utils/generators/types'
+import { warmupHodoku } from './utils/generators/hodoku'
 
 /** Parse ?p= once, synchronously, and solve the puzzle. */
 type ParsedUrl =
@@ -124,6 +125,11 @@ export default function App(){
   }, [firstColorFlag])
 
   useEffect(() => { initHaptic() }, [])
+
+  const [hodokuReady, setHodokuReady] = useState(false)
+  useEffect(() => {
+    warmupHodoku().then(setHodokuReady)
+  }, [])
 
   // Parse URL game synchronously so StrictMode double-effects don't clobber it.
   // Also persist to localStorage immediately so Board's useState initializer reads the URL game,
@@ -312,7 +318,7 @@ export default function App(){
       />
       <div className="app">
         {showHome ? (
-          <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} onCreated={handleCreated} error={urlError} />
+          <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} onCreated={handleCreated} error={urlError} hodokuReady={hodokuReady} />
         ) : creatorMode ? (
           <PuzzleCreator
             onStart={startCreatedPuzzle}

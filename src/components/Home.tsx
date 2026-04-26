@@ -29,6 +29,7 @@ type Props = {
   onContinue: () => void
   onCreated: () => void
   error?: string | null
+  hodokuReady: boolean
 }
 
 function isStandalonePwa(): boolean {
@@ -45,7 +46,7 @@ function isAppleMobileBrowser(): boolean {
   return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
 }
 
-export default function Home({ hasSaved, onNew, onContinue, onCreated, error }: Props){
+export default function Home({ hasSaved, onNew, onContinue, onCreated, error, hodokuReady }: Props){
   const installRef = useRef<PwaInstallElement | null>(null)
   const promptEventRef = useRef<BeforeInstallPromptEvent | null>(null)
   const [isInstalledPwa, setIsInstalledPwa] = useState(() => isStandalonePwa())
@@ -139,7 +140,9 @@ export default function Home({ hasSaved, onNew, onContinue, onCreated, error }: 
       </div>
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>
         <div style={{display:'flex',flexDirection:'column',gap:20,alignItems:'stretch',width:'100%',maxWidth:240}}>
-          <button className="home-btn" onClick={onNew}>New Game</button>
+          <button className="home-btn" onClick={onNew} disabled={!hodokuReady}>
+            {hodokuReady ? 'New Game' : 'Loading...'}
+          </button>
           {hasSaved && <button className="home-btn" onClick={onContinue}>Continue</button>}
           <button className="home-btn" onClick={onCreated}>Create new game</button>
         </div>
