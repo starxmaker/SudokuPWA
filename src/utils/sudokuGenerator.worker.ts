@@ -1,4 +1,4 @@
-import { getGenerator } from './generators'
+import { generate } from './generators/orchestrator'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
 
 const workerScope = self as DedicatedWorkerGlobalScope
@@ -8,7 +8,7 @@ workerScope.onmessage = async (event: MessageEvent<GenerateWorkerRequest>) => {
   if (message.type !== 'generate') return
 
   try {
-    const { puzzle, solution } = await getGenerator(message.generatorId).generate(message.difficulty)
+    const { puzzle, solution } = await generate(message.difficulty)
     const response: GenerateWorkerResponse = {
       type: 'result',
       puzzle,

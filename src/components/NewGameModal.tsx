@@ -1,44 +1,42 @@
 import React from 'react'
-import { DEFAULT_GENERATOR_ID, getGenerator } from '../utils/generators'
+import { DIFFICULTY_CONFIGURATIONS } from '../utils/generators/orchestrator' 
+import { GameDifficulty } from '../utils/generators/types'
 
-const GENERATOR_ID = DEFAULT_GENERATOR_ID
-
-function loadLastDifficulty(): string {
+const LAST_DIFFICULTY_KEY = 'lastDifficulty:hodoku'
+const DEFAULT_DIFFICULTY: GameDifficulty = 'MEDIUM'
+function loadLastDifficulty(): GameDifficulty {
   try {
-    const gen = getGenerator()
-    const v = localStorage.getItem(`lastDifficulty:${GENERATOR_ID}`)
-    if (v && gen.difficulties.some(d => d.id === v)) return v
-    return gen.defaultDifficulty
+    const v = localStorage.getItem(LAST_DIFFICULTY_KEY)
+    if (v && Object.keys(DIFFICULTY_CONFIGURATIONS).includes(v)) return v as GameDifficulty
+    return DEFAULT_DIFFICULTY
   } catch {}
-  return getGenerator().defaultDifficulty
+  return DEFAULT_DIFFICULTY
 }
 
 type Props = {
   open: boolean
   onClose: () => void
-  onStart: (generatorId: string, difficultyId: string, signal: AbortSignal) => Promise<void>
+  onStart: (difficultyId: GameDifficulty, signal: AbortSignal) => Promise<void>
 }
 
 export default function NewGameModal({ open, onClose, onStart }: Props){
-  const [choice, setChoice] = React.useState<string>(loadLastDifficulty)
+  const [choice, setChoice] = React.useState<GameDifficulty>(loadLastDifficulty)
   const [generating, setGenerating] = React.useState(false)
   const controllerRef = React.useRef<AbortController | null>(null)
   const cancelledRef = React.useRef(false)
 
   if(!open) return null
 
-  const currentGen = getGenerator()
-
   async function handleStart(){
     try {
-      localStorage.setItem(`lastDifficulty:${GENERATOR_ID}`, choice)
+      localStorage.setItem(LAST_DIFFICULTY_KEY, choice)
     } catch {}
     cancelledRef.current = false
     const controller = new AbortController()
     controllerRef.current = controller
     setGenerating(true)
     try {
-      await onStart(GENERATOR_ID, choice, controller.signal)
+      await onStart(choice, controller.signal)
       if (!cancelledRef.current) onClose()
     } catch {
       // aborted or error — stay open
@@ -64,10 +62,10 @@ export default function NewGameModal({ open, onClose, onStart }: Props){
         <h2>New Game</h2>
         <p>Select difficulty</p>
         <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
-          {currentGen.difficulties.map(d => (
-            <button key={d.id} onClick={()=>{ if(!generating) setChoice(d.id) }} aria-pressed={choice===d.id} disabled={generating}
-              style={{borderRadius:12,padding:'10px 16px',textAlign:'left',background:choice===d.id?'var(--accent)':'var(--card)',color:choice===d.id?'#fff':'var(--text)',border:choice===d.id?'none':'1px solid rgba(128,128,128,0.35)'}}>
-              {d.label}
+          {Object.keys(DIFFICULTY_CONFIGURATIONS).map(d => d as GameDifficulty).map(d => (
+            <button key={d} onClick={()=>{ if(!generating) setChoice(d) }} aria-pressed={choice===d} disabled={generating}
+              style={{borderRadius:12,padding:'10px 16px',textAlign:'left',background:choice===d?'var(--accent)':'var(--card)',color:choice===d?'#fff':'var(--text)',border:choice===d?'none':'1px solid rgba(128,128,128,0.35)'}}>
+              {DIFFICULTY_CONFIGURATIONS[d].label}
             </button>
           ))}
         </div>

@@ -1,9 +1,9 @@
 import type { Grid } from './sudoku_types'
+import type { GameDifficulty } from './generators/types'
 
 export type GenerateWorkerRequest = {
   type: 'generate'
-  difficulty: string
-  generatorId: string
+  difficulty: GameDifficulty
 }
 
 export type GenerateWorkerResponse =

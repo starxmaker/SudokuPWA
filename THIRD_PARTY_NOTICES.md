@@ -6,7 +6,8 @@ Sudoku PWA is distributed under the GNU General Public License, version 3 or any
 
 | Component | Version | Role in this project | License | Source |
 | --- | --- | --- | --- | --- |
-| `hodoku-difficulty-rating-ts` | `0.2.0` | HoDoKu logical difficulty rating used by `src\utils\generators\hodoku.ts` | `GPL-3.0-only` | <https://github.com/starxmaker/hodoku-difficulty-rating-ts> |
+| `Hodoku` | `2.3.2` | HoDoKu logical difficulty rating used by `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/PseudoFish/Hodoku> |
+| `hodoku-core-js` | `2.3.2` | Port of above component to JS used in `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/starxmaker/Hodoku> |
 | `qqwing` | `1.3.4` | Sudoku generation and coarse difficulty prefiltering used by `src\utils\generators\hodoku.ts` and `src\utils\generators\qqwing.ts` | `GPL-2.0-or-later` per the distributed source header | <https://github.com/stephenostermiller/qqwing> |
 
 ## Other shipped runtime packages
@@ -71,7 +72,7 @@ The production build also copies this notice file and the GPL text into `dist\` 
 To fetch npm source tarballs for the exact package versions used by this project:
 
 ```bash
-npm pack hodoku-difficulty-rating-ts@0.2.0
+npm pack hodoku-core-js@0.2.0
 npm pack qqwing@1.3.4
 npm pack react@18.3.1
 npm pack react-dom@18.3.1
