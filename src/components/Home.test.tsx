@@ -63,7 +63,7 @@ beforeEach(() => {
 })
 
 describe('Home', () => {
-  const base = { hasSaved: false, onNew: vi.fn(), onContinue: vi.fn(), onCreated: vi.fn() }
+  const base = { hasSaved: false, onNew: vi.fn(), onContinue: vi.fn(), onCreated: vi.fn(), hodokuReady: true }
 
   it('renders welcome heading and New Game button', () => {
     render(<Home {...base} />)
@@ -107,7 +107,7 @@ describe('Home', () => {
 
   it('calls onContinue when Continue clicked', async () => {
     const onContinue = vi.fn()
-    render(<Home hasSaved={true} onNew={vi.fn()} onContinue={onContinue} onCreated={vi.fn()} />)
+    render(<Home hasSaved={true} onNew={vi.fn()} onContinue={onContinue} onCreated={vi.fn()} hodokuReady={true} />)
     await userEvent.click(screen.getByRole('button', { name: /continue/i }))
     expect(onContinue).toHaveBeenCalledOnce()
   })

@@ -1,6 +1,28 @@
 import { createRuntimePool } from 'hodoku-core-js'
 import type { GameDifficulty, HodokuConstraint, HodokuDifficulty, SolveRating } from './types'
 
+let runtimeWarmupPromise: Promise<boolean> | null = null
+
+export function warmupHodoku(): Promise<boolean> {
+  if (!runtimeWarmupPromise) {
+    runtimeWarmupPromise = (async (): Promise<boolean> => {
+      try {
+        const pool = createRuntimePool()
+        try {
+          const samplePuzzle = '.................................................................................'
+          await pool.executeCommand(['/o', 'stdout', samplePuzzle])
+          return true
+        } finally {
+          pool.dispose()
+        }
+      } catch {
+        return false
+      }
+    })()
+  }
+  return runtimeWarmupPromise
+}
+
 export type HodokuEstimationId = GameDifficulty
 
 type HodokuEstimation = {
