@@ -1552,6 +1552,7 @@ export default function Board({
   function toggleReferenceDigitHighlight(d: number) {
     setCandidateOverlay(null)
     setCandidateOverlayPreviewDigit(null)
+    setSelected(null)
     setCandidateSelectedDigit(prev => (prev === d ? null : d))
   }
 

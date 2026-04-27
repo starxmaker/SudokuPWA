@@ -334,16 +334,20 @@ describe('Board component', () => {
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
-    const referenceNumberBtn = screen.getByRole('button', { name: /^4,/ })
+    await user.click(cells[1])
+    expect(cells[1].getAttribute('aria-selected')).toBe('true')
+
+    const referenceNumberBtn = screen.getByRole('button', { name: /^5,/ })
     await user.click(referenceNumberBtn)
 
     expect(referenceNumberBtn.getAttribute('aria-pressed')).toBe('true')
-    expect(cells[16].classList.contains('same-digit')).toBe(true)
+    expect(cells[1].getAttribute('aria-selected')).toBe('false')
+    expect(cells[0].classList.contains('same-digit')).toBe(true)
 
     await user.click(referenceNumberBtn)
 
     expect(referenceNumberBtn.getAttribute('aria-pressed')).toBe('false')
-    expect(cells[16].classList.contains('same-digit')).toBe(false)
+    expect(cells[0].classList.contains('same-digit')).toBe(false)
   })
 
   it('selects given digits in pencil mode', async () => {
