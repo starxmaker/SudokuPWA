@@ -7,6 +7,43 @@
     <meta name="theme-color" content="#0b6cff">
     <link rel="icon" href="icons/icon-192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+    <style>
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f7fb;
+        color: #0b2135;
+        z-index: 9999;
+        transition: opacity 180ms ease;
+      }
+      html.dark #app-splash {
+        background: #121212;
+        color: #e6eef8;
+      }
+      #app-splash.app-splash--hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .app-splash__content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        text-align: center;
+      }
+      .app-splash__icon {
+        width: min(36vw, 144px);
+        height: min(36vw, 144px);
+      }
+      .app-splash__label {
+        margin: 0;
+        font: 600 1.05rem/1.2 system-ui, Arial, sans-serif;
+        letter-spacing: 0.04em;
+      }
+    </style>
     <!-- Apply saved or system theme before React mounts to avoid flash -->
     <script>
       (function(){
@@ -36,6 +73,12 @@
     </script>
   </head>
   <body>
+    <div id="app-splash" aria-hidden="true">
+      <div class="app-splash__content">
+        <img class="app-splash__icon" src="icons/icon-192.png" alt="" />
+        <p class="app-splash__label">Loading...</p>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -5,6 +5,13 @@ import './index.css'
 import { initSudoku } from './utils/sudoku'
 import { warmupHodoku } from './utils/generators/hodoku'
 
+function hideSplashScreen() {
+  const splash = document.getElementById('app-splash')
+  if (!splash) return
+  splash.classList.add('app-splash--hidden')
+  window.setTimeout(() => splash.remove(), 180)
+}
+
 (async function bootstrap(){
   try{
     await initSudoku()
@@ -21,6 +28,7 @@ import { warmupHodoku } from './utils/generators/hodoku'
       <App />
     </React.StrictMode>
   )
+  requestAnimationFrame(() => hideSplashScreen())
 
   // Service worker is registered automatically by vite-plugin-pwa (injectRegister: 'auto')
 })()
