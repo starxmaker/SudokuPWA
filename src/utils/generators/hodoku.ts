@@ -1,4 +1,4 @@
-import { createRuntimePool } from 'hodoku-core-js'
+import { createRuntime } from 'hodoku-core-js'
 import type { GameDifficulty, HodokuConstraint, HodokuDifficulty, SolveRating } from './types'
 
 let runtimeWarmupPromise: Promise<boolean> | null = null
@@ -7,7 +7,7 @@ export function warmupHodoku(): Promise<boolean> {
   if (!runtimeWarmupPromise) {
     runtimeWarmupPromise = (async (): Promise<boolean> => {
       try {
-        const pool = createRuntimePool()
+        const pool = createRuntime()
         try {
           const samplePuzzle = '.................................................................................'
           await pool.executeCommand(['/o', 'stdout', samplePuzzle])
@@ -113,6 +113,7 @@ export async function findComplaint(
         return true
       },
       signal,
+      constraints
     )
     resolve(null)
   })
@@ -122,10 +123,14 @@ export async function evaluate(
   puzzles: string[],
   onNewPuzzle?: (rating: SolveRating) => boolean,
   signal?: AbortSignal,
+  constraints?: HodokuConstraint,
 ): Promise<SolveRating[]> {
   const results: SolveRating[] = []
   const args = ['/o', 'stdout', ...puzzles]
-  const pool = createRuntimePool()
+  if (constraints && constraints.maxScore) {
+    args.push('/ms', String(constraints.maxScore))
+  }
+  const pool = createRuntime()
   await pool.executeCommand(args, line => {
     if (signal?.aborted) {
       return false
@@ -149,6 +154,7 @@ const regex =
   /^([\.0-9]{81})\s+#\d+\s+(Easy|Medium|Hard|Unfair|Extreme)\s+\((\d+)\)$/
 
 export const map = (line: string): SolveRating | null => {
+  if (line.includes('gu')) return null // hodoku gave up due to constraint
   const match = line.trim().match(regex)
   if (match) {
     return {
