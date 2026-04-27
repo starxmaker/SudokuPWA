@@ -650,6 +650,7 @@ export default function Board({
   }
 
   function applyCellBrushColorAt(r: number, c: number, colorId: BrushColorId = activeBrushColor) {
+    if (internalPuzzle[r][c] !== 0) return false
     if (candidateColorsRef.current[r][c].some(candidateColors => candidateColors.length > 0)) return false
     const currentColors = cellColorsRef.current[r][c]
     const nextColors = toggleColorInSelection(currentColors, colorId)
@@ -1405,7 +1406,7 @@ export default function Board({
 
   const selectedDigit =
     selected !== null ? internalPuzzle[selected.r][selected.c] : 0
-  const highlightedDigit = candidateOverlayPreviewDigit ?? candidateSelectedDigit ?? (brushMode || drawingMode ? 0 : selectedDigit)
+  const highlightedDigit = candidateOverlayPreviewDigit ?? candidateSelectedDigit ?? selectedDigit
   const canFillSelectedCandidates =
     selected !== null &&
     !isClue(selected.r, selected.c) &&
