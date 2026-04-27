@@ -312,10 +312,10 @@ describe('Board component', () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} pencilMode paintingScope="candidate" />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
-    const disabledNumberBtn = screen.getByRole('button', { name: /^4,/ })
+    const referenceNumberBtn = screen.getByRole('button', { name: /^4,/ })
 
-    expect(disabledNumberBtn).toBeDisabled()
-    expect(disabledNumberBtn.classList.contains('num-key--reference')).toBe(true)
+    expect(referenceNumberBtn).not.toBeDisabled()
+    expect(referenceNumberBtn.classList.contains('num-key--reference')).toBe(true)
 
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     expect(screen.getByRole('button', { name: /brush color 1/i })).toBeInTheDocument()
@@ -327,6 +327,23 @@ describe('Board component', () => {
     expect(screen.queryByRole('dialog', { name: /candidate painter/i })).toBeNull()
     expect(document.querySelector('.pencil-cell-canvas')).toBeNull()
     expect(cells[2].querySelectorAll('.cell-note')[3].classList.contains('cell-note--colored')).toBe(true)
+  })
+
+  it('highlights matching digits when a reference number is clicked in pencil mode', async () => {
+    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} pencilMode />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    const referenceNumberBtn = screen.getByRole('button', { name: /^4,/ })
+    await user.click(referenceNumberBtn)
+
+    expect(referenceNumberBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(cells[16].classList.contains('same-digit')).toBe(true)
+
+    await user.click(referenceNumberBtn)
+
+    expect(referenceNumberBtn.getAttribute('aria-pressed')).toBe('false')
+    expect(cells[16].classList.contains('same-digit')).toBe(false)
   })
 
   it('selects given digits in pencil mode', async () => {
@@ -402,6 +419,34 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-color-layer')).not.toBeNull()
   })
 
+  it('highlights matching givens when selecting a filled cell in brush mode', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(cells[0])
+
+    expect(cells[0].classList.contains('selected-brush')).toBe(true)
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+    expect(cells[0].querySelector('.cell-color-layer')).toBeNull()
+  })
+
+  it('highlights matching user entries when selecting a filled cell in brush mode', async () => {
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^7,/ }))
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(cells[2])
+
+    expect(cells[2].classList.contains('selected-brush')).toBe(true)
+    expect(cells[10].classList.contains('same-digit')).toBe(true)
+    expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
+  })
+
   it('accumulates brush colors on a cell across multiple paint passes', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
@@ -423,7 +468,7 @@ describe('Board with fixed puzzle', () => {
 
   it('persists the first color flag toggle and keeps the first colored cell flagged', async () => {
     const user = userEvent.setup()
-    const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} firstColorFlag />)
+    const firstRender = render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} firstColorFlag />)
     const cells = screen.getAllByRole('gridcell')
 
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
@@ -435,7 +480,7 @@ describe('Board with fixed puzzle', () => {
 
     firstRender.unmount()
 
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} firstColorFlag />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} firstColorFlag />)
     await waitForBoard()
     const rerenderedCells = screen.getAllByRole('gridcell')
 
@@ -446,7 +491,7 @@ describe('Board with fixed puzzle', () => {
 
   it('clears and resets the first color flag when board colors are removed', async () => {
     const clearColorsRef: React.MutableRefObject<(() => void) | null> = { current: null }
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} firstColorFlag clearColorsRef={clearColorsRef} />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} firstColorFlag clearColorsRef={clearColorsRef} />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -531,7 +576,7 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
   })
 
-  it('does not highlight a cell digit across the board when candidate coloring mode selects a filled cell', async () => {
+  it('keeps highlighting a filled cell in candidate coloring mode without allowing coloring', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
@@ -540,7 +585,9 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[0])
 
     expect(screen.queryByRole('dialog', { name: /candidate painter/i })).toBeNull()
-    expect(cells[28].classList.contains('same-digit')).toBe(false)
+    expect(cells[0].classList.contains('selected-brush')).toBe(true)
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+    expect(cells[0].querySelector('.cell-color-layer')).toBeNull()
   })
 
   it('closes the candidate overlay when clicking outside it', async () => {
