@@ -1549,6 +1549,12 @@ export default function Board({
     return points.map(([x, y]) => `${x},${y}`).join(' ')
   }
 
+  function toggleReferenceDigitHighlight(d: number) {
+    setCandidateOverlay(null)
+    setCandidateOverlayPreviewDigit(null)
+    setCandidateSelectedDigit(prev => (prev === d ? null : d))
+  }
+
   function renderNumberPad(tabIndex?: number, interactionDisabled = false) {
     return (
       <>
@@ -1557,14 +1563,21 @@ export default function Board({
             key={d}
             type="button"
             className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${candidateEntryMode ? ' num-key--notes' : ''}${interactionDisabled ? ' num-key--reference' : ''}`}
-            disabled={interactionDisabled || paused || won || remaining[d] === 0}
+            disabled={paused || won || (!interactionDisabled && remaining[d] === 0)}
+            aria-pressed={interactionDisabled ? candidateSelectedDigit === d : undefined}
             onPointerDown={(e) => {
+              if (interactionDisabled) return
               if (e.pointerType === 'touch') {
                 const isError = applyDigit(d)
                 touchFiredRef.current = isError ? 'error' : 'ok'
               }
             }}
             onClick={() => {
+              if (interactionDisabled) {
+                toggleReferenceDigitHighlight(d)
+                if (haptic) onTriggerHaptic?.()
+                return
+              }
               if (touchFiredRef.current !== null) {
                 const result = touchFiredRef.current
                 touchFiredRef.current = null
