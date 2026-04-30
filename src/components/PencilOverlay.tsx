@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { recognizeDigit } from '../utils/digitRecognizer'
+import { recognizeDigit } from 'browser-handwritten-digit-recognition'
 
 type CellRect = { top: number; left: number; width: number; height: number }
 type RecognizeState =
