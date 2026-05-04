@@ -72,13 +72,13 @@ export const HODOKU_ESTIMATIONS: Record<HodokuEstimationId, HodokuEstimation> = 
   NIGHTMARE: {
     label: 'Nightmare',
     difficulty: 'EXTREME',
-    minScore: 3000,
-    maxScore: 7000,
+    minScore: 5000,
+    maxScore: 10000,
   },
   DIABOLICAL: {
     label: 'Diabolical',
     difficulty: 'EXTREME',
-    minScore: 7000,
+    minScore: 10000,
     maxScore: null,
   },
 }

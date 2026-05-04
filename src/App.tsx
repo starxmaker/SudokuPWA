@@ -5,12 +5,13 @@ import TopBar from './components/TopBar'
 import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
 import PuzzleCreator from './components/PuzzleCreator'
-import { generateGame, solveGrid, Grid } from './utils/sudoku'
+import { solveGrid, Grid } from './utils/sudoku'
 import { DIFFICULTY_CONFIGURATIONS } from './utils/generators/orchestrator'
 import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 import { GameDifficulty } from './utils/generators/types'
-import { warmupHodoku } from './utils/generators/hodoku'
+import { getPuzzleQueueAvailability, startPuzzleQueueDaemon, subscribePuzzleQueueAvailability, takeQueuedGame } from './utils/appPuzzleQueue'
+import type { PuzzleQueueAvailability } from './utils/puzzleQueue'
 
 /** Parse ?p= once, synchronously, and solve the puzzle. */
 type ParsedUrl =
@@ -126,10 +127,13 @@ export default function App(){
 
   useEffect(() => { initHaptic() }, [])
 
-  const [hodokuReady, setHodokuReady] = useState(false)
+  const [puzzleAvailability, setPuzzleAvailability] = useState<PuzzleQueueAvailability>(() => getPuzzleQueueAvailability())
   useEffect(() => {
-    warmupHodoku().then(setHodokuReady)
+    const unsubscribe = subscribePuzzleQueueAvailability(setPuzzleAvailability)
+    startPuzzleQueueDaemon()
+    return unsubscribe
   }, [])
+  const hasAvailablePuzzle = Object.values(puzzleAvailability).some(count => count > 0)
 
   // Parse URL game synchronously so StrictMode double-effects don't clobber it.
   // Also persist to localStorage immediately so Board's useState initializer reads the URL game,
@@ -248,7 +252,10 @@ export default function App(){
   }
 
   async function startNewWithDifficulty(difficultyId: GameDifficulty, signal: AbortSignal){
-    const { puzzle: p, solution: s } = await generateGame(difficultyId, signal)
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    const nextGame = await takeQueuedGame(difficultyId)
+    if (!nextGame) throw new Error('This difficulty is still generating.')
+    const { puzzle: p, solution: s } = nextGame
     const diffLabel = DIFFICULTY_CONFIGURATIONS[difficultyId].label
     // Yield to the event loop so any queued cancel clicks fire before we apply state
     await new Promise<void>(r => setTimeout(r, 0))
@@ -318,7 +325,7 @@ export default function App(){
       />
       <div className="app">
         {showHome ? (
-          <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} onCreated={handleCreated} error={urlError} hodokuReady={hodokuReady} />
+          <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} onCreated={handleCreated} error={urlError} hasAvailablePuzzle={hasAvailablePuzzle} />
         ) : creatorMode ? (
           <PuzzleCreator
             onStart={startCreatedPuzzle}
@@ -358,7 +365,7 @@ export default function App(){
           />
         )}
         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
-        <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} />
+        <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} availability={puzzleAvailability} />
       </div>
       {toast && <div className="toast">{toast}</div>}
     </div>

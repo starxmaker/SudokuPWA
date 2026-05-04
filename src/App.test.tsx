@@ -5,6 +5,29 @@ import App from './App'
 import { saveGame, saveElapsed, saveCompleted, ELAPSED_KEY, COMPLETED_KEY } from './utils/gameStorage'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
+const appPuzzleQueueMocks = vi.hoisted(() => {
+  const availability = {
+    VERY_EASY: 1,
+    EASY: 1,
+    MEDIUM: 1,
+    HARD: 1,
+    VERY_HARD: 1,
+    EXPERT: 1,
+    NIGHTMARE: 1,
+    DIABOLICAL: 1,
+  }
+  return {
+    availability,
+    getPuzzleQueueAvailability: vi.fn(() => availability),
+    startPuzzleQueueDaemon: vi.fn(),
+    subscribePuzzleQueueAvailability: vi.fn((listener: (availability: typeof availability) => void) => {
+      listener(availability)
+      return vi.fn()
+    }),
+    takeQueuedGame: vi.fn(),
+  }
+})
+
 vi.mock('./utils/sudoku', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./utils/sudoku')>()
   const solution = [
@@ -34,6 +57,13 @@ vi.mock('./utils/sudoku', async (importOriginal) => {
     generateGame: vi.fn().mockResolvedValue({ puzzle, solution }),
   }
 })
+
+vi.mock('./utils/appPuzzleQueue', () => ({
+  getPuzzleQueueAvailability: appPuzzleQueueMocks.getPuzzleQueueAvailability,
+  startPuzzleQueueDaemon: appPuzzleQueueMocks.startPuzzleQueueDaemon,
+  subscribePuzzleQueueAvailability: appPuzzleQueueMocks.subscribePuzzleQueueAvailability,
+  takeQueuedGame: appPuzzleQueueMocks.takeQueuedGame,
+}))
 
 vi.mock('./utils/generators/hodoku', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./utils/generators/hodoku')>()
@@ -70,6 +100,35 @@ const PUZZLE_WITH_GAPS: number[][] = [
 beforeEach(() => {
   localStorage.clear()
   document.documentElement.classList.remove('dark')
+  const solution = [
+    [5, 3, 4, 6, 7, 8, 9, 1, 2],
+    [6, 7, 2, 1, 9, 5, 3, 4, 8],
+    [1, 9, 8, 3, 4, 2, 5, 6, 7],
+    [8, 5, 9, 7, 6, 1, 4, 2, 3],
+    [4, 2, 6, 8, 5, 3, 7, 9, 1],
+    [7, 1, 3, 9, 2, 4, 8, 5, 6],
+    [9, 6, 1, 5, 3, 7, 2, 8, 4],
+    [2, 8, 7, 4, 1, 9, 6, 3, 5],
+    [3, 4, 5, 2, 8, 6, 1, 7, 9],
+  ]
+  const puzzle = [
+    [5, 3, 0, 6, 0, 8, 9, 1, 2],
+    [0, 7, 2, 1, 9, 5, 3, 4, 8],
+    [1, 9, 8, 3, 4, 2, 5, 6, 7],
+    [8, 5, 9, 7, 6, 1, 4, 2, 3],
+    [4, 2, 6, 8, 5, 3, 7, 9, 1],
+    [7, 1, 3, 9, 2, 4, 8, 5, 6],
+    [9, 6, 1, 5, 3, 7, 2, 8, 4],
+    [2, 8, 7, 4, 1, 9, 6, 3, 5],
+    [3, 4, 5, 2, 8, 6, 1, 7, 9],
+  ]
+  appPuzzleQueueMocks.getPuzzleQueueAvailability.mockReturnValue(appPuzzleQueueMocks.availability)
+  appPuzzleQueueMocks.subscribePuzzleQueueAvailability.mockImplementation((listener: (availability: typeof appPuzzleQueueMocks.availability) => void) => {
+    listener(appPuzzleQueueMocks.availability)
+    return vi.fn()
+  })
+  appPuzzleQueueMocks.takeQueuedGame.mockResolvedValue({ puzzle, solution })
+  appPuzzleQueueMocks.startPuzzleQueueDaemon.mockClear()
 })
 
 afterEach(() => {

@@ -63,7 +63,7 @@ beforeEach(() => {
 })
 
 describe('Home', () => {
-  const base = { hasSaved: false, onNew: vi.fn(), onContinue: vi.fn(), onCreated: vi.fn(), hodokuReady: true }
+  const base = { hasSaved: false, onNew: vi.fn(), onContinue: vi.fn(), onCreated: vi.fn(), hasAvailablePuzzle: true }
 
   it('renders welcome heading and New Game button', () => {
     render(<Home {...base} />)
@@ -107,9 +107,15 @@ describe('Home', () => {
 
   it('calls onContinue when Continue clicked', async () => {
     const onContinue = vi.fn()
-    render(<Home hasSaved={true} onNew={vi.fn()} onContinue={onContinue} onCreated={vi.fn()} hodokuReady={true} />)
+    render(<Home hasSaved={true} onNew={vi.fn()} onContinue={onContinue} onCreated={vi.fn()} hasAvailablePuzzle={true} />)
     await userEvent.click(screen.getByRole('button', { name: /continue/i }))
     expect(onContinue).toHaveBeenCalledOnce()
+  })
+
+  it('disables New Game while no queued puzzle is ready', () => {
+    render(<Home {...base} hasAvailablePuzzle={false} />)
+    const button = screen.getByRole('button', { name: /loading/i })
+    expect(button).toBeDisabled()
   })
 
   it('calls onCreated when Create new game clicked', async () => {
