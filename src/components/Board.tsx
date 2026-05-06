@@ -6,7 +6,7 @@ import { GiMagicBroom } from 'react-icons/gi'
 import { LiaMarkerSolid } from 'react-icons/lia'
 import { PiFlagCheckeredFill } from 'react-icons/pi'
 import { TbNumbers } from 'react-icons/tb'
-import { generateGame, solveGrid, Grid } from '../utils/sudoku'
+import { generateGame, Grid } from '../utils/sudoku'
 import PencilOverlay from './PencilOverlay'
 import {
   type CandidateColorGrid,
@@ -292,8 +292,6 @@ export default function Board({
     if (solutionProp) return solutionProp
     const saved = loadSaved()
     if (saved?.solution) return saved.solution
-    // Derive solution from the initial grid (e.g. old saves without a stored solution)
-    if (saved?.initial) return solveGrid(saved.initial)
     return null
   })
 

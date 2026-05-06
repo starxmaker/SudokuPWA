@@ -17,7 +17,6 @@ Sudoku PWA is distributed under the GNU General Public License, version 3 or any
 | `react` | `18.3.1` | UI runtime | MIT | <https://github.com/facebook/react> |
 | `react-dom` | `18.3.1` | DOM renderer for the React app | MIT | <https://github.com/facebook/react> |
 | `@khmyznikov/pwa-install` | `0.6.3` | Install prompt custom element used on the home screen | MIT | <https://github.com/khmyznikov/pwa-install> |
-| `@starxmaker/sudoku.js` | `1.0.2` | Sudoku solvability/solution checks during generation and creator validation | MIT | <https://github.com/starxmaker/sudoku.js> |
 | `web-haptics` | `0.0.6` | Haptic feedback support | MIT | <https://github.com/lochie/web-haptics> |
 | `react-icons` | `5.6.0` | React wrapper that ships the icon component code used by the UI | MIT | <https://github.com/react-icons/react-icons> |
 | `workbox-sw` / `workbox-window` and related Workbox runtime modules | `7.4.0` | Service worker runtime files emitted into `dist\` by `vite-plugin-pwa` | MIT | <https://github.com/GoogleChrome/workbox> |
@@ -85,7 +84,6 @@ npm pack qqwing@1.3.4
 npm pack react@18.3.1
 npm pack react-dom@18.3.1
 npm pack @khmyznikov/pwa-install@0.6.3
-npm pack @starxmaker/sudoku.js@1.0.2
 npm pack react-icons@5.6.0
 npm pack web-haptics@0.0.6
 npm pack workbox-window@7.4.0

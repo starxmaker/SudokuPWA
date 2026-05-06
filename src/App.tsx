@@ -6,7 +6,7 @@ import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
 import PuzzleInfoModal from './components/PuzzleInfoModal'
 import PuzzleCreator from './components/PuzzleCreator'
-import { solveGrid, Grid } from './utils/sudoku'
+import { Grid } from './utils/sudoku'
 import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs, type PuzzleMetadata } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 import { getPuzzleQueueAvailability, startPuzzleQueueDaemon, subscribePuzzleQueueAvailability, takeQueuedGame } from './utils/appPuzzleQueue'
@@ -268,7 +268,6 @@ export default function App(){
   const [solution, setSolution] = useState<Grid | null>(() => {
     if (urlGame.type === 'game') return null
     if (savedGame?.solution) return savedGame.solution
-    if (savedGame?.initial) return solveGrid(savedGame.initial)
     return null
   })
   // Track the original blank clues separately so Share always encodes the unsolved puzzle
