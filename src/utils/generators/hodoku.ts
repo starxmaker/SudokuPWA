@@ -1,5 +1,25 @@
 import { createRuntime } from 'hodoku-core-js'
-import type { GameDifficulty, HodokuConstraint, HodokuDifficulty, SolveRating } from './types'
+import type { SolveRating } from './types'
+import { GameDifficulty } from '../difficulties'
+import type { Grid } from '../sudoku_types'
+import { decodeGrid, encodeGrid } from '../gameStorage'
+
+type PuzzleLine = {
+  puzzleNumber: number
+  solution: string
+  difficulty: HodokuDifficulty
+  score: number
+  givenUp: boolean
+}
+
+type HodokuEstimation = {
+  difficulty: HodokuDifficulty
+  minScore?: number
+  maxScore?: number
+}
+
+type HodokuDifficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'UNFAIR' | 'EXTREME'
+
 
 let runtimeWarmupPromise: Promise<boolean> | null = null
 
@@ -23,122 +43,68 @@ export function warmupHodoku(): Promise<boolean> {
   return runtimeWarmupPromise
 }
 
-export type HodokuEstimationId = GameDifficulty
-
-type HodokuEstimation = {
-  label: string
-  difficulty: HodokuDifficulty
-  minScore: number | null
-  maxScore: number | null
-}
-
-export const HODOKU_ESTIMATIONS: Record<HodokuEstimationId, HodokuEstimation> = {
+export const HODOKU_ESTIMATIONS: Record<GameDifficulty, HodokuEstimation> = {
   VERY_EASY: {
-    label: 'Very Easy',
     difficulty: 'EASY',
-    minScore: null,
     maxScore: 300,
   },
   EASY: {
-    label: 'Easy',
     difficulty: 'EASY',
     minScore: 300,
     maxScore: 800,
   },
   MEDIUM: {
-    label: 'Medium',
     difficulty: 'MEDIUM',
-    minScore: null,
     maxScore: 1000,
   },
   HARD: {
-    label: 'Hard',
     difficulty: 'HARD',
-    minScore: null,
     maxScore: 1600,
   },
   VERY_HARD: {
-    label: 'Very Hard',
     difficulty: 'UNFAIR',
-    minScore: null,
     maxScore: 1800,
   },
   EXPERT: {
-    label: 'Expert',
     difficulty: 'EXTREME',
-    minScore: null,
     maxScore: 5000,
   },
   NIGHTMARE: {
-    label: 'Nightmare',
     difficulty: 'EXTREME',
-    minScore: 3000,
-    maxScore: 7000,
+    minScore: 5000,
+    maxScore: 10000,
   },
   DIABOLICAL: {
-    label: 'Diabolical',
     difficulty: 'EXTREME',
-    minScore: 7000,
-    maxScore: null,
+    minScore: 10000
   },
-}
-
-export function matchesHodokuEstimation(
-  rating: Pick<SolveRating, 'difficulty' | 'score'>,
-  estimation: Pick<HodokuEstimation, 'difficulty' | 'minScore' | 'maxScore'>,
-) {
-  if (rating.difficulty !== estimation.difficulty) return false
-  if (estimation.minScore !== null && rating.score < estimation.minScore) return false
-  if (estimation.maxScore !== null && rating.score > estimation.maxScore) return false
-  return true
-}
-
-export async function findComplaint(
-  puzzles: string[],
-  constraints: HodokuConstraint,
-  signal?: AbortSignal,
-): Promise<string | null> {
-  return await new Promise(async (resolve) => {
-    await evaluate(
-      puzzles,
-      rating => {
-        if (signal?.aborted) {
-          resolve(null)
-          return false
-        }
-        if (matchesHodokuEstimation(rating, constraints)) {
-          resolve(rating.puzzle)
-          return false
-        }
-        return true
-      },
-      signal,
-      constraints
-    )
-    resolve(null)
-  })
 }
 
 export async function evaluate(
   puzzles: string[],
-  onNewPuzzle?: (rating: SolveRating) => boolean,
-  signal?: AbortSignal,
-  constraints?: HodokuConstraint,
+  onValidNewPuzzle?: (rating: SolveRating) => boolean,
+  signal?: AbortSignal
 ): Promise<SolveRating[]> {
   const results: SolveRating[] = []
-  const args = ['/o', 'stdout', ...puzzles]
-  if (constraints && constraints.maxScore) {
-    args.push('/ms', String(constraints.maxScore))
-  }
+  const args = ['/o', 'stdout', '/vs', ...puzzles]
   const pool = createRuntime()
   await pool.executeCommand(args, line => {
     if (signal?.aborted) {
       return false
     }
-    const result = map(line)
-    if (result) {
-      if (onNewPuzzle) {
-        const continueProcessing = onNewPuzzle(result)
+    const puzzleLine = map(line)
+    if (puzzleLine) {
+      const solution = puzzleLine.solution
+      const puzzle = puzzles[puzzleLine.puzzleNumber - 1]
+      const validSolution = !puzzleLine.givenUp && isValidSudokuSolution(solution)
+      const result : SolveRating = {
+        puzzle,
+        solution : validSolution ? solution : null,
+        difficulty: validSolution ? getMatchingDifficulty(puzzleLine.score, puzzleLine.difficulty) : null,
+        score: validSolution ? puzzleLine.score : null,
+      }
+      if (onValidNewPuzzle && validSolution) {
+        const continueProcessing = onValidNewPuzzle(result)
         if (!continueProcessing) {
           return false
         }
@@ -150,18 +116,110 @@ export async function evaluate(
   return results
 }
 
-const regex =
-  /^([\.0-9]{81})\s+#\d+\s+(Easy|Medium|Hard|Unfair|Extreme)\s+\((\d+)\)$/
+export type VerifiedPuzzle = {
+  solution: Grid
+  difficulty: GameDifficulty | null
+  score: number | null
+}
 
-export const map = (line: string): SolveRating | null => {
-  if (line.includes('gu')) return null // hodoku gave up due to constraint
+export async function verifyPuzzle(puzzle: Grid, signal?: AbortSignal): Promise<VerifiedPuzzle | null> {
+  const [rating] = await evaluate([encodeGrid(puzzle)], undefined, signal)
+  if (!rating?.solution) {
+    return null
+  }
+
+  const solution = decodeGrid(rating.solution)
+  if (!solution) {
+    return null
+  }
+
+  return {
+    solution,
+    difficulty: rating.difficulty,
+    score: rating.score ?? null,
+  }
+}
+
+const regex =
+  /^([\.0-9]{81})\s+#(\d+)\s+(Easy|Medium|Hard|Unfair|Extreme)\s+\((\d+)\)$/
+
+export const map = (line: string): PuzzleLine | null => {
   const match = line.trim().match(regex)
   if (match) {
     return {
-      puzzle: match[1],
-      difficulty: match[2].toUpperCase() as HodokuDifficulty,
-      score: Number(match[3]),
+      solution: match[1],
+      puzzleNumber: Number(match[2]),
+      difficulty: match[3].toUpperCase() as HodokuDifficulty,
+      score: Number(match[4]),
+      givenUp: line.includes('gu'),
     }
   }
   return null
+}
+
+
+function isValidSudokuSolution(solution : string) : boolean {
+  if (!/^[1-9]{81}$/.test(solution)) return false;
+
+  const grid = solution.split('').map(Number);
+
+  const isSetValid = (nums: number[]) => {
+    const seen = new Set(nums);
+    return seen.size === 9 && nums.every(n => n >= 1 && n <= 9);
+  };
+
+  // Rows
+  for (let r = 0; r < 9; r++) {
+    const row = [];
+    for (let c = 0; c < 9; c++) {
+      row.push(grid[r * 9 + c]);
+    }
+    if (!isSetValid(row)) return false;
+  }
+
+  // Columns
+  for (let c = 0; c < 9; c++) {
+    const col = [];
+    for (let r = 0; r < 9; r++) {
+      col.push(grid[r * 9 + c]);
+    }
+    if (!isSetValid(col)) return false;
+  }
+
+  // 3x3 boxes
+  for (let boxRow = 0; boxRow < 3; boxRow++) {
+    for (let boxCol = 0; boxCol < 3; boxCol++) {
+      const box = [];
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const row = boxRow * 3 + r;
+          const col = boxCol * 3 + c;
+          box.push(grid[row * 9 + col]);
+        }
+      }
+      if (!isSetValid(box)) return false;
+    }
+  }
+
+  return true;
+}
+
+function getMatchingDifficulty (score: number, difficulty: HodokuDifficulty): GameDifficulty | null {
+  for (const [gameDifficulty, estimation] of Object.entries(HODOKU_ESTIMATIONS) as [GameDifficulty, HodokuEstimation][]) {
+    if (matchesHodokuEstimation(difficulty, score, estimation)) {
+      return gameDifficulty
+    }
+  }
+  return null
+}
+
+function matchesHodokuEstimation(
+  difficulty: HodokuDifficulty,
+  score: number,
+  estimation: HodokuEstimation,
+) {
+  if (difficulty !== estimation.difficulty) return false
+  if (estimation.minScore !== undefined && score < estimation.minScore) return false
+  if (estimation.maxScore !== undefined && score >= estimation.maxScore) return false
+  return true
 }

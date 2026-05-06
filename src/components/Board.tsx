@@ -6,13 +6,14 @@ import { GiMagicBroom } from 'react-icons/gi'
 import { LiaMarkerSolid } from 'react-icons/lia'
 import { PiFlagCheckeredFill } from 'react-icons/pi'
 import { TbNumbers } from 'react-icons/tb'
-import { generateGame, solveGrid, Grid } from '../utils/sudoku'
+import { generateGame, Grid } from '../utils/sudoku'
 import PencilOverlay from './PencilOverlay'
 import {
   type CandidateColorGrid,
   type CellColorGrid,
   type DrawingStroke,
   type FlaggedColorCell,
+  type PuzzleMetadata,
   cloneDrawingStrokes,
   loadSaved,
   saveGame,
@@ -52,6 +53,7 @@ type Props = {
   onClearDrawingsAvailabilityChange?: (available: boolean) => void
   onIdentifyCandidatesAvailabilityChange?: (available: boolean) => void
   paintingScope?: 'digit' | 'candidate'
+  puzzleMetadata?: PuzzleMetadata | null
 }
 
 function cloneGrid(g: Grid): Grid {
@@ -265,6 +267,7 @@ export default function Board({
   onClearDrawingsAvailabilityChange,
   onIdentifyCandidatesAvailabilityChange,
   paintingScope,
+  puzzleMetadata,
 }: Props){
   const savedBrushPrefs = loadBrushPrefs()
   const [internalPuzzle, setInternalPuzzle] = useState<Grid>(() => {
@@ -289,8 +292,6 @@ export default function Board({
     if (solutionProp) return solutionProp
     const saved = loadSaved()
     if (saved?.solution) return saved.solution
-    // Derive solution from the initial grid (e.g. old saves without a stored solution)
-    if (saved?.initial) return solveGrid(saved.initial)
     return null
   })
 
@@ -327,6 +328,8 @@ export default function Board({
     const saved = loadSaved()
     return saved?.flaggedColorCell ? saved.flaggedColorCell : null
   })
+  const [savedPuzzleMetadata] = useState<PuzzleMetadata | null>(() => loadSaved()?.puzzleMetadata ?? null)
+  const activePuzzleMetadata = puzzleMetadata ?? savedPuzzleMetadata
   const flaggedColorCellRef = React.useRef(flaggedColorCell)
   flaggedColorCellRef.current = flaggedColorCell
   const [drawingDraft, setDrawingDraft] = useState<DrawingStroke | null>(null)
@@ -464,8 +467,8 @@ export default function Board({
 
   useEffect(() => {
     if (internalPuzzle.length !== 9 || !initialGrid) return
-    saveGame(initialGrid, internalPuzzle, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell)
-  }, [internalPuzzle, initialGrid, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell])
+    saveGame(initialGrid, internalPuzzle, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell, activePuzzleMetadata)
+  }, [internalPuzzle, initialGrid, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell, activePuzzleMetadata])
 
   useEffect(() => {
     if (solutionProp != null) setSolutionGrid(solutionProp)
@@ -487,8 +490,8 @@ export default function Board({
     const frozen = cloneGrid(internalPuzzle)
     setInitialGrid(frozen)
     if (setPuzzleProp) setPuzzleProp(internalPuzzle)
-    saveGame(frozen, internalPuzzle, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell)
-  }, [internalPuzzle, initialGrid, setPuzzleProp, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell])
+    saveGame(frozen, internalPuzzle, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell, activePuzzleMetadata)
+  }, [internalPuzzle, initialGrid, setPuzzleProp, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell, activePuzzleMetadata])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -570,7 +573,7 @@ export default function Board({
       lowerPadTimerRef.current = null
     }
     if(setPuzzleProp) setPuzzleProp(p)
-    saveGame(initial, p, s, undefined, undefined, undefined, emptyDrawingStrokes(), null)
+    saveGame(initial, p, s, undefined, undefined, undefined, emptyDrawingStrokes(), null, activePuzzleMetadata)
     setSelected(null)
   }
 
@@ -612,7 +615,7 @@ export default function Board({
       lowerPadTimerRef.current = null
     }
     setSelected(null)
-    saveGame(initialGrid, cloneGrid(initialGrid), solutionGrid, undefined, undefined, undefined, emptyDrawingStrokes(), null)
+    saveGame(initialGrid, cloneGrid(initialGrid), solutionGrid, undefined, undefined, undefined, emptyDrawingStrokes(), null, activePuzzleMetadata)
   }
 
   if (restartRef) restartRef.current = handleRetry
@@ -1201,7 +1204,7 @@ export default function Board({
 
     const nextNotes = cloneNotesGrid(notesRef.current)
     let changed = false
-    for (let r = 0; r < 9; r++) {
+  for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
         if (isClue(r, c) || internalPuzzle[r][c] !== 0 || nextNotes[r][c].length > 0) continue
         const candidates = getSimpleCandidates(r, c)
@@ -1786,6 +1789,8 @@ export default function Board({
     }
   }
 
+  const displayedDifficulty = difficulty ?? puzzleMetadata?.difficultyLabel ?? 'Custom'
+
   return (
     <div className="game-layout">
       {!onBack && (
@@ -1796,7 +1801,7 @@ export default function Board({
       <div className="game-main">
         <div className="board-area">
           <div className="timer-row">
-            <span className="difficulty-label">{difficulty ?? 'Custom'}</span>
+            <span className="difficulty-label">{displayedDifficulty}</span>
             <div className="timer-group">
               <span className="timer-display">
                 {formatTime(elapsed)}

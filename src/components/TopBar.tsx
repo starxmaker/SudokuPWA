@@ -8,6 +8,7 @@ type Props = {
   showBack?: boolean
   onBack?: () => void
   onOpenSettings: () => void
+  onOpenInfo?: () => void
   onShare?: () => void
   onRestart?: () => void
   onClearPainting?: () => void
@@ -23,6 +24,7 @@ export default function TopBar({
   showBack,
   onBack,
   onOpenSettings,
+  onOpenInfo,
   onShare,
   onRestart,
   onClearPainting,
@@ -104,6 +106,16 @@ export default function TopBar({
             Show basic candidates
           </button>
         )}
+        {onOpenInfo && (
+          <button role="menuitem" onClick={() => { setMenuOpen(false); onOpenInfo?.() }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4"/>
+              <path d="M12 8h.01"/>
+            </svg>
+            Info
+          </button>
+        )}
         {onShare && (
           <button role="menuitem" onClick={() => { setMenuOpen(false); onShare() }}>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
@@ -152,4 +164,3 @@ export default function TopBar({
     </>
   )
 }
-

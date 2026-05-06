@@ -14,8 +14,7 @@ You can try it  [here](https://starxmaker.github.io/SudokuPWA/)
 - Can be played on PC/Tablet/Phones
 - Offline support
 - QQwing sudoku generation
-- Sudoku.JS solvable check
-- Hodoku difficulty calibration (based on human techniques)
+- Hodoku solutions and difficulty calibration (based on human techniques)
 - Candidates with prefilling support
 - Candidate and digit coloring
 - Undo movements

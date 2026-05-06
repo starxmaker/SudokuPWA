@@ -3,17 +3,29 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import NewGameModal from './NewGameModal'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { PuzzleQueueAvailability } from '../utils/puzzleQueue'
+
+const FULL_AVAILABILITY: PuzzleQueueAvailability = {
+  VERY_EASY: 1,
+  EASY: 1,
+  MEDIUM: 1,
+  HARD: 1,
+  VERY_HARD: 1,
+  EXPERT: 1,
+  NIGHTMARE: 1,
+  DIABOLICAL: 1,
+}
 
 beforeEach(() => localStorage.clear())
 
 describe('NewGameModal', () => {
   it('renders nothing when closed', () => {
-    render(<NewGameModal open={false} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<NewGameModal open={false} onClose={vi.fn()} onStart={vi.fn()} availability={FULL_AVAILABILITY} />)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('renders hodoku difficulty buttons', () => {
-    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} availability={FULL_AVAILABILITY} />)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^very easy$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^easy$/i })).toBeInTheDocument()
@@ -26,17 +38,17 @@ describe('NewGameModal', () => {
   })
 
   it('does not render a generator selector', () => {
-    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} availability={FULL_AVAILABILITY} />)
     expect(screen.queryByRole('combobox', { name: /generator/i })).toBeNull()
   })
 
   it('medium is selected by default', () => {
-    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} availability={FULL_AVAILABILITY} />)
     expect(screen.getByRole('button', { name: /^medium$/i }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('changes selected difficulty on click', async () => {
-    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} availability={FULL_AVAILABILITY} />)
     await userEvent.click(screen.getByRole('button', { name: /^hard$/i }))
     expect(screen.getByRole('button', { name: /^hard$/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /^medium$/i }).getAttribute('aria-pressed')).toBe('false')
@@ -44,7 +56,7 @@ describe('NewGameModal', () => {
 
   it('calls onClose directly when Cancel clicked while not generating', async () => {
     const onClose = vi.fn()
-    render(<NewGameModal open={true} onClose={onClose} onStart={vi.fn()} />)
+    render(<NewGameModal open={true} onClose={onClose} onStart={vi.fn()} availability={FULL_AVAILABILITY} />)
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(onClose).toHaveBeenCalledOnce()
   })
@@ -52,7 +64,7 @@ describe('NewGameModal', () => {
   it('calls onStart with selected difficulty and signal, then closes', async () => {
     const onStart = vi.fn().mockResolvedValue(undefined)
     const onClose = vi.fn()
-    render(<NewGameModal open={true} onClose={onClose} onStart={onStart} />)
+    render(<NewGameModal open={true} onClose={onClose} onStart={onStart} availability={FULL_AVAILABILITY} />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^hard$/i }))
     await user.click(screen.getByRole('button', { name: 'Start' }))
@@ -62,7 +74,7 @@ describe('NewGameModal', () => {
 
   it('persists last difficulty to localStorage on start', async () => {
     const onStart = vi.fn().mockResolvedValue(undefined)
-    render(<NewGameModal open={true} onClose={vi.fn()} onStart={onStart} />)
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={onStart} availability={FULL_AVAILABILITY} />)
     await userEvent.click(screen.getByRole('button', { name: /^diabolical$/i }))
     await userEvent.click(screen.getByRole('button', { name: 'Start' }))
     await waitFor(() => expect(localStorage.getItem('lastDifficulty:hodoku')).toBe('DIABOLICAL'))
@@ -70,13 +82,13 @@ describe('NewGameModal', () => {
 
   it('loads last difficulty from localStorage', () => {
     localStorage.setItem('lastDifficulty:hodoku', 'VERY_HARD')
-    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} />)
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={vi.fn()} availability={FULL_AVAILABILITY} />)
     expect(screen.getByRole('button', { name: /^very hard$/i }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('shows generating state after Start clicked', async () => {
     const onStart = vi.fn().mockImplementation(() => new Promise(() => {}))
-    render(<NewGameModal open={true} onClose={vi.fn()} onStart={onStart} />)
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={onStart} availability={FULL_AVAILABILITY} />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Start' }))
     await waitFor(() =>
@@ -86,7 +98,7 @@ describe('NewGameModal', () => {
 
   it('stops spinner immediately when Cancel clicked during generation', async () => {
     const onStart = vi.fn().mockImplementation(() => new Promise(() => {}))
-    render(<NewGameModal open={true} onClose={vi.fn()} onStart={onStart} />)
+    render(<NewGameModal open={true} onClose={vi.fn()} onStart={onStart} availability={FULL_AVAILABILITY} />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Start' }))
     await waitFor(() => expect(screen.getByRole('button', { name: /generating/i })).toBeInTheDocument())
@@ -94,5 +106,45 @@ describe('NewGameModal', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /generating/i })).toBeNull()
     )
+  })
+
+  it('disables difficulties with no queued puzzle available', () => {
+    render(
+      <NewGameModal
+        open={true}
+        onClose={vi.fn()}
+        onStart={vi.fn()}
+        availability={{ ...FULL_AVAILABILITY, HARD: 0 }}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /^hard$/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^medium$/i })).not.toBeDisabled()
+  })
+
+  it('selects the first available difficulty when the saved choice is unavailable', () => {
+    localStorage.setItem('lastDifficulty:hodoku', 'MEDIUM')
+
+    render(
+      <NewGameModal
+        open={true}
+        onClose={vi.fn()}
+        onStart={vi.fn()}
+        availability={{
+          ...FULL_AVAILABILITY,
+          VERY_EASY: 0,
+          EASY: 0,
+          MEDIUM: 0,
+          HARD: 2,
+          VERY_HARD: 0,
+          EXPERT: 0,
+          NIGHTMARE: 0,
+          DIABOLICAL: 0,
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /^hard$/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /^start$/i })).not.toBeDisabled()
   })
 })

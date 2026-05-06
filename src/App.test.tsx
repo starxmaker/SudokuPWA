@@ -1,9 +1,38 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
-import { saveGame, saveElapsed, saveCompleted, ELAPSED_KEY, COMPLETED_KEY } from './utils/gameStorage'
+import { saveGame, saveElapsed, saveCompleted, ELAPSED_KEY, COMPLETED_KEY, encodeGrid } from './utils/gameStorage'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+const appPuzzleQueueMocks = vi.hoisted(() => {
+  const availability = {
+    VERY_EASY: 1,
+    EASY: 1,
+    MEDIUM: 1,
+    HARD: 1,
+    VERY_HARD: 1,
+    EXPERT: 1,
+    NIGHTMARE: 1,
+    DIABOLICAL: 1,
+  }
+  return {
+    availability,
+    getPuzzleQueueAvailability: vi.fn(() => availability),
+    startPuzzleQueueDaemon: vi.fn(),
+    subscribePuzzleQueueAvailability: vi.fn((listener: (availability: typeof availability) => void) => {
+      listener(availability)
+      return vi.fn()
+    }),
+    takeQueuedGame: vi.fn(),
+  }
+})
+
+const hodokuMocks = vi.hoisted(() => ({
+  warmupHodoku: vi.fn().mockResolvedValue(true),
+  evaluate: vi.fn(),
+  verifyPuzzle: vi.fn(),
+}))
 
 vi.mock('./utils/sudoku', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./utils/sudoku')>()
@@ -35,11 +64,20 @@ vi.mock('./utils/sudoku', async (importOriginal) => {
   }
 })
 
+vi.mock('./utils/appPuzzleQueue', () => ({
+  getPuzzleQueueAvailability: appPuzzleQueueMocks.getPuzzleQueueAvailability,
+  startPuzzleQueueDaemon: appPuzzleQueueMocks.startPuzzleQueueDaemon,
+  subscribePuzzleQueueAvailability: appPuzzleQueueMocks.subscribePuzzleQueueAvailability,
+  takeQueuedGame: appPuzzleQueueMocks.takeQueuedGame,
+}))
+
 vi.mock('./utils/generators/hodoku', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./utils/generators/hodoku')>()
   return {
     ...actual,
-    warmupHodoku: vi.fn().mockResolvedValue(true),
+    warmupHodoku: hodokuMocks.warmupHodoku,
+    evaluate: hodokuMocks.evaluate,
+    verifyPuzzle: hodokuMocks.verifyPuzzle,
   }
 })
 
@@ -70,10 +108,63 @@ const PUZZLE_WITH_GAPS: number[][] = [
 beforeEach(() => {
   localStorage.clear()
   document.documentElement.classList.remove('dark')
+  Object.assign(appPuzzleQueueMocks.availability, {
+    VERY_EASY: 1,
+    EASY: 1,
+    MEDIUM: 1,
+    HARD: 1,
+    VERY_HARD: 1,
+    EXPERT: 1,
+    NIGHTMARE: 1,
+    DIABOLICAL: 1,
+  })
+  const solution = [
+    [5, 3, 4, 6, 7, 8, 9, 1, 2],
+    [6, 7, 2, 1, 9, 5, 3, 4, 8],
+    [1, 9, 8, 3, 4, 2, 5, 6, 7],
+    [8, 5, 9, 7, 6, 1, 4, 2, 3],
+    [4, 2, 6, 8, 5, 3, 7, 9, 1],
+    [7, 1, 3, 9, 2, 4, 8, 5, 6],
+    [9, 6, 1, 5, 3, 7, 2, 8, 4],
+    [2, 8, 7, 4, 1, 9, 6, 3, 5],
+    [3, 4, 5, 2, 8, 6, 1, 7, 9],
+  ]
+  const puzzle = [
+    [5, 3, 0, 6, 0, 8, 9, 1, 2],
+    [0, 7, 2, 1, 9, 5, 3, 4, 8],
+    [1, 9, 8, 3, 4, 2, 5, 6, 7],
+    [8, 5, 9, 7, 6, 1, 4, 2, 3],
+    [4, 2, 6, 8, 5, 3, 7, 9, 1],
+    [7, 1, 3, 9, 2, 4, 8, 5, 6],
+    [9, 6, 1, 5, 3, 7, 2, 8, 4],
+    [2, 8, 7, 4, 1, 9, 6, 3, 5],
+    [3, 4, 5, 2, 8, 6, 1, 7, 9],
+  ]
+  appPuzzleQueueMocks.getPuzzleQueueAvailability.mockReturnValue(appPuzzleQueueMocks.availability)
+  appPuzzleQueueMocks.subscribePuzzleQueueAvailability.mockImplementation((listener: (availability: typeof appPuzzleQueueMocks.availability) => void) => {
+    listener(appPuzzleQueueMocks.availability)
+    return vi.fn()
+  })
+  appPuzzleQueueMocks.takeQueuedGame.mockResolvedValue({ puzzle, solution, score: null, difficulty: 'MEDIUM' })
+  appPuzzleQueueMocks.startPuzzleQueueDaemon.mockClear()
+  hodokuMocks.evaluate.mockReset()
+  hodokuMocks.evaluate.mockResolvedValue([{
+    puzzle: encodeGrid(puzzle),
+    solution: encodeGrid(solution),
+    difficulty: 'VERY_HARD',
+    score: 1700,
+  }])
+  hodokuMocks.verifyPuzzle.mockReset()
+  hodokuMocks.verifyPuzzle.mockResolvedValue({
+    solution,
+    difficulty: 'VERY_HARD',
+    score: 1700,
+  })
 })
 
 afterEach(() => {
   document.documentElement.classList.remove('dark')
+  window.history.replaceState(null, '', '/')
 })
 
 describe('App', () => {
@@ -129,6 +220,24 @@ describe('App', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     // modal heading is an h2 inside the dialog
     expect(screen.getByRole('heading', { name: /^new game$/i })).toBeInTheDocument()
+  })
+
+  it('keeps New Game available when the live queue is empty but preloaded puzzles exist', async () => {
+    Object.assign(appPuzzleQueueMocks.availability, {
+      VERY_EASY: 0,
+      EASY: 0,
+      MEDIUM: 0,
+      HARD: 0,
+      VERY_HARD: 0,
+      EXPERT: 0,
+      NIGHTMARE: 0,
+      DIABOLICAL: 0,
+    })
+    appPuzzleQueueMocks.takeQueuedGame.mockResolvedValue(null)
+
+    render(<App />)
+
+    expect(await screen.findByRole('button', { name: /^new game$/i })).toBeEnabled()
   })
 
   it('opens the created puzzle creator when Create new game is clicked', async () => {
@@ -331,5 +440,187 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: /^start$/i }))
     await screen.findAllByRole('gridcell')
     expect(localStorage.getItem(COMPLETED_KEY)).toBeNull()
+  })
+
+  it('opens puzzle info for generated games from the menu', async () => {
+    appPuzzleQueueMocks.takeQueuedGame.mockResolvedValueOnce({
+      puzzle: PUZZLE_WITH_GAPS,
+      solution: GRID,
+      difficulty: 'VERY_HARD',
+      score: 1700,
+    })
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /^new game$/i }))
+    await user.click(screen.getByRole('button', { name: /^very hard$/i }))
+    await user.click(screen.getByRole('button', { name: /^start$/i }))
+    await screen.findAllByRole('gridcell')
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /info/i }))
+    const dialog = screen.getByRole('dialog', { name: /puzzle info/i })
+    expect(dialog).toBeInTheDocument()
+    expect(within(dialog).getByText('Generated')).toBeInTheDocument()
+    expect(within(dialog).getByText('Very Hard')).toBeInTheDocument()
+    expect(within(dialog).getByText(/1[.,]?700/)).toBeInTheDocument()
+  })
+
+  it('starts a preloaded puzzle when the selected difficulty queue is empty', async () => {
+    Object.assign(appPuzzleQueueMocks.availability, {
+      VERY_EASY: 0,
+      EASY: 0,
+      MEDIUM: 0,
+      HARD: 0,
+      VERY_HARD: 0,
+      EXPERT: 0,
+      NIGHTMARE: 0,
+      DIABOLICAL: 0,
+    })
+    appPuzzleQueueMocks.takeQueuedGame.mockResolvedValue(null)
+
+    render(<App />)
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /^new game$/i }))
+    await user.click(screen.getByRole('button', { name: /^hard$/i }))
+    await user.click(screen.getByRole('button', { name: /^start$/i }))
+
+    await screen.findAllByRole('gridcell')
+
+    expect(appPuzzleQueueMocks.takeQueuedGame).toHaveBeenCalledWith('HARD')
+    expect(document.querySelector('.difficulty-label')?.textContent).toBe('Hard')
+
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /info/i }))
+
+    const dialog = screen.getByRole('dialog', { name: /puzzle info/i })
+    expect(within(dialog).getByText('Pre-loaded')).toBeInTheDocument()
+    expect(within(dialog).getByText('Hard')).toBeInTheDocument()
+  })
+
+  it('evaluates imported puzzles and shows their info', async () => {
+    window.history.pushState(null, '', `/?p=${encodeGrid(PUZZLE_WITH_GAPS)}`)
+    render(<App />)
+    const user = userEvent.setup()
+    await screen.findAllByRole('gridcell')
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /info/i }))
+    expect(hodokuMocks.verifyPuzzle).toHaveBeenCalledOnce()
+    expect(document.querySelector('.difficulty-label')?.textContent).toBe('Very Hard')
+    const dialog = screen.getByRole('dialog', { name: /puzzle info/i })
+    expect(await within(dialog).findByText('Imported')).toBeInTheDocument()
+    expect(within(dialog).getByText('Very Hard')).toBeInTheDocument()
+    expect(within(dialog).getByText(/1[.,]?700/)).toBeInTheDocument()
+  })
+
+  it('keeps valid imported puzzles through StrictMode remount while cleaning the URL', async () => {
+    window.history.pushState(null, '', `/?p=${encodeGrid(PUZZLE_WITH_GAPS)}`)
+    render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>,
+    )
+
+    await screen.findAllByRole('gridcell')
+
+    expect(document.querySelector('.difficulty-label')?.textContent).toBe('Very Hard')
+    expect(screen.queryByRole('heading', { name: /welcome/i })).toBeNull()
+  })
+
+  it('ignores stale strict-mode verification results when an earlier run resolves null', async () => {
+    const neverSettles = new Promise<never>(() => {})
+    hodokuMocks.verifyPuzzle
+      .mockReset()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        solution: GRID,
+        difficulty: 'VERY_HARD',
+        score: 1700,
+      })
+      .mockImplementation(() => neverSettles)
+
+    window.history.pushState(null, '', `/?p=${encodeGrid(PUZZLE_WITH_GAPS)}`)
+    render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>,
+    )
+
+    await screen.findAllByRole('gridcell')
+
+    expect(document.querySelector('.difficulty-label')?.textContent).toBe('Very Hard')
+    expect(screen.queryByRole('heading', { name: /welcome/i })).toBeNull()
+    expect(screen.queryByText('This puzzle has no valid solution.')).toBeNull()
+  })
+
+  it('keeps valid imported puzzles through repeated remounts before verification settles', async () => {
+    const neverSettles = new Promise<never>(() => {})
+    hodokuMocks.verifyPuzzle
+      .mockReset()
+      .mockImplementationOnce(() => neverSettles)
+      .mockImplementationOnce(() => neverSettles)
+      .mockResolvedValueOnce({
+        solution: GRID,
+        difficulty: 'VERY_HARD',
+        score: 1700,
+      })
+
+    window.history.pushState(null, '', `/?p=${encodeGrid(PUZZLE_WITH_GAPS)}`)
+
+    const first = render(<App />)
+    first.unmount()
+    const second = render(<App />)
+    second.unmount()
+    render(<App />)
+
+    await screen.findAllByRole('gridcell')
+
+    expect(document.querySelector('.difficulty-label')?.textContent).toBe('Very Hard')
+    expect(screen.queryByRole('heading', { name: /welcome/i })).toBeNull()
+  })
+
+  it('reopens a verified imported puzzle after a later remount with the cleaned URL', async () => {
+    window.history.pushState(null, '', `/?p=${encodeGrid(PUZZLE_WITH_GAPS)}`)
+
+    const first = render(<App />)
+    await screen.findAllByRole('gridcell')
+    first.unmount()
+
+    window.history.replaceState(null, '', '/')
+    render(<App />)
+
+    await screen.findAllByRole('gridcell')
+
+    expect(document.querySelector('.difficulty-label')?.textContent).toBe('Very Hard')
+    expect(screen.queryByRole('heading', { name: /welcome/i })).toBeNull()
+  })
+
+  it('rejects imported puzzles when hodoku cannot verify them', async () => {
+    hodokuMocks.verifyPuzzle.mockResolvedValueOnce(null)
+    window.history.pushState(null, '', `/?p=${encodeGrid(PUZZLE_WITH_GAPS)}`)
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: /welcome/i })).toBeInTheDocument()
+    expect(screen.getByText('This puzzle has no valid solution.')).toBeInTheDocument()
+    expect(screen.queryByRole('gridcell')).toBeNull()
+  })
+
+  it('shows saved created-game difficulty labels on the board', async () => {
+    saveGame(
+      PUZZLE_WITH_GAPS,
+      PUZZLE_WITH_GAPS,
+      GRID,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { source: 'created', difficultyLabel: 'Very Hard', score: 1700 },
+    )
+
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /continue/i }))
+    await screen.findAllByRole('gridcell')
+
+    expect(document.querySelector('.difficulty-label')?.textContent).toBe('Very Hard')
   })
 })

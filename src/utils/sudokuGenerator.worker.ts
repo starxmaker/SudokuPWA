@@ -1,27 +1,55 @@
-import { generate } from './generators/orchestrator'
+import { generateContinuously } from './generators/orchestrator'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
 
 const workerScope = self as DedicatedWorkerGlobalScope
+let streamController: AbortController | null = null
+
+function stopStream() {
+  if (!streamController) return
+  streamController.abort()
+  streamController = null
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError'
+}
+
+function postError(error: unknown) {
+  const response: GenerateWorkerResponse = {
+    type: 'error',
+    name: error instanceof Error ? error.name : 'Error',
+    message: error instanceof Error ? error.message : 'Failed to generate puzzle',
+  }
+  workerScope.postMessage(response)
+}
 
 workerScope.onmessage = async (event: MessageEvent<GenerateWorkerRequest>) => {
   const message = event.data
-  if (message.type !== 'generate') return
+  if (message.type !== 'stream-start') return
+
+  stopStream()
+  const controller = new AbortController()
+  streamController = controller
 
   try {
-    const { puzzle, solution } = await generate(message.difficulty)
-    const response: GenerateWorkerResponse = {
-      type: 'result',
-      puzzle,
-      solution,
-    }
-    workerScope.postMessage(response)
+    await generateContinuously((generated) => {
+      const response: GenerateWorkerResponse = {
+        type: 'stream-puzzle',
+        puzzle: generated.puzzle,
+        solution: generated.solution,
+        difficulty: generated.difficulty,
+        score: generated.score,
+      }
+      workerScope.postMessage(response)
+    }, controller.signal)
   } catch (error) {
-    const response: GenerateWorkerResponse = {
-      type: 'error',
-      name: error instanceof Error ? error.name : 'Error',
-      message: error instanceof Error ? error.message : 'Failed to generate puzzle',
+    if (!controller.signal.aborted && !isAbortError(error)) {
+      postError(error)
     }
-    workerScope.postMessage(response)
+  } finally {
+    if (streamController === controller) {
+      streamController = null
+    }
   }
 }
 

@@ -1,8 +1,7 @@
-import { get_candidates as libGetCandidates, solve as libSolve } from '@starxmaker/sudoku.js'
 import type { Grid, Difficulty } from './sudoku_types'
-import { generate } from './generators/orchestrator'
+import { generateForDifficulty } from './generators/orchestrator'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
-import { GameDifficulty } from './generators/types'
+import { GameDifficulty } from './difficulties'
 
 export type { Grid, Difficulty }
 
@@ -17,11 +16,119 @@ function shouldUseGenerationWorker() {
   return typeof window !== 'undefined' && typeof Worker !== 'undefined' && import.meta.env.MODE !== 'test'
 }
 
+function cloneGrid(grid: Grid): Grid {
+  return grid.map(row => [...row])
+}
+
+function hasDuplicates(values: number[]) {
+  const seen = new Set<number>()
+  for (const value of values) {
+    if (value === 0) continue
+    if (seen.has(value)) return true
+    seen.add(value)
+  }
+  return false
+}
+
+function hasConflictingGivens(grid: Grid) {
+  for (let index = 0; index < 9; index++) {
+    const row = grid[index]
+    const column = grid.map(r => r[index])
+    if (hasDuplicates(row) || hasDuplicates(column)) return true
+  }
+
+  for (let boxRow = 0; boxRow < 3; boxRow++) {
+    for (let boxColumn = 0; boxColumn < 3; boxColumn++) {
+      const box: number[] = []
+      for (let row = boxRow * 3; row < boxRow * 3 + 3; row++) {
+        for (let column = boxColumn * 3; column < boxColumn * 3 + 3; column++) {
+          box.push(grid[row][column])
+        }
+      }
+      if (hasDuplicates(box)) return true
+    }
+  }
+
+  return false
+}
+
+function getCandidates(grid: Grid, row: number, column: number) {
+  const used = new Set<number>()
+
+  for (let index = 0; index < 9; index++) {
+    used.add(grid[row][index])
+    used.add(grid[index][column])
+  }
+
+  const boxRowStart = Math.floor(row / 3) * 3
+  const boxColumnStart = Math.floor(column / 3) * 3
+  for (let r = boxRowStart; r < boxRowStart + 3; r++) {
+    for (let c = boxColumnStart; c < boxColumnStart + 3; c++) {
+      used.add(grid[r][c])
+    }
+  }
+
+  const candidates: number[] = []
+  for (let digit = 1; digit <= 9; digit++) {
+    if (!used.has(digit)) candidates.push(digit)
+  }
+  return candidates
+}
+
+function findNextEmptyCell(grid: Grid) {
+  let best: { row: number; column: number; candidates: number[] } | null = null
+
+  for (let row = 0; row < 9; row++) {
+    for (let column = 0; column < 9; column++) {
+      if (grid[row][column] !== 0) continue
+      const candidates = getCandidates(grid, row, column)
+      if (candidates.length === 0) {
+        return { row, column, candidates }
+      }
+      if (!best || candidates.length < best.candidates.length) {
+        best = { row, column, candidates }
+        if (candidates.length === 1) return best
+      }
+    }
+  }
+
+  return best
+}
+
+function collectSolutions(
+  grid: Grid,
+  solutions: Grid[],
+  limit: number,
+  reverse = false,
+): void {
+  if (solutions.length >= limit) return
+
+  const next = findNextEmptyCell(grid)
+  if (!next) {
+    solutions.push(cloneGrid(grid))
+    return
+  }
+
+  if (next.candidates.length === 0) return
+
+  const orderedCandidates = reverse ? [...next.candidates].reverse() : next.candidates
+  for (const candidate of orderedCandidates) {
+    grid[next.row][next.column] = candidate
+    collectSolutions(grid, solutions, limit, reverse)
+    if (solutions.length >= limit) {
+      grid[next.row][next.column] = 0
+      return
+    }
+  }
+
+  grid[next.row][next.column] = 0
+}
+
 function generateGameOnCurrentThread(
   difficulty: GameDifficulty,
   signal?: AbortSignal,
-) {
-  return generate(difficulty, signal)
+): Promise<{ puzzle: Grid; solution: Grid }> {
+  return generateForDifficulty(difficulty, signal)
 }
 
 export function setGenerationWorkerFactoryForTests(factory: GenerationWorkerFactory | null) {
@@ -29,19 +136,6 @@ export function setGenerationWorkerFactoryForTests(factory: GenerationWorkerFact
 }
 
 /** Solve a puzzle and return the completed grid, or null if unsolvable. Synchronous. */
-export function solveGrid(puzzle: Grid): Grid | null {
-  return libSolve(puzzle) as Grid | null
-}
-
-function gridsEqual(a: Grid, b: Grid): boolean {
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (a[r][c] !== b[r][c]) return false
-    }
-  }
-  return true
-}
-
 export type CreatedPuzzleValidationResult =
   | { valid: true; solution: Grid }
   | { valid: false; message: string }
@@ -52,37 +146,22 @@ export function validateCreatedPuzzle(puzzle: Grid): CreatedPuzzleValidationResu
     return { valid: false, message: 'A created puzzle needs at least 17 clues.' }
   }
 
-  if (libGetCandidates(puzzle) === null) {
+  if (hasConflictingGivens(puzzle)) {
     return { valid: false, message: 'This puzzle has conflicting givens.' }
   }
 
-  try {
-    const forwardSolution = libSolve(puzzle) as Grid | null
-    const reverseSolution = libSolve(puzzle, true) as Grid | null
+  const solutions: Grid[] = []
+  collectSolutions(cloneGrid(puzzle), solutions, 2)
 
-    if (!forwardSolution || !reverseSolution) {
-      return { valid: false, message: 'This puzzle has no solution.' }
-    }
-
-    if (!gridsEqual(forwardSolution, reverseSolution)) {
-      return { valid: false, message: 'This puzzle must have exactly one solution.' }
-    }
-
-    return { valid: true, solution: forwardSolution }
-  } catch (error) {
-    const message =
-      typeof error === 'string'
-        ? error
-        : error instanceof Error
-          ? error.message
-          : 'This puzzle could not be validated.'
-
-    if (message.includes('Too few givens')) {
-      return { valid: false, message: 'A created puzzle needs at least 17 clues.' }
-    }
-
-    return { valid: false, message: 'This puzzle could not be validated.' }
+  if (solutions.length === 0) {
+    return { valid: false, message: 'This puzzle has no solution.' }
   }
+
+  if (solutions.length > 1) {
+    return { valid: false, message: 'This puzzle must have exactly one solution.' }
+  }
+
+  return { valid: true, solution: solutions[0] }
 }
 
 export async function generateGame(
@@ -124,16 +203,20 @@ export async function generateGame(
 
     worker.onmessage = (event: MessageEvent<GenerateWorkerResponse>) => {
       if (settled) return
-      settled = true
-      cleanup()
-      worker.terminate()
       const message = event.data
-      if (message.type === 'result') {
+      if (message.type === 'stream-puzzle') {
+        if (message.difficulty !== difficulty) return
+        settled = true
+        cleanup()
+        worker.terminate()
         resolve({ puzzle: message.puzzle, solution: message.solution })
         return
       }
       const error = new Error(message.message)
       error.name = message.name ?? 'Error'
+      settled = true
+      cleanup()
+      worker.terminate()
       reject(error)
     }
 
@@ -146,8 +229,7 @@ export async function generateGame(
     }
 
     const request: GenerateWorkerRequest = {
-      type: 'generate',
-      difficulty,
+      type: 'stream-start',
     }
     worker.postMessage(request)
   })

@@ -7,7 +7,7 @@ Sudoku PWA is distributed under the GNU General Public License, version 3 or any
 | Component | Version | Role in this project | License | Source |
 | --- | --- | --- | --- | --- |
 | `Hodoku` | `2.3.2` | HoDoKu logical difficulty rating used by `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/PseudoFish/Hodoku> |
-| `hodoku-core-js` | `2.3.2` | Port of above component to JS used in `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/starxmaker/Hodoku> |
+| `hodoku-core-js` | `0.3.2` | Port of above component to JS used in `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/starxmaker/Hodoku> |
 | `qqwing` | `1.3.4` | Sudoku generation and coarse difficulty prefiltering used by `src\utils\generators\hodoku.ts` and `src\utils\generators\qqwing.ts` | `GPL-2.0-or-later` per the distributed source header | <https://github.com/stephenostermiller/qqwing> |
 
 ## Other shipped runtime packages
@@ -17,10 +17,17 @@ Sudoku PWA is distributed under the GNU General Public License, version 3 or any
 | `react` | `18.3.1` | UI runtime | MIT | <https://github.com/facebook/react> |
 | `react-dom` | `18.3.1` | DOM renderer for the React app | MIT | <https://github.com/facebook/react> |
 | `@khmyznikov/pwa-install` | `0.6.3` | Install prompt custom element used on the home screen | MIT | <https://github.com/khmyznikov/pwa-install> |
-| `@starxmaker/sudoku.js` | `1.0.2` | Sudoku solvability/solution checks during generation and creator validation | MIT | <https://github.com/starxmaker/sudoku.js> |
 | `web-haptics` | `0.0.6` | Haptic feedback support | MIT | <https://github.com/lochie/web-haptics> |
 | `react-icons` | `5.6.0` | React wrapper that ships the icon component code used by the UI | MIT | <https://github.com/react-icons/react-icons> |
 | `workbox-sw` / `workbox-window` and related Workbox runtime modules | `7.4.0` | Service worker runtime files emitted into `dist\` by `vite-plugin-pwa` | MIT | <https://github.com/GoogleChrome/workbox> |
+
+## Included ML model components
+
+| Component | Version | Role in this project | License | Source |
+| --- | --- | --- | --- | --- |
+| `browser-handwritten-digit-recognition` | `1.0.1` | Offline handwritten digit recognition for user-drawn digits in the Sudoku UI | `MIT` | <https://github.com/starxmaker/browser-handwritten-digit-recognition> |
+| `MNIST-8` extracted model weights | `mnist-8` | CNN weights used by the handwritten digit recognizer for offline inference | `MIT` | <https://github.com/onnx/models/tree/main/validated/vision/classification/mnist> |
+
 
 ## UI icon libraries used through `react-icons`
 
@@ -72,18 +79,43 @@ The production build also copies this notice file and the GPL text into `dist\` 
 To fetch npm source tarballs for the exact package versions used by this project:
 
 ```bash
-npm pack hodoku-core-js@0.2.0
+npm pack hodoku-core-js@0.3.2
 npm pack qqwing@1.3.4
 npm pack react@18.3.1
 npm pack react-dom@18.3.1
 npm pack @khmyznikov/pwa-install@0.6.3
-npm pack @starxmaker/sudoku.js@1.0.2
 npm pack react-icons@5.6.0
 npm pack web-haptics@0.0.6
 npm pack workbox-window@7.4.0
 npm pack workbox-sw@7.4.0
+npm pack browser-handwritten-digit-recognition@1.0.1
 ```
 
 ## No warranty
 
 As required by the GNU GPL, this software is provided without any warranty; see `LICENSE` for details.
+
+## MIT-licensed component notices
+
+### `browser-handwritten-digit-recognition`
+
+MIT License
+
+Copyright (c) 2026 browser-handwritten-digit-recognition contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH 

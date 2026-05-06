@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { initSudoku } from './utils/sudoku'
-import { warmupHodoku } from './utils/generators/hodoku'
+import { startPuzzleQueueDaemon } from './utils/appPuzzleQueue'
 
 function hideSplashScreen() {
   const splash = document.getElementById('app-splash')
@@ -18,10 +18,7 @@ function hideSplashScreen() {
   }catch(e){
     console.warn('Sudoku init failed:', e)
   }
-
-  // Pre-fetch the TeaVM runtime in the background so it's ready when the
-  // user clicks "New Game".
-  warmupHodoku()
+  startPuzzleQueueDaemon()
 
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
