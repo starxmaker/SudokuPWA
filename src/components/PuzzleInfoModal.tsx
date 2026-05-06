@@ -11,6 +11,8 @@ function formatSource(source: PuzzleMetadata['source'] | null | undefined) {
   switch (source) {
     case 'generated':
       return 'Generated'
+    case 'preloaded':
+      return 'Pre-loaded'
     case 'imported':
       return 'Imported'
     case 'created':

@@ -3,12 +3,55 @@ import type { SolvablePuzzle } from './generators/types'
 import { createPuzzleQueueManager } from './puzzleQueue'
 import type { PuzzleQueueAvailability } from './puzzleQueue'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
-import type { GameDifficulty } from './difficulties'
+import { DIFFICULTY_LABELS, type GameDifficulty } from './difficulties'
+
+export type PuzzleQueueDebugStatus = {
+  status: 'stopped' | 'scheduled' | 'running' | 'idle' | 'waiting'
+  daemonStarted: boolean
+  isGenerating: boolean
+  isGenerationScheduled: boolean
+  hasCapacity: boolean
+  availability: PuzzleQueueAvailability
+  generatedCounts: PuzzleQueueAvailability
+  totalGenerated: number
+}
+
+declare global {
+  interface Window {
+    __sudokuGeneratorStatus?: () => PuzzleQueueDebugStatus
+  }
+}
 
 const manager = createPuzzleQueueManager({})
 let daemonStarted = false
 let stopActiveGeneration: (() => void) | null = null
 let restartTimer: ReturnType<typeof setTimeout> | null = null
+let generatedCounts = createEmptyDifficultyCounts()
+let totalGenerated = 0
+
+function createEmptyDifficultyCounts(): PuzzleQueueAvailability {
+  return Object.fromEntries(
+    (Object.keys(DIFFICULTY_LABELS) as GameDifficulty[]).map(difficulty => [difficulty, 0]),
+  ) as PuzzleQueueAvailability
+}
+
+function getGeneratorStatus(
+  daemonStarted: boolean,
+  isGenerating: boolean,
+  isGenerationScheduled: boolean,
+  hasCapacity: boolean,
+): PuzzleQueueDebugStatus['status'] {
+  if (!daemonStarted) return 'stopped'
+  if (isGenerating) return 'running'
+  if (isGenerationScheduled) return 'scheduled'
+  if (!hasCapacity) return 'idle'
+  return 'waiting'
+}
+
+function recordGeneratedPuzzle(puzzle: SolvablePuzzle) {
+  generatedCounts[puzzle.difficulty] += 1
+  totalGenerated += 1
+}
 
 function clearRestartTimer() {
   if (restartTimer !== null) {
@@ -61,6 +104,7 @@ function startCurrentThreadGenerationStream() {
 
   void generateContinuously((generated) => {
     if (!daemonStarted || controller.signal.aborted) return false
+    recordGeneratedPuzzle(generated)
     manager.enqueue(generated)
 
     if (!manager.hasCapacity()) {
@@ -98,6 +142,7 @@ function startWorkerGenerationStream() {
       }
 
       if (!daemonStarted) return
+      recordGeneratedPuzzle(generated)
       manager.enqueue(generated)
 
       if (!manager.hasCapacity()) {
@@ -140,6 +185,23 @@ export function getPuzzleQueueAvailability(): PuzzleQueueAvailability {
   return manager.getAvailability()
 }
 
+export function getPuzzleQueueDebugStatus(): PuzzleQueueDebugStatus {
+  const availability = manager.getAvailability()
+  const hasCapacity = manager.hasCapacity()
+  const isGenerating = stopActiveGeneration !== null
+  const isGenerationScheduled = restartTimer !== null
+  return {
+    status: getGeneratorStatus(daemonStarted, isGenerating, isGenerationScheduled, hasCapacity),
+    daemonStarted,
+    isGenerating,
+    isGenerationScheduled,
+    hasCapacity,
+    availability,
+    generatedCounts: { ...generatedCounts },
+    totalGenerated,
+  }
+}
+
 export function subscribePuzzleQueueAvailability(
   listener: (availability: PuzzleQueueAvailability) => void,
 ) {
@@ -167,4 +229,8 @@ export function takeQueuedGame(difficulty: GameDifficulty): Promise<SolvablePuzz
     }
     return puzzle
   })
+}
+
+if (typeof window !== 'undefined') {
+  window.__sudokuGeneratorStatus = getPuzzleQueueDebugStatus
 }

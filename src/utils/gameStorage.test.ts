@@ -223,6 +223,17 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.puzzleMetadata).toEqual(puzzleMetadata)
   })
 
+  it('saves and loads preloaded puzzle metadata', () => {
+    const puzzleMetadata: PuzzleMetadata = {
+      source: 'preloaded',
+      difficultyLabel: 'Hard',
+      score: 900,
+    }
+    saveGame(SAMPLE, BLANK, SAMPLE, emptyNotes(), emptyCellColors(), emptyCandidateColors(), emptyDrawingStrokes(), null, puzzleMetadata)
+    const saved = loadSaved()
+    expect(saved!.puzzleMetadata).toEqual(puzzleMetadata)
+  })
+
   it('does not mutate drawing strokes after saving', () => {
     const drawingStrokes = sampleDrawingStrokes()
     saveGame(SAMPLE, BLANK, null, emptyNotes(), emptyCellColors(), emptyCandidateColors(), drawingStrokes)

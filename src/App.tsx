@@ -7,12 +7,13 @@ import NewGameModal from './components/NewGameModal'
 import PuzzleInfoModal from './components/PuzzleInfoModal'
 import PuzzleCreator from './components/PuzzleCreator'
 import { Grid } from './utils/sudoku'
-import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs, type PuzzleMetadata } from './utils/gameStorage'
+import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs, type PuzzleMetadata, type PuzzleSource } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 import { getPuzzleQueueAvailability, startPuzzleQueueDaemon, subscribePuzzleQueueAvailability, takeQueuedGame } from './utils/appPuzzleQueue'
 import type { PuzzleQueueAvailability } from './utils/puzzleQueue'
 import { DIFFICULTY_LABELS, GameDifficulty } from './utils/difficulties'
 import { type VerifiedPuzzle, verifyPuzzle } from './utils/generators/hodoku'
+import { getPreloadedPuzzleAvailability, takePreloadedPuzzle } from './utils/preloadedPuzzles'
 
 type PuzzleRatingSummary = {
   difficulty: GameDifficulty | null
@@ -131,11 +132,12 @@ function createImportedPuzzleMetadata(rating?: PuzzleRatingSummary | null): Puzz
 }
 
 function createGeneratedPuzzleMetadata(
+  source: Extract<PuzzleSource, 'generated' | 'preloaded'>,
   difficultyId: GameDifficulty,
   score: number | null,
 ): PuzzleMetadata {
   return {
-    source: 'generated',
+    source,
     difficultyLabel: DIFFICULTY_LABELS[difficultyId],
     score,
   }
@@ -150,7 +152,20 @@ function createCreatedPuzzleMetadata(rating?: PuzzleRatingSummary | null): Puzzl
   }
 }
 
+function getEffectiveAvailability(
+  queueAvailability: PuzzleQueueAvailability,
+  preloadedAvailability: PuzzleQueueAvailability,
+): PuzzleQueueAvailability {
+  return Object.fromEntries(
+    (Object.keys(DIFFICULTY_LABELS) as GameDifficulty[]).map(difficulty => [
+      difficulty,
+      queueAvailability[difficulty] > 0 ? queueAvailability[difficulty] : preloadedAvailability[difficulty],
+    ]),
+  ) as PuzzleQueueAvailability
+}
+
 export default function App(){
+  const preloadedAvailability = getPreloadedPuzzleAvailability()
   const [theme, setTheme] = useState<'light'|'dark'>(() => {
     try {
       const saved = localStorage.getItem('theme')
@@ -247,7 +262,8 @@ export default function App(){
     startPuzzleQueueDaemon()
     return unsubscribe
   }, [])
-  const hasAvailablePuzzle = Object.values(puzzleAvailability).some(count => count > 0)
+  const effectiveAvailability = getEffectiveAvailability(puzzleAvailability, preloadedAvailability)
+  const hasAvailablePuzzle = Object.values(effectiveAvailability).some(count => count > 0)
 
   const [urlGame] = useState(() => {
     return parseUrlGame()
@@ -430,11 +446,12 @@ export default function App(){
 
   async function startNewWithDifficulty(difficultyId: GameDifficulty, signal: AbortSignal){
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-    const nextGame = await takeQueuedGame(difficultyId)
+    const queuedGame = await takeQueuedGame(difficultyId)
+    const nextGame = queuedGame ?? takePreloadedPuzzle(difficultyId)
     if (!nextGame) throw new Error('This difficulty is still generating.')
     const { puzzle: p, solution: s, score } = nextGame
     const diffLabel = DIFFICULTY_LABELS[difficultyId]
-    const metadata = createGeneratedPuzzleMetadata(difficultyId, score)
+    const metadata = createGeneratedPuzzleMetadata(queuedGame ? 'generated' : 'preloaded', difficultyId, score)
     // Yield to the event loop so any queued cancel clicks fire before we apply state
     await new Promise<void>(r => setTimeout(r, 0))
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -564,7 +581,7 @@ export default function App(){
          )}
          <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
          <PuzzleInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} metadata={puzzleMetadata} />
-         <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} availability={puzzleAvailability} />
+         <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} availability={effectiveAvailability} />
        </div>
       {toast && <div className="toast">{toast}</div>}
     </div>

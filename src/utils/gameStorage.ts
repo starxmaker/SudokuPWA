@@ -15,7 +15,7 @@ export type DrawingStroke = {
   points: DrawingPoint[]
 }
 export type DrawingStrokes = DrawingStroke[]
-export type PuzzleSource = 'generated' | 'imported' | 'created'
+export type PuzzleSource = 'generated' | 'preloaded' | 'imported' | 'created'
 export type PuzzleMetadata = {
   source: PuzzleSource
   difficultyLabel: string | null
@@ -35,7 +35,7 @@ type SavedV9 = {
   puzzleMetadata: PuzzleMetadata | null
 }
 
-const PUZZLE_SOURCES: PuzzleSource[] = ['generated', 'imported', 'created']
+const PUZZLE_SOURCES: PuzzleSource[] = ['generated', 'preloaded', 'imported', 'created']
 
 function cloneGrid(g: Grid): Grid {
   return g.map(row => [...row])

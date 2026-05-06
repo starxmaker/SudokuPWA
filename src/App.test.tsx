@@ -108,6 +108,16 @@ const PUZZLE_WITH_GAPS: number[][] = [
 beforeEach(() => {
   localStorage.clear()
   document.documentElement.classList.remove('dark')
+  Object.assign(appPuzzleQueueMocks.availability, {
+    VERY_EASY: 1,
+    EASY: 1,
+    MEDIUM: 1,
+    HARD: 1,
+    VERY_HARD: 1,
+    EXPERT: 1,
+    NIGHTMARE: 1,
+    DIABOLICAL: 1,
+  })
   const solution = [
     [5, 3, 4, 6, 7, 8, 9, 1, 2],
     [6, 7, 2, 1, 9, 5, 3, 4, 8],
@@ -210,6 +220,24 @@ describe('App', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     // modal heading is an h2 inside the dialog
     expect(screen.getByRole('heading', { name: /^new game$/i })).toBeInTheDocument()
+  })
+
+  it('keeps New Game available when the live queue is empty but preloaded puzzles exist', async () => {
+    Object.assign(appPuzzleQueueMocks.availability, {
+      VERY_EASY: 0,
+      EASY: 0,
+      MEDIUM: 0,
+      HARD: 0,
+      VERY_HARD: 0,
+      EXPERT: 0,
+      NIGHTMARE: 0,
+      DIABOLICAL: 0,
+    })
+    appPuzzleQueueMocks.takeQueuedGame.mockResolvedValue(null)
+
+    render(<App />)
+
+    expect(await screen.findByRole('button', { name: /^new game$/i })).toBeEnabled()
   })
 
   it('opens the created puzzle creator when Create new game is clicked', async () => {
@@ -434,6 +462,39 @@ describe('App', () => {
     expect(within(dialog).getByText('Generated')).toBeInTheDocument()
     expect(within(dialog).getByText('Very Hard')).toBeInTheDocument()
     expect(within(dialog).getByText(/1[.,]?700/)).toBeInTheDocument()
+  })
+
+  it('starts a preloaded puzzle when the selected difficulty queue is empty', async () => {
+    Object.assign(appPuzzleQueueMocks.availability, {
+      VERY_EASY: 0,
+      EASY: 0,
+      MEDIUM: 0,
+      HARD: 0,
+      VERY_HARD: 0,
+      EXPERT: 0,
+      NIGHTMARE: 0,
+      DIABOLICAL: 0,
+    })
+    appPuzzleQueueMocks.takeQueuedGame.mockResolvedValue(null)
+
+    render(<App />)
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /^new game$/i }))
+    await user.click(screen.getByRole('button', { name: /^hard$/i }))
+    await user.click(screen.getByRole('button', { name: /^start$/i }))
+
+    await screen.findAllByRole('gridcell')
+
+    expect(appPuzzleQueueMocks.takeQueuedGame).toHaveBeenCalledWith('HARD')
+    expect(document.querySelector('.difficulty-label')?.textContent).toBe('Hard')
+
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /info/i }))
+
+    const dialog = screen.getByRole('dialog', { name: /puzzle info/i })
+    expect(within(dialog).getByText('Pre-loaded')).toBeInTheDocument()
+    expect(within(dialog).getByText('Hard')).toBeInTheDocument()
   })
 
   it('evaluates imported puzzles and shows their info', async () => {
