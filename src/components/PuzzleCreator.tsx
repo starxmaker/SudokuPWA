@@ -1,12 +1,13 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { MdUndo } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
 import { FcOk } from 'react-icons/fc'
 import { type Grid, validateCreatedPuzzle } from '../utils/sudoku'
+import { type VerifiedPuzzle, verifyPuzzle } from '../utils/generators/hodoku'
 import PencilOverlay from './PencilOverlay'
 
 type Props = {
-  onStart: (puzzle: Grid, solution: Grid) => void
+  onStart: (puzzle: Grid, verified: VerifiedPuzzle) => void
   coordinateLabels?: boolean
   initialGrid?: Grid
   pencilMode?: boolean
@@ -37,6 +38,7 @@ export default function PuzzleCreator({
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null)
   const [eraserMode, setEraserMode] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
   const [pencilOverlayCell, setPencilOverlayCell] = useState<{
     r: number
     c: number
@@ -96,7 +98,9 @@ export default function PuzzleCreator({
     if (haptic) onTriggerHaptic?.()
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
+    if (isVerifying) return
+
     setPencilOverlayCell(null)
     const result = validateCreatedPuzzle(grid)
     if (!result.valid) {
@@ -105,10 +109,77 @@ export default function PuzzleCreator({
       return
     }
 
-    setError(null)
-    if (haptic) onTriggerHaptic?.()
-    onStart(cloneGrid(grid), result.solution)
+    setIsVerifying(true)
+
+    try {
+      const verified = await verifyPuzzle(grid)
+      if (!verified) {
+        setError('This puzzle has no valid solution.')
+        if (haptic) onTriggerErrorHaptic?.()
+        return
+      }
+
+      setError(null)
+      if (haptic) onTriggerHaptic?.()
+      onStart(cloneGrid(grid), verified)
+    } catch {
+      setError('This puzzle could not be validated.')
+      if (haptic) onTriggerErrorHaptic?.()
+    } finally {
+      setIsVerifying(false)
+    }
   }
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      const arrows: Record<string, [number, number]> = {
+        ArrowUp: [-1, 0],
+        ArrowDown: [1, 0],
+        ArrowLeft: [0, -1],
+        ArrowRight: [0, 1],
+      }
+
+      if (arrows[event.key]) {
+        event.preventDefault()
+        const [dr, dc] = arrows[event.key]
+        setPencilOverlayCell(null)
+        setSelected(prev => {
+          const r = prev ? Math.max(0, Math.min(8, prev.r + dr)) : 0
+          const c = prev ? Math.max(0, Math.min(8, prev.c + dc)) : 0
+          return { r, c }
+        })
+        return
+      }
+
+      if (event.key >= '1' && event.key <= '9') {
+        if (selected === null) return
+        event.preventDefault()
+        handleDigitInput(Number(event.key))
+        return
+      }
+
+      if (event.key === 'Backspace' || event.key === 'Delete' || event.key === '0') {
+        if (selected === null) return
+        event.preventDefault()
+        clearCell(selected.r, selected.c)
+        if (haptic && grid[selected.r][selected.c] !== 0) onTriggerHaptic?.()
+        return
+      }
+
+      if (event.key === 'Enter') {
+        if (clueCount === 0 || isVerifying) return
+        event.preventDefault()
+        void handleConfirm()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [clueCount, grid, haptic, isVerifying, onTriggerHaptic, selected])
 
   const selectedDigit = selected !== null ? grid[selected.r][selected.c] : 0
   const cells = [] as React.ReactNode[]
@@ -180,19 +251,6 @@ export default function PuzzleCreator({
             selectCell(r, c)
             if (haptic) onTriggerHaptic?.()
           }}
-          onKeyDown={(event) => {
-            if (event.key >= '1' && event.key <= '9') {
-              event.preventDefault()
-              setCellValue(r, c, Number(event.key))
-              if (haptic) onTriggerHaptic?.()
-              return
-            }
-            if (event.key === 'Backspace' || event.key === 'Delete' || event.key === '0') {
-              event.preventDefault()
-              clearCell(r, c)
-              if (haptic && grid[r][c] !== 0) onTriggerHaptic?.()
-            }
-          }}
         >
           <span className="cell-value">{value === 0 ? '\u00a0' : value}</span>
         </button>,
@@ -206,7 +264,7 @@ export default function PuzzleCreator({
         <div className="board-area">
           <div className="creator-status-row">
             <span className="difficulty-label">Create new game</span>
-            <span className="creator-status-text">{clueCount} clues</span>
+            <span className="creator-status-text">{isVerifying ? 'Verifying...' : `${clueCount} clues`}</span>
           </div>
           {error && <p className="creator-error" role="alert">{error}</p>}
           <div className="board-wrapper" style={pencilMode ? ({ '--board-safe-space': '140px' } as React.CSSProperties) : undefined}>
@@ -259,8 +317,8 @@ export default function PuzzleCreator({
               className="num-key clear"
               type="button"
               aria-label="Confirm created puzzle"
-              disabled={clueCount === 0}
-              onClick={handleConfirm}
+              disabled={clueCount === 0 || isVerifying}
+              onClick={() => { void handleConfirm() }}
             >
               <FcOk size={22} />
             </button>

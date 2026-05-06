@@ -78,6 +78,14 @@ describe('TopBar', () => {
     expect(onShare).toHaveBeenCalledOnce()
   })
 
+  it('shows info item and calls onOpenInfo when provided', async () => {
+    const onOpenInfo = vi.fn()
+    render(<TopBar onOpenSettings={vi.fn()} onOpenInfo={onOpenInfo} onShare={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /info/i }))
+    expect(onOpenInfo).toHaveBeenCalledOnce()
+  })
+
   it('shows clean painting item disabled when unavailable', async () => {
     render(<TopBar onOpenSettings={vi.fn()} onClearPainting={vi.fn()} canClearPainting={false} />)
     await userEvent.click(screen.getByRole('button', { name: /menu/i }))
@@ -136,4 +144,3 @@ describe('TopBar', () => {
     expect(screen.queryByRole('menuitem', { name: /settings/i })).toBeNull()
   })
 })
-

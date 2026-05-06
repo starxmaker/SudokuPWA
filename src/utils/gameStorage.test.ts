@@ -11,6 +11,7 @@ import {
   emptyDrawingStrokes,
   saveBrushPrefs,
   loadBrushPrefs,
+  type PuzzleMetadata,
 } from './gameStorage'
 import type { Grid } from './sudoku_types'
 
@@ -62,6 +63,14 @@ function sampleDrawingStrokes() {
 
 function sampleFlaggedColorCell() {
   return { r: 0, c: 0 }
+}
+
+function samplePuzzleMetadata(): PuzzleMetadata {
+  return {
+    source: 'imported',
+    difficultyLabel: 'Very Hard',
+    score: 1700,
+  }
 }
 
 beforeEach(() => localStorage.clear())
@@ -207,6 +216,13 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.flaggedColorCell).toEqual(flaggedColorCell)
   })
 
+  it('saves and loads puzzle metadata', () => {
+    const puzzleMetadata = samplePuzzleMetadata()
+    saveGame(SAMPLE, BLANK, SAMPLE, emptyNotes(), emptyCellColors(), emptyCandidateColors(), emptyDrawingStrokes(), null, puzzleMetadata)
+    const saved = loadSaved()
+    expect(saved!.puzzleMetadata).toEqual(puzzleMetadata)
+  })
+
   it('does not mutate drawing strokes after saving', () => {
     const drawingStrokes = sampleDrawingStrokes()
     saveGame(SAMPLE, BLANK, null, emptyNotes(), emptyCellColors(), emptyCandidateColors(), drawingStrokes)
@@ -228,6 +244,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
     expect(saved!.flaggedColorCell).toBeNull()
+    expect(saved!.puzzleMetadata).toBeNull()
   })
 
   it('loads legacy V2 saves with empty notes', () => {
@@ -241,6 +258,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
     expect(saved!.flaggedColorCell).toBeNull()
+    expect(saved!.puzzleMetadata).toBeNull()
   })
 
   it('loads legacy array-format saves with empty notes', () => {
@@ -253,6 +271,7 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.candidateColors).toEqual(emptyCandidateColors())
     expect(saved!.drawingStrokes).toEqual(emptyDrawingStrokes())
     expect(saved!.flaggedColorCell).toBeNull()
+    expect(saved!.puzzleMetadata).toBeNull()
   })
 
   it('loads legacy V4 saves with empty brush colors', () => {
@@ -302,10 +321,10 @@ describe('saveGame / loadSaved', () => {
     expect(saved!.flaggedColorCell).toBeNull()
   })
 
-  it('stores V8 version tag', () => {
+  it('stores V9 version tag', () => {
     saveGame(SAMPLE, BLANK, null)
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
-    expect(raw.v).toBe(8)
+    expect(raw.v).toBe(9)
   })
 })
 

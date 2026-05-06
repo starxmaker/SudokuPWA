@@ -1,8 +1,8 @@
-import { DIFFICULTY_CONFIGURATIONS } from './generators/orchestrator'
-import type { GameDifficulty, PuzzleSolutionPair } from './generators/types'
+import { DIFFICULTY_LABELS, GameDifficulty } from './difficulties'
 import { decodeGrid, encodeGrid } from './gameStorage'
+import type { SolvablePuzzle } from './generators/types'
 
-const DIFFICULTIES = Object.keys(DIFFICULTY_CONFIGURATIONS) as GameDifficulty[]
+const DIFFICULTIES = Object.keys(DIFFICULTY_LABELS) as GameDifficulty[]
 
 export const PUZZLE_QUEUE_TARGET_SIZE = 10
 export const PUZZLE_QUEUE_STORAGE_KEY = 'puzzleQueue:v1'
@@ -10,19 +10,22 @@ export const PUZZLE_QUEUE_STORAGE_KEY = 'puzzleQueue:v1'
 export type PuzzleQueueAvailability = Record<GameDifficulty, number>
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
-type StoredPuzzle = { puzzle: string; solution: string }
+type StoredPuzzle = {
+  puzzle: string
+  solution: string
+  score?: number | null
+}
 type StoredPuzzleQueue = Record<GameDifficulty, StoredPuzzle[]>
 type Listener = (availability: PuzzleQueueAvailability) => void
 
 type CreatePuzzleQueueManagerOptions = {
-  generatePuzzle: (difficulty: GameDifficulty, signal?: AbortSignal) => Promise<PuzzleSolutionPair>
   storage?: StorageLike | null
   storageKey?: string
   queueTargetSize?: number
 }
 
 function createEmptyQueue(): StoredPuzzleQueue {
-  return Object.fromEntries(DIFFICULTIES.map(difficulty => [difficulty, []])) as StoredPuzzleQueue
+  return Object.fromEntries(DIFFICULTIES.map(difficulty => [difficulty, []])) as unknown as StoredPuzzleQueue
 }
 
 function createAvailabilitySnapshot(queue: StoredPuzzleQueue): PuzzleQueueAvailability {
@@ -36,7 +39,12 @@ function isStoredPuzzle(value: unknown): value is StoredPuzzle {
     !!value &&
     typeof value === 'object' &&
     typeof (value as StoredPuzzle).puzzle === 'string' &&
-    typeof (value as StoredPuzzle).solution === 'string'
+    typeof (value as StoredPuzzle).solution === 'string' &&
+    (
+      (value as StoredPuzzle).score === undefined ||
+      (value as StoredPuzzle).score === null ||
+      (typeof (value as StoredPuzzle).score === 'number' && Number.isFinite((value as StoredPuzzle).score))
+    )
   )
 }
 
@@ -68,16 +76,12 @@ function getDefaultStorage(): StorageLike | null {
 }
 
 export function createPuzzleQueueManager({
-  generatePuzzle,
   storage = getDefaultStorage(),
   storageKey = PUZZLE_QUEUE_STORAGE_KEY,
   queueTargetSize = PUZZLE_QUEUE_TARGET_SIZE,
 }: CreatePuzzleQueueManagerOptions) {
   let loaded = false
-  let started = false
-  let pumping = false
   let queue = createEmptyQueue()
-  let timer: ReturnType<typeof setTimeout> | null = null
   const listeners = new Set<Listener>()
 
   function ensureLoaded() {
@@ -131,54 +135,13 @@ export function createPuzzleQueueManager({
     return candidate
   }
 
-  async function pumpOnce() {
-    if (!started || pumping) return
-
-    const difficulty = pickNextDifficulty()
-    if (!difficulty) return
-
-    pumping = true
-    try {
-      const generated = await generatePuzzle(difficulty)
-      ensureLoaded()
-
-      const encoded: StoredPuzzle = {
-        puzzle: encodeGrid(generated.puzzle),
-        solution: encodeGrid(generated.solution),
-      }
-
-      if (!queue[difficulty].some(entry => entry.puzzle === encoded.puzzle)) {
-        queue[difficulty].push(encoded)
-        persist()
-        notify()
-      }
-    } catch {
-      // Keep the daemon alive; a later cycle can retry.
-    } finally {
-      pumping = false
-      if (started && pickNextDifficulty()) schedulePump()
-    }
-  }
-
-  function schedulePump() {
-    if (!started || pumping || timer !== null) return
-    timer = setTimeout(() => {
-      timer = null
-      void pumpOnce()
-    }, 0)
-  }
-
   function start() {
     ensureLoaded()
-    started = true
     notify()
-    schedulePump()
   }
 
   function stop() {
-    started = false
-    if (timer !== null) clearTimeout(timer)
-    timer = null
+    // Queue persistence is independent from the daemon lifecycle.
   }
 
   function subscribe(listener: Listener) {
@@ -190,29 +153,61 @@ export function createPuzzleQueueManager({
     }
   }
 
-  async function take(difficulty: GameDifficulty): Promise<PuzzleSolutionPair | null> {
+  function hasCapacity() {
+    return pickNextDifficulty() !== null
+  }
+
+  function enqueue(generated: SolvablePuzzle) {
+    ensureLoaded()
+
+    const difficulty = generated.difficulty
+    if (queue[difficulty].length >= queueTargetSize) return false
+
+    const encoded: StoredPuzzle = {
+      puzzle: encodeGrid(generated.puzzle),
+      solution: encodeGrid(generated.solution),
+      score: generated.score,
+    }
+
+    if (queue[difficulty].some(entry => entry.puzzle === encoded.puzzle)) return false
+
+    queue[difficulty].push(encoded)
+    persist()
+    notify()
+    return true
+  }
+
+  async function take(difficulty: GameDifficulty): Promise<SolvablePuzzle | null> {
     ensureLoaded()
 
     while (queue[difficulty].length > 0) {
       const next = queue[difficulty].shift()
       persist()
       notify()
-      schedulePump()
 
       if (!next) continue
       const puzzle = decodeGrid(next.puzzle)
       const solution = decodeGrid(next.solution)
-      if (puzzle && solution) return { puzzle, solution }
+      const score = next.score ?? null
+      if (puzzle && solution) {
+        return {
+          puzzle,
+          solution,
+          difficulty,
+          score,
+        }
+      }
     }
 
     persist()
     notify()
-    schedulePump()
     return null
   }
 
   return {
+    enqueue,
     getAvailability,
+    hasCapacity,
     start,
     stop,
     subscribe,

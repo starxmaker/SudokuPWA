@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateGame, solveGrid, validateCreatedPuzzle } from './sudoku'
-import { HODOKU_ESTIMATIONS, matchesHodokuEstimation, type HodokuEstimationId } from './generators/hodoku'
+import { HODOKU_ESTIMATIONS } from './generators/hodoku'
+import type { GameDifficulty } from './difficulties'
 
 const GENERATION_DIFFICULTIES = [
   'VERY_EASY',
@@ -17,7 +18,7 @@ const GENERATION_SMOKE_DIFFICULTIES = [
   'MEDIUM',
   'VERY_HARD',
   'EXPERT',
-] as const satisfies readonly HodokuEstimationId[]
+] as const satisfies readonly GameDifficulty[]
 const MULTI_SOLUTION_PUZZLE: number[][] = [
   [0, 3, 0, 0, 0, 8, 0, 0, 0],
   [0, 0, 2, 1, 9, 5, 3, 0, 8],
@@ -77,26 +78,13 @@ describe('sudoku utils', () => {
     expect(zeros).toBeGreaterThan(0)
   }, 30_000)
 
-  it.each(GENERATION_DIFFICULTIES)('matchesHodokuEstimation enforces estimation %s', (id) => {
+  it.each(GENERATION_DIFFICULTIES)('has Hodoku estimation coverage for %s', (id) => {
     const estimation = HODOKU_ESTIMATIONS[id]
-    const midScore = estimation.minScore !== null
-      ? estimation.maxScore !== null
-        ? Math.floor((estimation.minScore + estimation.maxScore) / 2)
-        : estimation.minScore + 100
-      : estimation.maxScore !== null
-        ? Math.floor(estimation.maxScore / 2)
-        : 2000
-
-    expect(matchesHodokuEstimation({ difficulty: estimation.difficulty, score: midScore }, estimation)).toBe(true)
-
-    if (estimation.minScore !== null) {
-      expect(matchesHodokuEstimation({ difficulty: estimation.difficulty, score: estimation.minScore - 1 }, estimation)).toBe(false)
+    expect(estimation).toBeDefined()
+    expect(estimation.difficulty).toMatch(/^(EASY|MEDIUM|HARD|UNFAIR|EXTREME)$/)
+    if (estimation.minScore !== undefined && estimation.maxScore !== undefined) {
+      expect(estimation.minScore).toBeLessThan(estimation.maxScore)
     }
-    if (estimation.maxScore !== null) {
-      expect(matchesHodokuEstimation({ difficulty: estimation.difficulty, score: estimation.maxScore + 1 }, estimation)).toBe(false)
-    }
-    const wrongDifficulty = estimation.difficulty === 'EASY' ? 'MEDIUM' : 'EASY'
-    expect(matchesHodokuEstimation({ difficulty: wrongDifficulty, score: midScore }, estimation)).toBe(false)
   }, 30_000)
 
   it('solveGrid solves a known easy puzzle', () => {

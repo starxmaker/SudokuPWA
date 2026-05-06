@@ -1,16 +1,17 @@
 import type { Grid } from './sudoku_types'
-import type { GameDifficulty } from './generators/types'
+import type { GameDifficulty } from './difficulties'
 
 export type GenerateWorkerRequest = {
-  type: 'generate'
-  difficulty: GameDifficulty
+  type: 'stream-start'
 }
 
 export type GenerateWorkerResponse =
   | {
-      type: 'result'
+      type: 'stream-puzzle'
       puzzle: Grid
       solution: Grid
+      difficulty: GameDifficulty
+      score: number | null
     }
   | {
       type: 'error'

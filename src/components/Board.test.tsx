@@ -181,6 +181,18 @@ describe('Board component', () => {
     expect(timerDisplay!.textContent).toMatch(/\d+:\d\d/)
   })
 
+  it('uses puzzle metadata difficulty when no explicit difficulty prop is provided', async () => {
+    render(
+      <Board
+        puzzle={PUZZLE}
+        solution={SOLUTION}
+        puzzleMetadata={{ source: 'created', difficultyLabel: 'Very Hard', score: 1700 }}
+      />,
+    )
+    await waitForBoard()
+    expect(document.querySelector('.difficulty-label')?.textContent).toBe('Very Hard')
+  })
+
   it('pause button toggles aria-label', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()

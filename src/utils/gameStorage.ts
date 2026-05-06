@@ -2,7 +2,7 @@ import type { Grid } from './sudoku_types'
 
 export const STORAGE_KEY = 'sudoku-pwa-state'
 
-const V = 8 as const
+const V = 9 as const
 
 export type CellColorValue = string[]
 export type CandidateColorCell = CellColorValue[]
@@ -15,8 +15,14 @@ export type DrawingStroke = {
   points: DrawingPoint[]
 }
 export type DrawingStrokes = DrawingStroke[]
+export type PuzzleSource = 'generated' | 'imported' | 'created'
+export type PuzzleMetadata = {
+  source: PuzzleSource
+  difficultyLabel: string | null
+  score: number | null
+}
 
-type SavedV8 = {
+type SavedV9 = {
   v: typeof V
   initial: Grid
   current: Grid
@@ -26,7 +32,10 @@ type SavedV8 = {
   candidateColors: CandidateColorGrid
   drawingStrokes: DrawingStrokes
   flaggedColorCell: FlaggedColorCell
+  puzzleMetadata: PuzzleMetadata | null
 }
+
+const PUZZLE_SOURCES: PuzzleSource[] = ['generated', 'imported', 'created']
 
 function cloneGrid(g: Grid): Grid {
   return g.map(row => [...row])
@@ -46,6 +55,15 @@ function cloneCandidateColors(colors: CandidateColorGrid): CandidateColorGrid {
 
 function cloneFlaggedColorCell(cell: FlaggedColorCell): FlaggedColorCell {
   return cell === null ? null : { ...cell }
+}
+
+function clonePuzzleMetadata(metadata: PuzzleMetadata | null | undefined): PuzzleMetadata | null {
+  if (!metadata) return null
+  return {
+    source: metadata.source,
+    difficultyLabel: metadata.difficultyLabel,
+    score: metadata.score,
+  }
 }
 
 function cloneDrawingPoint([x, y]: DrawingPoint): DrawingPoint {
@@ -162,6 +180,26 @@ function normalizeFlaggedColorCell(cell: unknown): FlaggedColorCell {
   return { r: candidate.r, c: candidate.c }
 }
 
+function normalizePuzzleMetadata(metadata: unknown): PuzzleMetadata | null {
+  if (!metadata || typeof metadata !== 'object') return null
+  const candidate = metadata as {
+    source?: unknown
+    difficultyLabel?: unknown
+    score?: unknown
+  }
+  if (!PUZZLE_SOURCES.includes(candidate.source as PuzzleSource)) return null
+  return {
+    source: candidate.source as PuzzleSource,
+    difficultyLabel: typeof candidate.difficultyLabel === 'string' && candidate.difficultyLabel.trim().length > 0
+      ? candidate.difficultyLabel
+      : null,
+    score:
+      typeof candidate.score === 'number' && Number.isFinite(candidate.score)
+        ? candidate.score
+        : null,
+  }
+}
+
 /** Read saved game. Returns null solution for legacy saves that predate V3. */
 export function loadSaved(): {
   initial: Grid
@@ -172,6 +210,7 @@ export function loadSaved(): {
   candidateColors: CandidateColorGrid
   drawingStrokes: DrawingStrokes
   flaggedColorCell: FlaggedColorCell
+  puzzleMetadata: PuzzleMetadata | null
 } | null {
   try {
     const s = localStorage.getItem(STORAGE_KEY)
@@ -180,18 +219,32 @@ export function loadSaved(): {
     if (Array.isArray(parsed)) {
       const g = parsed as Grid
       if (g.length !== 9) return null
-        return {
-          initial: cloneGrid(g),
-          current: cloneGrid(g),
-          solution: null,
-          notes: emptyNotes(),
-          cellColors: emptyCellColors(),
-          candidateColors: emptyCandidateColors(),
-          drawingStrokes: emptyDrawingStrokes(),
-          flaggedColorCell: null,
+          return {
+            initial: cloneGrid(g),
+            current: cloneGrid(g),
+            solution: null,
+            notes: emptyNotes(),
+            cellColors: emptyCellColors(),
+            candidateColors: emptyCandidateColors(),
+            drawingStrokes: emptyDrawingStrokes(),
+            flaggedColorCell: null,
+            puzzleMetadata: null,
+          }
         }
-      }
       if (parsed && typeof parsed === 'object') {
+        if ((parsed.v === 9) && parsed.initial && parsed.current) {
+          return {
+            initial: cloneGrid(parsed.initial),
+            current: cloneGrid(parsed.current),
+            solution: parsed.solution ? cloneGrid(parsed.solution) : null,
+            notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
+            cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
+            candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
+            drawingStrokes: parsed.drawingStrokes ? normalizeDrawingStrokes(parsed.drawingStrokes) : emptyDrawingStrokes(),
+            flaggedColorCell: normalizeFlaggedColorCell(parsed.flaggedColorCell),
+            puzzleMetadata: normalizePuzzleMetadata(parsed.puzzleMetadata),
+          }
+        }
         if ((parsed.v === 8) && parsed.initial && parsed.current) {
           return {
             initial: cloneGrid(parsed.initial),
@@ -202,6 +255,7 @@ export function loadSaved(): {
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
             drawingStrokes: parsed.drawingStrokes ? normalizeDrawingStrokes(parsed.drawingStrokes) : emptyDrawingStrokes(),
             flaggedColorCell: normalizeFlaggedColorCell(parsed.flaggedColorCell),
+            puzzleMetadata: null,
           }
         }
         if ((parsed.v === 7) && parsed.initial && parsed.current) {
@@ -214,6 +268,7 @@ export function loadSaved(): {
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
             drawingStrokes: parsed.drawingStrokes ? normalizeDrawingStrokes(parsed.drawingStrokes) : emptyDrawingStrokes(),
             flaggedColorCell: null,
+            puzzleMetadata: null,
           }
         }
         if ((parsed.v === 6) && parsed.initial && parsed.current) {
@@ -226,6 +281,7 @@ export function loadSaved(): {
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
             drawingStrokes: emptyDrawingStrokes(),
             flaggedColorCell: null,
+            puzzleMetadata: null,
           }
         }
         if ((parsed.v === 5) && parsed.initial && parsed.current) {
@@ -238,6 +294,7 @@ export function loadSaved(): {
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
             drawingStrokes: emptyDrawingStrokes(),
             flaggedColorCell: null,
+            puzzleMetadata: null,
           }
         }
         if ((parsed.v === 4) && parsed.initial && parsed.current) {
@@ -250,6 +307,7 @@ export function loadSaved(): {
             candidateColors: emptyCandidateColors(),
             drawingStrokes: emptyDrawingStrokes(),
             flaggedColorCell: null,
+            puzzleMetadata: null,
           }
         }
         // Legacy V2/V3 saves — no notes
@@ -263,6 +321,7 @@ export function loadSaved(): {
             candidateColors: emptyCandidateColors(),
             drawingStrokes: emptyDrawingStrokes(),
             flaggedColorCell: null,
+            puzzleMetadata: null,
           }
         }
       }
@@ -370,9 +429,10 @@ export function saveGame(
   candidateColors: CandidateColorGrid = emptyCandidateColors(),
   drawingStrokes: DrawingStrokes = emptyDrawingStrokes(),
   flaggedColorCell: FlaggedColorCell = null,
+  puzzleMetadata: PuzzleMetadata | null = null,
 ): void {
   try {
-    const payload: SavedV8 = {
+    const payload: SavedV9 = {
       v: V,
       initial: cloneGrid(initial),
       current: cloneGrid(current),
@@ -382,6 +442,7 @@ export function saveGame(
       candidateColors: cloneCandidateColors(candidateColors),
       drawingStrokes: cloneDrawingStrokes(drawingStrokes),
       flaggedColorCell: cloneFlaggedColorCell(flaggedColorCell),
+      puzzleMetadata: clonePuzzleMetadata(puzzleMetadata),
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
   } catch { /* ignore */ }

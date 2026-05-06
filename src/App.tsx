@@ -4,37 +4,151 @@ import Home from './components/Home'
 import TopBar from './components/TopBar'
 import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
+import PuzzleInfoModal from './components/PuzzleInfoModal'
 import PuzzleCreator from './components/PuzzleCreator'
 import { solveGrid, Grid } from './utils/sudoku'
-import { DIFFICULTY_CONFIGURATIONS } from './utils/generators/orchestrator'
-import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs } from './utils/gameStorage'
+import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs, type PuzzleMetadata } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
-import { GameDifficulty } from './utils/generators/types'
 import { getPuzzleQueueAvailability, startPuzzleQueueDaemon, subscribePuzzleQueueAvailability, takeQueuedGame } from './utils/appPuzzleQueue'
 import type { PuzzleQueueAvailability } from './utils/puzzleQueue'
+import { DIFFICULTY_LABELS, GameDifficulty } from './utils/difficulties'
+import { type VerifiedPuzzle, verifyPuzzle } from './utils/generators/hodoku'
 
-/** Parse ?p= once, synchronously, and solve the puzzle. */
+type PuzzleRatingSummary = {
+  difficulty: GameDifficulty | null
+  score: number | null
+}
+
+/** Parse ?p= once, synchronously. Imported puzzle verification runs later via Hodoku. */
 type ParsedUrl =
-  | { type: 'game'; initial: Grid; solution: Grid }
+  | { type: 'game'; initial: Grid }
   | { type: 'error'; message: string }
   | { type: 'none' }
+
+const PENDING_IMPORTED_PUZZLE_KEY = 'pending-imported-puzzle'
+const AUTO_OPEN_IMPORTED_GAME_KEY = 'auto-open-imported-game'
+
+function currentLocationUrl() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`
+}
+
+function storePendingImportedPuzzle(encodedPuzzle: string) {
+  try {
+    sessionStorage.setItem(PENDING_IMPORTED_PUZZLE_KEY, encodedPuzzle)
+  } catch {}
+  try {
+    const nextState = typeof window.history.state === 'object' && window.history.state !== null
+      ? { ...window.history.state, pendingImportedPuzzle: encodedPuzzle }
+      : { pendingImportedPuzzle: encodedPuzzle }
+    window.history.replaceState(nextState, '', currentLocationUrl())
+  } catch {}
+}
+
+function readPendingImportedPuzzle(): string | null {
+  try {
+    const historyState = window.history.state as { pendingImportedPuzzle?: unknown } | null
+    if (typeof historyState?.pendingImportedPuzzle === 'string' && historyState.pendingImportedPuzzle.length > 0) {
+      return historyState.pendingImportedPuzzle
+    }
+  } catch {}
+  try {
+    return sessionStorage.getItem(PENDING_IMPORTED_PUZZLE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function clearPendingImportedPuzzle() {
+  try {
+    sessionStorage.removeItem(PENDING_IMPORTED_PUZZLE_KEY)
+  } catch {}
+  try {
+    const historyState = window.history.state as { pendingImportedPuzzle?: unknown } | null
+    if (typeof historyState?.pendingImportedPuzzle === 'string') {
+      const { pendingImportedPuzzle: _ignored, ...nextState } = historyState
+      window.history.replaceState(Object.keys(nextState).length > 0 ? nextState : null, '', currentLocationUrl())
+    }
+  } catch {}
+}
+
+function markAutoOpenImportedGame() {
+  try {
+    sessionStorage.setItem(AUTO_OPEN_IMPORTED_GAME_KEY, '1')
+  } catch {}
+}
+
+function shouldAutoOpenImportedGame() {
+  try {
+    return sessionStorage.getItem(AUTO_OPEN_IMPORTED_GAME_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function clearAutoOpenImportedGame() {
+  try {
+    sessionStorage.removeItem(AUTO_OPEN_IMPORTED_GAME_KEY)
+  } catch {}
+}
 
 function parseUrlGame(): ParsedUrl {
   try {
     const params = new URLSearchParams(window.location.search)
-    const p = params.get('p')
-    if (!p) return { type: 'none' }
-    const initial = decodeGrid(p)
-    if (!initial) return { type: 'error', message: 'Invalid puzzle link.' }
-    const solution = solveGrid(initial)
-    if (!solution) return { type: 'error', message: 'This puzzle has no valid solution.' }
-    return { type: 'game', initial, solution }
+    const directPuzzle = params.get('p')
+    const encodedPuzzle = directPuzzle ?? readPendingImportedPuzzle()
+    if (!encodedPuzzle) return { type: 'none' }
+    const initial = decodeGrid(encodedPuzzle)
+    if (!initial) {
+      clearPendingImportedPuzzle()
+      return { type: 'error', message: 'Invalid puzzle link.' }
+    }
+    if (directPuzzle) {
+      storePendingImportedPuzzle(encodedPuzzle)
+    }
+    return { type: 'game', initial }
   } catch {
     return { type: 'error', message: 'Invalid puzzle link.' }
   }
 }
 
 function cloneGrid(g: Grid): Grid { return g.map(r => [...r]) }
+
+function loadStoredDifficultyLabel(): string | null {
+  try {
+    return localStorage.getItem('difficulty')
+  } catch {
+    return null
+  }
+}
+
+function createImportedPuzzleMetadata(rating?: PuzzleRatingSummary | null): PuzzleMetadata {
+  const difficulty =  rating?.difficulty
+  return {
+    source: 'imported',
+    difficultyLabel: difficulty ? DIFFICULTY_LABELS[difficulty] : null,
+    score: rating?.score ?? null,
+  }
+}
+
+function createGeneratedPuzzleMetadata(
+  difficultyId: GameDifficulty,
+  score: number | null,
+): PuzzleMetadata {
+  return {
+    source: 'generated',
+    difficultyLabel: DIFFICULTY_LABELS[difficultyId],
+    score,
+  }
+}
+
+function createCreatedPuzzleMetadata(rating?: PuzzleRatingSummary | null): PuzzleMetadata {
+  const difficulty = rating?.difficulty
+  return {
+    source: 'created',
+    difficultyLabel: difficulty ? DIFFICULTY_LABELS[difficulty] : null,
+    score: rating?.score ?? null,
+  }
+}
 
 export default function App(){
   const [theme, setTheme] = useState<'light'|'dark'>(() => {
@@ -135,38 +249,40 @@ export default function App(){
   }, [])
   const hasAvailablePuzzle = Object.values(puzzleAvailability).some(count => count > 0)
 
-  // Parse URL game synchronously so StrictMode double-effects don't clobber it.
-  // Also persist to localStorage immediately so Board's useState initializer reads the URL game,
-  // not the previously active game.
   const [urlGame] = useState(() => {
-    const parsed = parseUrlGame()
-    if (parsed.type === 'game') {
-      saveGame(parsed.initial, parsed.initial, parsed.solution)
-    }
-    return parsed
+    return parseUrlGame()
   })
-  const urlError = urlGame.type === 'error' ? urlGame.message : null
+  const savedGame = loadSaved()
+  const autoOpenImportedGame = urlGame.type !== 'game'
+    && shouldAutoOpenImportedGame()
+    && savedGame?.puzzleMetadata?.source === 'imported'
+    && !!savedGame.current
+  const [homeError, setHomeError] = useState<string | null>(() => urlGame.type === 'error' ? urlGame.message : null)
 
-  const [showHome, setShowHome] = useState(() => urlGame.type !== 'game')
+  const [showHome, setShowHome] = useState(() => urlGame.type !== 'game' && !autoOpenImportedGame)
   const [creatorMode, setCreatorMode] = useState(false)
   const [puzzle, setPuzzle] = useState<Grid | null>(() => {
     if (urlGame.type === 'game') return cloneGrid(urlGame.initial)
-    return loadSaved()?.current ?? null
+    return savedGame?.current ?? null
   })
   const [solution, setSolution] = useState<Grid | null>(() => {
-    if (urlGame.type === 'game') return urlGame.solution
-    const saved = loadSaved()
-    if (saved?.solution) return saved.solution
-    if (saved?.initial) return solveGrid(saved.initial)
+    if (urlGame.type === 'game') return null
+    if (savedGame?.solution) return savedGame.solution
+    if (savedGame?.initial) return solveGrid(savedGame.initial)
     return null
   })
   // Track the original blank clues separately so Share always encodes the unsolved puzzle
   const [initialGrid, setInitialGrid] = useState<Grid | null>(() => {
     if (urlGame.type === 'game') return cloneGrid(urlGame.initial)
-    return loadSaved()?.initial ?? null
+    return savedGame?.initial ?? null
+  })
+  const [puzzleMetadata, setPuzzleMetadata] = useState<PuzzleMetadata | null>(() => {
+    if (urlGame.type === 'game') return createImportedPuzzleMetadata()
+    return savedGame?.puzzleMetadata ?? null
   })
 
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
   const [newGameOpen, setNewGameOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [gameId, setGameId] = useState(0)
@@ -181,14 +297,12 @@ export default function App(){
   const [paintingScope, setPaintingScope] = useState<'digit' | 'candidate'>(() =>
     loadBrushPrefs()?.candidateMode ? 'candidate' : 'digit'
   )
+  const [importVerificationPending, setImportVerificationPending] = useState(() => urlGame.type === 'game')
 
   const [difficulty, setDifficulty] = useState<string | null>(() => {
     if (urlGame.type === 'game') return null
-    try {
-      const saved = localStorage.getItem('difficulty')
-      if (saved) return saved
-    } catch {}
-    return null
+    if (savedGame?.puzzleMetadata?.difficultyLabel) return savedGame.puzzleMetadata.difficultyLabel
+    return loadStoredDifficultyLabel()
   })
 
   useEffect(() => {
@@ -213,8 +327,68 @@ export default function App(){
       setCanClearPainting(false)
       setCanClearDrawings(false)
       setCanIdentifyCandidates(false)
+      setInfoOpen(false)
     }
   }, [showHome, creatorMode])
+
+  useEffect(() => {
+    if (urlGame.type !== 'game') return
+    const controller = new AbortController()
+    let active = true
+    setImportVerificationPending(true)
+    void verifyPuzzle(urlGame.initial, controller.signal)
+      .then((verified) => {
+        if (!active || controller.signal.aborted) return
+        if (!verified) {
+          clearAutoOpenImportedGame()
+          setHomeError('This puzzle has no valid solution.')
+          setShowHome(true)
+          setPuzzle(null)
+          setSolution(null)
+          setInitialGrid(null)
+          setPuzzleMetadata(null)
+          setDifficulty(null)
+          return
+        }
+
+        const initial = cloneGrid(urlGame.initial)
+        const metadata = createImportedPuzzleMetadata(verified)
+        setPuzzle(initial)
+        setSolution(verified.solution)
+        setInitialGrid(initial)
+        setPuzzleMetadata(metadata)
+        setDifficulty(metadata.difficultyLabel)
+        clearElapsed()
+        clearCompleted()
+        setGameCompleted(false)
+        markAutoOpenImportedGame()
+        saveGame(initial, initial, verified.solution, undefined, undefined, undefined, undefined, undefined, metadata)
+        setHomeError(null)
+      })
+      .catch((error) => {
+        if (!active || controller.signal.aborted) return
+        if (error instanceof Error && error.name === 'AbortError') return
+        console.error('Failed to verify imported puzzle:', error)
+        clearAutoOpenImportedGame()
+        setHomeError('Failed to verify imported puzzle.')
+        setShowHome(true)
+        setPuzzle(null)
+        setSolution(null)
+        setInitialGrid(null)
+        setPuzzleMetadata(null)
+        setDifficulty(null)
+      })
+      .finally(() => {
+        if (active && !controller.signal.aborted) {
+          clearPendingImportedPuzzle()
+          setImportVerificationPending(false)
+        }
+      })
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [urlGame])
 
   // Clean the URL after loading (safe to run twice in StrictMode)
   useEffect(() => {
@@ -242,11 +416,15 @@ export default function App(){
   }
 
   function handleNew(){
+    clearAutoOpenImportedGame()
+    setHomeError(null)
     setCreatorMode(false)
     setNewGameOpen(true)
   }
 
   function handleCreated() {
+    clearAutoOpenImportedGame()
+    setHomeError(null)
     setCreatorMode(true)
     setShowHome(false)
   }
@@ -255,8 +433,9 @@ export default function App(){
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     const nextGame = await takeQueuedGame(difficultyId)
     if (!nextGame) throw new Error('This difficulty is still generating.')
-    const { puzzle: p, solution: s } = nextGame
-    const diffLabel = DIFFICULTY_CONFIGURATIONS[difficultyId].label
+    const { puzzle: p, solution: s, score } = nextGame
+    const diffLabel = DIFFICULTY_LABELS[difficultyId]
+    const metadata = createGeneratedPuzzleMetadata(difficultyId, score)
     // Yield to the event loop so any queued cancel clicks fire before we apply state
     await new Promise<void>(r => setTimeout(r, 0))
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -267,23 +446,30 @@ export default function App(){
     clearElapsed()
     clearCompleted()
     setGameCompleted(false)
-    saveGame(initial, p, s)
+    saveGame(initial, p, s, undefined, undefined, undefined, undefined, undefined, metadata)
+    clearAutoOpenImportedGame()
     setDifficulty(diffLabel)
+    setPuzzleMetadata(metadata)
+    setHomeError(null)
     setGameId(id => id + 1)
     setCreatorMode(false)
     setShowHome(false)
   }
 
-  function startCreatedPuzzle(initial: Grid, solved: Grid) {
+  function startCreatedPuzzle(initial: Grid, verified: VerifiedPuzzle) {
     const current = cloneGrid(initial)
     setPuzzle(current)
-    setSolution(solved)
+    setSolution(verified.solution)
     setInitialGrid(cloneGrid(initial))
     clearElapsed()
     clearCompleted()
     setGameCompleted(false)
-    saveGame(initial, current, solved)
-    setDifficulty(null)
+    const metadata = createCreatedPuzzleMetadata(verified)
+    saveGame(initial, current, verified.solution, undefined, undefined, undefined, undefined, undefined, metadata)
+    clearAutoOpenImportedGame()
+    setDifficulty(metadata.difficultyLabel)
+    setPuzzleMetadata(metadata)
+    setHomeError(null)
     setGameId(id => id + 1)
     setCreatorMode(false)
     setShowHome(false)
@@ -292,9 +478,13 @@ export default function App(){
   function handleContinue(){
     const saved = loadSaved()
     if(saved?.current) {
+      clearAutoOpenImportedGame()
       setPuzzle(saved.current)
       setSolution(saved.solution ?? null)
       setInitialGrid(saved.initial)
+      setPuzzleMetadata(saved.puzzleMetadata ?? null)
+      setDifficulty(saved.puzzleMetadata?.difficultyLabel ?? loadStoredDifficultyLabel())
+      setHomeError(null)
       setCreatorMode(false)
       setShowHome(false)
     } else {
@@ -303,29 +493,33 @@ export default function App(){
   }
 
   function handleBackToHome() {
+    clearAutoOpenImportedGame()
     setCreatorMode(false)
     setShowHome(true)
   }
 
+  const showBoard = !showHome && !creatorMode && !importVerificationPending
+
   return (
     <div className="app-root">
       <TopBar
-        showBack={!showHome}
+        showBack={!showHome && !importVerificationPending}
         onBack={handleBackToHome}
         onOpenSettings={() => setSettingsOpen(true)}
-        onShare={!showHome && !creatorMode && !!initialGrid ? handleShare : undefined}
-        onRestart={!showHome && !creatorMode && !!initialGrid ? () => boardRestartRef.current?.() : undefined}
-        onClearPainting={!showHome && !creatorMode ? () => clearColorsRef.current?.() : undefined}
+        onOpenInfo={showBoard && !!initialGrid ? () => setInfoOpen(true) : undefined}
+        onShare={showBoard && !!initialGrid ? handleShare : undefined}
+        onRestart={showBoard && !!initialGrid ? () => boardRestartRef.current?.() : undefined}
+        onClearPainting={showBoard ? () => clearColorsRef.current?.() : undefined}
         canClearPainting={canClearPainting}
-        onClearDrawings={!showHome && !creatorMode ? () => clearDrawingsRef.current?.() : undefined}
+        onClearDrawings={showBoard ? () => clearDrawingsRef.current?.() : undefined}
         canClearDrawings={canClearDrawings}
-        onIdentifyCandidates={!showHome && !creatorMode ? () => identifyCandidatesRef.current?.() : undefined}
+        onIdentifyCandidates={showBoard ? () => identifyCandidatesRef.current?.() : undefined}
         canIdentifyCandidates={canIdentifyCandidates}
         title="Sudoku"
       />
       <div className="app">
         {showHome ? (
-          <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} onCreated={handleCreated} error={urlError} hasAvailablePuzzle={hasAvailablePuzzle} />
+          <Home hasSaved={!!puzzle && !gameCompleted} onNew={handleNew} onContinue={handleContinue} onCreated={handleCreated} error={homeError} hasAvailablePuzzle={hasAvailablePuzzle} />
         ) : creatorMode ? (
           <PuzzleCreator
             onStart={startCreatedPuzzle}
@@ -335,6 +529,10 @@ export default function App(){
             onTriggerHaptic={triggerHaptic}
             onTriggerErrorHaptic={triggerErrorHaptic}
           />
+        ) : importVerificationPending ? (
+          <div className="home">
+            <p>Verifying imported puzzle...</p>
+          </div>
         ) : (
           <Board
             key={gameId}
@@ -350,7 +548,7 @@ export default function App(){
             onNew={handleNew}
             onShare={handleShare}
             onWin={() => { setGameCompleted(true); saveCompleted() }}
-            difficulty={urlGame.type === 'game' ? null : difficulty}
+            difficulty={difficulty}
             pencilMode={pencilMode}
             coordinateLabels={coordinateLabels}
             firstColorFlag={firstColorFlag}
@@ -360,13 +558,15 @@ export default function App(){
             identifyCandidatesRef={identifyCandidatesRef}
             onClearPaintingAvailabilityChange={setCanClearPainting}
             onClearDrawingsAvailabilityChange={setCanClearDrawings}
-            onIdentifyCandidatesAvailabilityChange={setCanIdentifyCandidates}
-            paintingScope={paintingScope}
-          />
-        )}
-        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
-        <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} availability={puzzleAvailability} />
-      </div>
+             onIdentifyCandidatesAvailabilityChange={setCanIdentifyCandidates}
+             paintingScope={paintingScope}
+             puzzleMetadata={puzzleMetadata}
+           />
+         )}
+         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
+         <PuzzleInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} metadata={puzzleMetadata} />
+         <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} availability={puzzleAvailability} />
+       </div>
       {toast && <div className="toast">{toast}</div>}
     </div>
   )
