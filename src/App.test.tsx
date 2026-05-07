@@ -29,7 +29,6 @@ const appPuzzleQueueMocks = vi.hoisted(() => {
 })
 
 const hodokuMocks = vi.hoisted(() => ({
-  warmupHodoku: vi.fn().mockResolvedValue(true),
   evaluate: vi.fn(),
   verifyPuzzle: vi.fn(),
 }))
@@ -75,7 +74,6 @@ vi.mock('./utils/generators/hodoku', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./utils/generators/hodoku')>()
   return {
     ...actual,
-    warmupHodoku: hodokuMocks.warmupHodoku,
     evaluate: hodokuMocks.evaluate,
     verifyPuzzle: hodokuMocks.verifyPuzzle,
   }
