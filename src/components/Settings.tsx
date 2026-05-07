@@ -176,10 +176,10 @@ export default function Settings({
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
           <div>
-            <div>{t('settings.pencilMode')}</div>
-            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.pencilDescription')}</div>
+            <div>{t('settings.stylusMode')}</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.stylusDescription')}</div>
           </div>
-          <label className="toggle-switch" aria-label={t('settings.togglePencilMode')}>
+          <label className="toggle-switch" aria-label={t('settings.toggleStylusMode')}>
             <input
               type="checkbox"
               role="switch"
