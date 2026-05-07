@@ -579,6 +579,29 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
   })
 
+  it('opens the candidate overlay in eraser mode and removes only the selected candidate', async () => {
+    const notes = emptyNotesGrid()
+    notes[0][2] = [4, 7]
+    saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
+
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    mockCellRect(cells[2])
+    await user.click(cells[2])
+
+    expect(screen.getByRole('dialog', { name: /candidate eraser/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /erase candidate 7/i }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /candidate eraser/i })).toBeNull())
+    const noteSpans = cells[2].querySelectorAll('.cell-note')
+    expect(noteSpans[3].textContent).toBe('4')
+    expect(noteSpans[6].textContent).toBe('')
+  })
+
   it('does not open the candidate overlay when candidate painting mode is enabled but the cell has no candidates', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
     const cells = screen.getAllByRole('gridcell')

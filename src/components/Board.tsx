@@ -167,6 +167,7 @@ type CandidateOverlayState = {
   top: number
   left: number
   size: number
+  mode: 'paint' | 'erase'
 }
 type ToolTrayView = 'main' | 'notes' | 'brush' | 'drawing'
 type ToolTrayTransition = {
@@ -966,21 +967,64 @@ export default function Board({
     return true
   }
 
-  function openCandidateOverlay(r: number, c: number, target: HTMLElement) {
-    setCandidateSelectedDigit(null)
+  function openCandidateOverlay(
+    r: number,
+    c: number,
+    target: HTMLElement,
+    mode: CandidateOverlayState['mode'] = 'paint',
+  ) {
+    if (mode === 'paint') {
+      setCandidateSelectedDigit(null)
+    }
     setSelected({ r, c })
     if (
       internalPuzzle[r][c] !== 0 ||
       notesRef.current[r][c].length === 0 ||
-      cellColorsRef.current[r][c].length > 0
+      (mode === 'paint' && cellColorsRef.current[r][c].length > 0)
     ) {
       setCandidateOverlay(null)
       return false
     }
     const { top, left, size } = getCandidateOverlayPosition(target.getBoundingClientRect())
-    setCandidateSelectedDigit(null)
+    if (mode === 'paint') {
+      setCandidateSelectedDigit(null)
+    }
     setCandidateOverlayPreviewDigit(null)
-    setCandidateOverlay({ r, c, top, left, size })
+    setCandidateOverlay({ r, c, top, left, size, mode })
+    return true
+  }
+
+  function removeCandidateAt(r: number, c: number, d: number) {
+    if (!notesRef.current[r][c].includes(d)) return false
+
+    const historyEntry = makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+      drawingStrokesRef.current,
+      flaggedColorCellRef.current,
+    )
+    const nextCandidateColors = cloneCandidateColorsGrid(candidateColorsRef.current)
+    nextCandidateColors[r][c][d - 1] = []
+    const nextFlaggedColorCell = resolveFlaggedColorCell(
+      flaggedColorCellRef.current,
+      cellColorsRef.current,
+      nextCandidateColors,
+      false,
+      null,
+      firstColorFlagEnabled,
+    )
+
+    setHistory(h => [...h.slice(-50), historyEntry])
+    setNotes(prev => {
+      const next = prev.map(row => row.map(cell => [...cell]))
+      next[r][c] = next[r][c].filter(candidate => candidate !== d)
+      return next
+    })
+    flaggedColorCellRef.current = nextFlaggedColorCell
+    setCandidateColors(nextCandidateColors)
+    setFlaggedColorCell(nextFlaggedColorCell)
     return true
   }
 
@@ -1689,24 +1733,18 @@ export default function Board({
                 } else {
                   const currentNotes = notes[r][c]
                   if (currentNotes.length > 0) {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    const digit = getCandidateDigitFromPoint(rect, e.clientX, e.clientY)
-                    if (currentNotes.includes(digit)) {
-                      if (haptic) onTriggerHaptic?.()
-                      const historyEntry = makeHistoryEntry(internalPuzzle, notesRef.current, cellColorsRef.current, candidateColorsRef.current, drawingStrokesRef.current, flaggedColorCellRef.current)
-                      setHistory(h => [...h.slice(-50), historyEntry])
-                      setNotes(prev => {
-                        const next = prev.map(rr => rr.map(cc => [...cc]))
-                        next[r][c] = next[r][c].filter(d => d !== digit)
-                        return next
-                      })
-                      setSelected({ r, c })
-                    }
+                    const opened = openCandidateOverlay(r, c, e.currentTarget, 'erase')
+                    if (opened && haptic) onTriggerHaptic?.()
                   }
                 }
               } else {
-                if (haptic) onTriggerHaptic?.()
-                clearCellAt(r, c)
+                if (internalPuzzle[r][c] === 0 && notesRef.current[r][c].length > 0) {
+                  const opened = openCandidateOverlay(r, c, e.currentTarget, 'erase')
+                  if (opened && haptic) onTriggerHaptic?.()
+                } else {
+                  if (haptic) onTriggerHaptic?.()
+                  clearCellAt(r, c)
+                }
               }
               return
             }
@@ -2138,13 +2176,13 @@ export default function Board({
           <button
             type="button"
             className="brush-candidate-backdrop"
-            aria-label={t('board.closeCandidatePainter')}
+            aria-label={candidateOverlay.mode === 'erase' ? t('board.closeCandidateEraser') : t('board.closeCandidatePainter')}
             onClick={closeCandidateOverlay}
           />
           <div
             className="brush-candidate-overlay"
             role="dialog"
-            aria-label={t('board.candidatePainter')}
+            aria-label={candidateOverlay.mode === 'erase' ? t('board.candidateEraser') : t('board.candidatePainter')}
             style={{
               top: `${candidateOverlay.top}px`,
               left: `${candidateOverlay.left}px`,
@@ -2161,20 +2199,28 @@ export default function Board({
                   type="button"
                   className={`brush-candidate-button${hasCandidate ? '' : ' brush-candidate-button--empty'}`}
                   aria-label={hasCandidate
-                    ? t('board.paintCandidate', { digit: d })
+                    ? (candidateOverlay.mode === 'erase'
+                      ? t('board.eraseCandidate', { digit: d })
+                      : t('board.paintCandidate', { digit: d }))
                     : t('board.candidateUnavailable', { digit: d })}
-                  disabled={!hasCandidate || overlayHasCellColor}
+                  disabled={!hasCandidate || (candidateOverlay.mode === 'paint' && overlayHasCellColor)}
                   onPointerMove={() => {
-                    if (hasCandidate && !overlayHasCellColor) setCandidateOverlayPreviewDigit(d)
+                    if (hasCandidate && (candidateOverlay.mode === 'erase' || !overlayHasCellColor)) setCandidateOverlayPreviewDigit(d)
                   }}
                   onPointerDown={() => {
-                    if (hasCandidate && !overlayHasCellColor) setCandidateOverlayPreviewDigit(d)
+                    if (hasCandidate && (candidateOverlay.mode === 'erase' || !overlayHasCellColor)) setCandidateOverlayPreviewDigit(d)
                   }}
                   onClick={() => {
-                    const changed = applyCandidateBrushColorAt(candidateOverlay.r, candidateOverlay.c, d)
+                    const changed = candidateOverlay.mode === 'erase'
+                      ? removeCandidateAt(candidateOverlay.r, candidateOverlay.c, d)
+                      : applyCandidateBrushColorAt(candidateOverlay.r, candidateOverlay.c, d)
                     if (changed) {
-                      setCandidateSelectedDigit(d)
-                      closeCandidateOverlay(true)
+                      if (candidateOverlay.mode === 'erase') {
+                        closeCandidateOverlay()
+                      } else {
+                        setCandidateSelectedDigit(d)
+                        closeCandidateOverlay(true)
+                      }
                       if (haptic) onTriggerHaptic?.()
                     }
                   }}
