@@ -1,11 +1,11 @@
 
-:root{ --gap:4px; --bg: #f5f7fb; --text: #0b2135; --muted: #556; --card: #fff; --accent: #0b6cff; --accent-soft: rgba(11,108,255,0.06); --board-outer: #000000; --board-radius: 14px; --cell-inner: #b8c0cc; --cell-box: #8a96a8; --cell-cross-bg: rgba(0,0,0,0.08); --cell-clue-text: #4a5568; --cell-user-text: #0055d4; --cell-selected-bg: rgba(11,108,255,0.22); --board-safe-space: 260px; --brush-fill-rose: rgba(225, 29, 72, 0.38); --brush-fill-orange: rgba(234, 88, 12, 0.38); --brush-fill-amber: rgba(217, 119, 6, 0.36); --brush-fill-lime: rgba(101, 163, 13, 0.38); --brush-fill-emerald: rgba(5, 150, 105, 0.38); --brush-fill-sky: rgba(2, 132, 199, 0.38); --brush-fill-violet: rgba(124, 58, 237, 0.36); --brush-fill-pink: rgba(219, 39, 119, 0.38) }
+:root{ --gap:4px; --bg: #f5f7fb; --text: #0b2135; --muted: #556; --card: #fff; --accent: #0b6cff; --accent-soft: rgba(11,108,255,0.06); --board-outer: #000000; --board-radius: 14px; --cell-inner: #b8c0cc; --cell-box: #8a96a8; --cell-cross-bg: rgba(0,0,0,0.12); --cell-related-bg: rgba(11,108,255,0.16); --cell-clue-text: #4a5568; --cell-user-text: #0055d4; --cell-selected-bg: rgba(11,108,255,0.26); --board-safe-space: 260px; --brush-fill-rose: rgba(225, 29, 72, 0.38); --brush-fill-orange: rgba(234, 88, 12, 0.38); --brush-fill-amber: rgba(217, 119, 6, 0.36); --brush-fill-lime: rgba(101, 163, 13, 0.38); --brush-fill-emerald: rgba(5, 150, 105, 0.38); --brush-fill-sky: rgba(2, 132, 199, 0.38); --brush-fill-violet: rgba(124, 58, 237, 0.36); --brush-fill-pink: rgba(219, 39, 119, 0.38) }
 *{box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 html,body{height:100%;margin:0;overscroll-behavior:none}
 body{font-family:system-ui,Arial;}
 
 /* Dark theme overrides when `.dark` is present on the documentElement */
-.dark { --bg: #121212; --text: #e6eef8; --muted: #9fb6d6; --card: #1e1e1e; --accent: #58a6ff; --accent-soft: rgba(88,166,255,0.12); --board-outer: #ffffff; --cell-inner: #555555; --cell-box: #888888; --cell-cross-bg: rgba(255,255,255,0.07); --cell-clue-text: #aaaaaa; --cell-user-text: #6ab8ff; --cell-selected-bg: rgba(88,166,255,0.28); --brush-fill-rose: rgba(251, 113, 133, 0.48); --brush-fill-orange: rgba(251, 146, 60, 0.48); --brush-fill-amber: rgba(251, 191, 36, 0.44); --brush-fill-lime: rgba(163, 230, 53, 0.46); --brush-fill-emerald: rgba(52, 211, 153, 0.46); --brush-fill-sky: rgba(56, 189, 248, 0.46); --brush-fill-violet: rgba(167, 139, 250, 0.46); --brush-fill-pink: rgba(244, 114, 182, 0.46) }
+.dark { --bg: #121212; --text: #e6eef8; --muted: #9fb6d6; --card: #1e1e1e; --accent: #58a6ff; --accent-soft: rgba(88,166,255,0.12); --board-outer: #ffffff; --cell-inner: #555555; --cell-box: #888888; --cell-cross-bg: rgba(255,255,255,0.12); --cell-related-bg: rgba(88,166,255,0.18); --cell-clue-text: #aaaaaa; --cell-user-text: #6ab8ff; --cell-selected-bg: rgba(88,166,255,0.32); --brush-fill-rose: rgba(251, 113, 133, 0.48); --brush-fill-orange: rgba(251, 146, 60, 0.48); --brush-fill-amber: rgba(251, 191, 36, 0.44); --brush-fill-lime: rgba(163, 230, 53, 0.46); --brush-fill-emerald: rgba(52, 211, 153, 0.46); --brush-fill-sky: rgba(56, 189, 248, 0.46); --brush-fill-violet: rgba(167, 139, 250, 0.46); --brush-fill-pink: rgba(244, 114, 182, 0.46) }
 
 body{background:var(--bg);color:var(--text)}
 .app-root{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
@@ -371,7 +371,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   color:var(--cell-clue-text);
 }
 .board button.cell.same-digit{
-  background:var(--cell-selected-bg);
+  background:var(--cell-related-bg);
   z-index:1;
 }
 .board button.cell.same-digit.user{
