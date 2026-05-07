@@ -381,7 +381,9 @@ export default function Board({
   const [lowerPadTransition, setLowerPadTransition] = useState<LowerPadTransition | null>(null)
   const lowerPadTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const drawingPointerIdRef = React.useRef<number | null>(null)
+  const boardRef = React.useRef<HTMLDivElement | null>(null)
   const toolTrayRef = React.useRef<HTMLDivElement | null>(null)
+  const [boardPixelWidth, setBoardPixelWidth] = useState<number | null>(null)
   const mainNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const mainBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const mainDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
@@ -414,6 +416,29 @@ export default function Board({
     const id = setInterval(() => setElapsed(s => { saveElapsed(s + 1); return s + 1 }), 1000)
     return () => clearInterval(id)
   }, [paused])
+
+  useEffect(() => {
+    const boardElement = boardRef.current
+    if (boardElement === null) return
+
+    const updateBoardPixelWidth = () => {
+      const nextWidth = Math.round(boardElement.getBoundingClientRect().width)
+      setBoardPixelWidth(prev => (prev === nextWidth ? prev : nextWidth))
+    }
+
+    updateBoardPixelWidth()
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => updateBoardPixelWidth())
+      : null
+
+    resizeObserver?.observe(boardElement)
+    window.addEventListener('resize', updateBoardPixelWidth)
+
+    return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', updateBoardPixelWidth)
+    }
+  }, [])
 
   useEffect(() => {
     if (paused) {
@@ -1838,30 +1863,31 @@ export default function Board({
           <button type="button" onClick={newGame}>{t('board.new')}</button>
         </div>
       )}
-      <div className="game-main">
+        <div className="game-main">
         <div className="board-area">
-          <div className="timer-row">
-            <span className="difficulty-label">{displayedDifficulty}</span>
-            <div className="timer-group">
-              <span className="timer-display">
-                {formatTime(elapsed)}
-              </span>
-              <button
-                type="button"
-                className="timer-pause"
-                aria-label={paused ? t('board.resume') : t('board.pause')}
-                onClick={() => {
-                  const next = !paused
-                  setManualPause(next)
-                  setPaused(next)
-                }}
-              >
-                {paused ? <MdPlayArrow size={22} /> : <MdPause size={22} />}
-              </button>
+          <div className="board-column">
+            <div className="timer-row" style={boardPixelWidth !== null ? { width: `${boardPixelWidth}px` } : undefined}>
+              <span className="difficulty-label">{displayedDifficulty}</span>
+              <div className="timer-group">
+                <span className="timer-display">
+                  {formatTime(elapsed)}
+                </span>
+                <button
+                  type="button"
+                  className="timer-pause"
+                  aria-label={paused ? t('board.resume') : t('board.pause')}
+                  onClick={() => {
+                    const next = !paused
+                    setManualPause(next)
+                    setPaused(next)
+                  }}
+                >
+                  {paused ? <MdPlayArrow size={22} /> : <MdPause size={22} />}
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="board-wrapper" style={pencilMode ? ({ '--board-safe-space': '140px' } as React.CSSProperties) : undefined}>
-            <div className={`board-shell${coordinateLabels ? ' board-shell--with-coordinates' : ''}`}>
+            <div className="board-wrapper" style={pencilMode ? ({ '--board-safe-space': '140px' } as React.CSSProperties) : undefined}>
+              <div className={`board-shell${coordinateLabels ? ' board-shell--with-coordinates' : ''}`}>
               {coordinateLabels && <div className="board-coordinate-corner" aria-hidden="true" />}
               {coordinateLabels && (
                 <div className="board-coordinate-columns" aria-hidden="true" data-testid="board-coordinate-columns">
@@ -1877,7 +1903,7 @@ export default function Board({
                   ))}
                 </div>
               )}
-              <div className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label={t('board.gridLabel')}>
+              <div ref={boardRef} className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label={t('board.gridLabel')}>
                 {cells}
                 <svg
                   className={`board-drawing-layer${drawingMode && !paused && !won ? ' board-drawing-layer--interactive' : ''}`}
@@ -1927,6 +1953,7 @@ export default function Board({
             </div>
           </div>
         </div>
+      </div>
         <div className="controls-panel">
           <div ref={toolTrayRef} className={`tool-tray tool-tray--${visibleToolTray}`} aria-live="polite">
             <div className="tool-tray__measure" aria-hidden="true">

@@ -238,6 +238,14 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   gap:8px;
   flex:0 0 auto;
 }
+.board-column{
+  width:100%;
+  max-width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
 .controls-panel{
   width:min(100%, 720px);
   display:flex;
@@ -257,6 +265,10 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 }
 .board-shell{
   width:100%;
+}
+.board-shell:not(.board-shell--with-coordinates){
+  width:min(100%, calc(100dvh - var(--board-safe-space)));
+  max-width:720px;
 }
 .board-shell--with-coordinates{
   display:grid;
@@ -1100,6 +1112,123 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
     max-width:none;
     margin-top:0;
     grid-template-columns:repeat(5,minmax(0,1fr));
+  }
+}
+
+@media (orientation: landscape) {
+  .app{
+    max-width:1360px;
+  }
+  .game-layout{
+    padding-bottom:12px;
+  }
+  .game-main{
+    flex-direction:row;
+    align-items:stretch;
+    justify-content:center;
+    gap:12px;
+  }
+  .board-area{
+    --board-safe-space: 128px;
+    width:min(720px, calc(100dvh - var(--board-safe-space)), calc(100vw - 180px));
+    align-items:flex-start;
+    gap:8px;
+  }
+  .board-column{
+    align-items:flex-start;
+  }
+  .board-wrapper{
+    justify-content:flex-start;
+  }
+  .controls-panel{
+    --landscape-board-offset: 38px;
+    width:max-content;
+    max-width:none;
+    display:grid;
+    grid-template-columns:auto 56px;
+    grid-template-rows:minmax(0, 1fr);
+    justify-content:start;
+    align-items:start;
+    column-gap:8px;
+    align-self:stretch;
+    padding-top:var(--landscape-board-offset);
+  }
+  .controls-panel > .input-pad-switcher{
+    grid-column:1;
+    grid-row:1;
+    width:max-content;
+    max-width:100%;
+    height:100%;
+    margin-top:0;
+    align-self:stretch;
+    display:flex;
+  }
+  .controls-panel > .tool-tray{
+    grid-column:2;
+    grid-row:1;
+    width:56px;
+    margin-top:0;
+    align-self:center;
+  }
+  .controls-panel .input-pad__panel{
+    width:auto;
+  }
+  .controls-panel .input-pad__panel--active{
+    height:100%;
+  }
+  .controls-panel .number-pad{
+    width:max-content;
+    max-width:100%;
+    height:100%;
+    margin-top:0;
+    grid-template-columns:minmax(0, 72px);
+    grid-template-rows:repeat(9, minmax(0, 1fr));
+    justify-content:start;
+    align-content:stretch;
+  }
+  .controls-panel .number-pad .num-key{
+    min-width:0;
+    min-height:0;
+    height:100%;
+  }
+  .controls-panel .tool-tray__measure > .num-pad-toolbar,
+  .controls-panel > .tool-tray > .num-pad-toolbar:not(.tool-tray__panel--hidden){
+    width:max-content;
+    max-width:none;
+    margin-top:0;
+    display:grid;
+    grid-template-columns:minmax(0, 56px);
+    gap:8px;
+    justify-content:start;
+    align-items:center;
+  }
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.clear,
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.notes-toggle,
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.brush-toggle,
+  .controls-panel .tool-tray__measure > .num-pad-toolbar .num-key.drawing-toggle,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.clear,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.notes-toggle,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.brush-toggle,
+  .controls-panel > .tool-tray > .num-pad-toolbar .num-key.drawing-toggle,
+  .controls-panel .tool-tray__content .num-key.clear{
+    width:100%;
+    min-width:56px;
+    padding:0 8px;
+  }
+  .controls-panel .tool-tray__measure > .tool-tray__panel--sub,
+  .controls-panel > .tool-tray > .tool-tray__panel--sub{
+    grid-template-columns:minmax(0, 56px);
+    align-items:center;
+  }
+  .controls-panel .tool-tray__measure > .tool-tray__panel .tool-tray__content,
+  .controls-panel > .tool-tray > .tool-tray__panel .tool-tray__content{
+    display:grid;
+    grid-template-columns:minmax(0, 56px);
+    grid-column:auto;
+    width:max-content;
+    gap:8px;
+    justify-content:start;
+    align-items:center;
   }
 }
 
