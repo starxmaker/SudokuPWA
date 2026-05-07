@@ -150,14 +150,14 @@ function makeHistoryEntry(
 }
 
 const BRUSH_COLORS = [
-  { id: 'rose', fill: 'rgba(244, 63, 94, 0.28)', swatch: '#f43f5e' },
-  { id: 'orange', fill: 'rgba(249, 115, 22, 0.28)', swatch: '#f97316' },
-  { id: 'amber', fill: 'rgba(245, 158, 11, 0.28)', swatch: '#f59e0b' },
-  { id: 'lime', fill: 'rgba(132, 204, 22, 0.28)', swatch: '#84cc16' },
-  { id: 'emerald', fill: 'rgba(16, 185, 129, 0.28)', swatch: '#10b981' },
-  { id: 'sky', fill: 'rgba(14, 165, 233, 0.28)', swatch: '#0ea5e9' },
-  { id: 'violet', fill: 'rgba(139, 92, 246, 0.28)', swatch: '#8b5cf6' },
-  { id: 'pink', fill: 'rgba(236, 72, 153, 0.28)', swatch: '#ec4899' },
+  { id: 'rose', fill: 'var(--brush-fill-rose)', swatch: '#f43f5e' },
+  { id: 'orange', fill: 'var(--brush-fill-orange)', swatch: '#f97316' },
+  { id: 'amber', fill: 'var(--brush-fill-amber)', swatch: '#f59e0b' },
+  { id: 'lime', fill: 'var(--brush-fill-lime)', swatch: '#84cc16' },
+  { id: 'emerald', fill: 'var(--brush-fill-emerald)', swatch: '#10b981' },
+  { id: 'sky', fill: 'var(--brush-fill-sky)', swatch: '#0ea5e9' },
+  { id: 'violet', fill: 'var(--brush-fill-violet)', swatch: '#8b5cf6' },
+  { id: 'pink', fill: 'var(--brush-fill-pink)', swatch: '#ec4899' },
 ] as const
 
 type BrushColorId = (typeof BRUSH_COLORS)[number]['id']
