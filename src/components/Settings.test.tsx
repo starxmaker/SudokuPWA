@@ -24,6 +24,8 @@ const base = {
   setPaintingScope: vi.fn(),
   firstColorFlag: false,
   setFirstColorFlag: vi.fn(),
+  languageSetting: 'system' as const,
+  setLanguageSetting: vi.fn(),
 }
 
 describe('Settings', () => {
@@ -40,6 +42,7 @@ describe('Settings', () => {
     expect(screen.getByRole('switch', { name: /auto-check/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /auto-remove/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /coordinate labels/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /language/i })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: /painting scope/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /digits/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /candidates/i })).toBeInTheDocument()
@@ -121,6 +124,13 @@ describe('Settings', () => {
     render(<Settings {...base} paintingScope="digit" setPaintingScope={setPaintingScope} />)
     await userEvent.click(screen.getByRole('button', { name: /candidates/i }))
     expect(setPaintingScope).toHaveBeenCalledWith('candidate')
+  })
+
+  it('calls setLanguageSetting("es") when language changes', async () => {
+    const setLanguageSetting = vi.fn()
+    render(<Settings {...base} setLanguageSetting={setLanguageSetting} />)
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /language/i }), 'es')
+    expect(setLanguageSetting).toHaveBeenCalledWith('es')
   })
 
   it('does not register Escape listener when closed', () => {

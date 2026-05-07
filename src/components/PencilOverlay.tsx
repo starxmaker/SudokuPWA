@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { recognizeDigit } from 'browser-handwritten-digit-recognition'
+import { useI18n } from '../utils/i18n'
 
 type CellRect = { top: number; left: number; width: number; height: number }
 type RecognizeState =
@@ -16,6 +17,7 @@ type Props = {
 }
 
 export default function PencilOverlay({ cellRect, onDigit, onClose, initialPointer }: Props) {
+  const { t } = useI18n()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isDrawing = useRef(false)
   const hasStrokes = useRef(false)
@@ -210,7 +212,7 @@ export default function PencilOverlay({ cellRect, onDigit, onClose, initialPoint
       {recog.type === 'failed' && (
         <div className="pencil-chip pencil-chip--failed" style={chipStyle}>
           <span className="pencil-chip-text">?</span>
-          <button className="pencil-chip-btn pencil-chip-btn--retry" onClick={resetCanvas}>retry</button>
+          <button className="pencil-chip-btn pencil-chip-btn--retry" onClick={resetCanvas}>{t('pencil.retry')}</button>
         </div>
       )}
     </>

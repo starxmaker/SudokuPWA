@@ -27,6 +27,7 @@ import {
   emptyCandidateColors,
   emptyDrawingStrokes,
 } from '../utils/gameStorage'
+import { useI18n } from '../utils/i18n'
 
 type Props = {
   puzzle?: Grid | null
@@ -269,6 +270,7 @@ export default function Board({
   paintingScope,
   puzzleMetadata,
 }: Props){
+  const { localizeDifficultyLabel, t } = useI18n()
   const savedBrushPrefs = loadBrushPrefs()
   const [internalPuzzle, setInternalPuzzle] = useState<Grid>(() => {
     const saved = loadSaved()
@@ -1597,7 +1599,7 @@ export default function Board({
                 else onTriggerHaptic?.()
               }
             }}
-            aria-label={`${d}, ${remaining[d]} remaining`}
+            aria-label={t('board.remainingDigits', { digit: d, count: remaining[d] })}
             data-digit={d}
             tabIndex={tabIndex}
           >
@@ -1618,7 +1620,7 @@ export default function Board({
             key={color.id}
             type="button"
             className={`brush-color-button${activePaletteColor === color.id ? ' brush-color-button--active' : ''}`}
-            aria-label={`Brush color ${index + 1}`}
+            aria-label={t('board.brushColor', { index: index + 1 })}
             aria-pressed={activePaletteColor === color.id}
             disabled={paused || won}
             onClick={() => applyBrushColor(color.id)}
@@ -1629,7 +1631,7 @@ export default function Board({
         <button
           type="button"
           className="brush-color-button brush-color-button--clear"
-          aria-label="Brush color remover"
+          aria-label={t('board.brushColorRemover')}
           aria-pressed={false}
           disabled={paused || won || !selectedHasAnyColors}
           onClick={(event) => handleMomentaryButtonClick(event, clearSelectedBrushColors)}
@@ -1789,13 +1791,13 @@ export default function Board({
     }
   }
 
-  const displayedDifficulty = difficulty ?? puzzleMetadata?.difficultyLabel ?? 'Custom'
+  const displayedDifficulty = localizeDifficultyLabel(difficulty ?? puzzleMetadata?.difficultyLabel) ?? t('board.customDifficulty')
 
   return (
     <div className="game-layout">
       {!onBack && (
         <div style={{alignSelf:'flex-end'}}>
-          <button type="button" onClick={newGame}>New</button>
+          <button type="button" onClick={newGame}>{t('board.new')}</button>
         </div>
       )}
       <div className="game-main">
@@ -1809,7 +1811,7 @@ export default function Board({
               <button
                 type="button"
                 className="timer-pause"
-                aria-label={paused ? 'Resume' : 'Pause'}
+                aria-label={paused ? t('board.resume') : t('board.pause')}
                 onClick={() => {
                   const next = !paused
                   setManualPause(next)
@@ -1837,11 +1839,11 @@ export default function Board({
                   ))}
                 </div>
               )}
-              <div className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label="Sudoku grid">
+              <div className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label={t('board.gridLabel')}>
                 {cells}
                 <svg
                   className={`board-drawing-layer${drawingMode && !paused && !won ? ' board-drawing-layer--interactive' : ''}`}
-                  aria-label="Free drawing canvas"
+                  aria-label={t('board.freeDrawingCanvas')}
                   viewBox="0 0 1 1"
                   preserveAspectRatio="none"
                   onPointerDown={startDrawing}
@@ -1876,7 +1878,7 @@ export default function Board({
                     <button
                       type="button"
                       className="board-pause-btn"
-                      aria-label="Resume"
+                      aria-label={t('board.resume')}
                       onClick={() => { setManualPause(false); setPaused(false) }}
                     >
                       <MdPlayArrow size={38} />
@@ -1989,13 +1991,13 @@ export default function Board({
             <div
               className={`num-pad-toolbar tool-tray__panel ${toolTrayPanelClass('main', 'active')} ${mainToolPanelClass()}`.trim()}
               role="toolbar"
-              aria-label="Game tools"
+              aria-label={t('board.gameTools')}
               aria-hidden={visibleToolTray !== 'main'}
             >
               <button
                 className={`num-key clear ${mainToolButtonClass('undo')}`}
                 type="button"
-                aria-label="Undo"
+                aria-label={t('board.undo')}
                 disabled={undoDisabled}
                 onClick={(event) => handleMomentaryButtonClick(event, undo)}
               >
@@ -2004,7 +2006,7 @@ export default function Board({
               <button
                 className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''} ${mainToolButtonClass('clear')}`}
                 type="button"
-                aria-label="Eraser mode"
+                aria-label={t('board.eraserMode')}
                 aria-pressed={eraserMode}
                 disabled={paused || won}
                 onClick={() => setEraserMode(prev => !prev)}
@@ -2015,7 +2017,7 @@ export default function Board({
                 type="button"
                 ref={mainNotesButtonRef}
                 className={`num-key notes-toggle${notesMode ? ' notes-toggle--active' : ''} ${mainToolButtonClass('notes')}`}
-                aria-label="Toggle notes mode"
+                aria-label={t('board.toggleNotesMode')}
                 aria-pressed={notesMode}
                 disabled={paused || won}
                 onClick={toggleNotesTools}
@@ -2026,7 +2028,7 @@ export default function Board({
                 type="button"
                 ref={mainBrushButtonRef}
                 className={`num-key brush-toggle${brushMode ? ' brush-toggle--active' : ''} ${mainToolButtonClass('brush')}`}
-                aria-label="Toggle brush mode"
+                aria-label={t('board.toggleBrushMode')}
                 aria-pressed={brushMode}
                 disabled={paused || won}
                 onClick={toggleBrushTools}
@@ -2037,7 +2039,7 @@ export default function Board({
                 type="button"
                 ref={mainDrawingButtonRef}
                 className={`num-key drawing-toggle${drawingMode ? ' drawing-toggle--active' : ''} ${mainToolButtonClass('drawing')}`}
-                aria-label="Toggle free drawing"
+                aria-label={t('board.toggleFreeDrawing')}
                 aria-pressed={drawingMode}
                 disabled={paused || won}
                 onClick={toggleDrawingTools}
@@ -2075,7 +2077,7 @@ export default function Board({
                 <div
                   className="number-pad brush-color-pad"
                   role="toolbar"
-                  aria-label="Brush colors"
+                  aria-label={t('board.brushColors')}
                 >
                   {renderColorPad()}
                 </div>
@@ -2085,7 +2087,7 @@ export default function Board({
                 <div
                   className="number-pad"
                   role="toolbar"
-                  aria-label="Number entry"
+                  aria-label={t('board.numberEntry')}
                 >
                   {renderNumberPad(undefined, true)}
                 </div>
@@ -2096,7 +2098,7 @@ export default function Board({
               <div
                 className={`number-pad input-pad__panel ${lowerPadPanelClass('numbers', 'active')}`}
                 role="toolbar"
-                aria-label="Number entry"
+                aria-label={t('board.numberEntry')}
                 aria-hidden={visibleLowerPad !== 'numbers'}
               >
                 {renderNumberPad()}
@@ -2113,7 +2115,7 @@ export default function Board({
               <div
                 className={`number-pad brush-color-pad input-pad__panel ${lowerPadPanelClass('colors', 'active')}`}
                 role="toolbar"
-                aria-label="Brush colors"
+                aria-label={t('board.brushColors')}
                 aria-hidden={visibleLowerPad !== 'colors'}
               >
                 {renderColorPad()}
@@ -2136,13 +2138,13 @@ export default function Board({
           <button
             type="button"
             className="brush-candidate-backdrop"
-            aria-label="Close candidate painter"
+            aria-label={t('board.closeCandidatePainter')}
             onClick={closeCandidateOverlay}
           />
           <div
             className="brush-candidate-overlay"
             role="dialog"
-            aria-label="Candidate painter"
+            aria-label={t('board.candidatePainter')}
             style={{
               top: `${candidateOverlay.top}px`,
               left: `${candidateOverlay.left}px`,
@@ -2158,7 +2160,9 @@ export default function Board({
                   key={d}
                   type="button"
                   className={`brush-candidate-button${hasCandidate ? '' : ' brush-candidate-button--empty'}`}
-                  aria-label={hasCandidate ? `Paint candidate ${d}` : `Candidate ${d} unavailable`}
+                  aria-label={hasCandidate
+                    ? t('board.paintCandidate', { digit: d })
+                    : t('board.candidateUnavailable', { digit: d })}
                   disabled={!hasCandidate || overlayHasCellColor}
                   onPointerMove={() => {
                     if (hasCandidate && !overlayHasCellColor) setCandidateOverlayPreviewDigit(d)
@@ -2189,16 +2193,16 @@ export default function Board({
         <div className="victory-overlay">
           <div className="victory-card">
             <div className="victory-icon" aria-hidden>🎉</div>
-            <h2 className="victory-title">Puzzle Complete!</h2>
+            <h2 className="victory-title">{t('board.puzzleComplete')}</h2>
             <p className="victory-time">{formatTime(finalTime)}</p>
             <div className="victory-actions">
-              <button type="button" onClick={handleRetry}>Retry</button>
+              <button type="button" onClick={handleRetry}>{t('board.retry')}</button>
               {onShare && <button type="button" className={shareCopied ? 'copied' : ''} onClick={() => {
                 onShare()
                 setShareCopied(true)
                 setTimeout(() => setShareCopied(false), 2200)
-              }}>{shareCopied ? 'URL Copied!' : 'Share'}</button>}
-              <button type="button" onClick={onNew ?? (() => newGame())}>New Game</button>
+              }}>{shareCopied ? t('board.urlCopied') : t('topBar.share')}</button>}
+              <button type="button" onClick={onNew ?? (() => newGame())}>{t('home.newGame')}</button>
             </div>
           </div>
         </div>

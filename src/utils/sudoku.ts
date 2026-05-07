@@ -190,29 +190,35 @@ export function setGenerationWorkerFactoryForTests(factory: GenerationWorkerFact
 }
 
 /** Solve a puzzle and return the completed grid, or null if unsolvable. Synchronous. */
+export type CreatedPuzzleValidationMessageKey =
+  | 'needs17Clues'
+  | 'conflictingGivens'
+  | 'noSolution'
+  | 'multipleSolutions'
+
 export type CreatedPuzzleValidationResult =
   | { valid: true; solution: Grid }
-  | { valid: false; message: string }
+  | { valid: false; messageKey: CreatedPuzzleValidationMessageKey }
 
 export function validateCreatedPuzzle(puzzle: Grid): CreatedPuzzleValidationResult {
   const clueCount = puzzle.flat().filter(value => value !== 0).length
   if (clueCount < 17) {
-    return { valid: false, message: 'A created puzzle needs at least 17 clues.' }
+    return { valid: false, messageKey: 'needs17Clues' }
   }
 
   if (hasConflictingGivens(puzzle)) {
-    return { valid: false, message: 'This puzzle has conflicting givens.' }
+    return { valid: false, messageKey: 'conflictingGivens' }
   }
 
   const solutions: Grid[] = []
   collectSolutions(cloneGrid(puzzle), solutions, 2)
 
   if (solutions.length === 0) {
-    return { valid: false, message: 'This puzzle has no solution.' }
+    return { valid: false, messageKey: 'noSolution' }
   }
 
   if (solutions.length > 1) {
-    return { valid: false, message: 'This puzzle must have exactly one solution.' }
+    return { valid: false, messageKey: 'multipleSolutions' }
   }
 
   return { valid: true, solution: solutions[0] }

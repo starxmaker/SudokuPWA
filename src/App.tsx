@@ -14,6 +14,7 @@ import type { PuzzleQueueAvailability } from './utils/puzzleQueue'
 import { DIFFICULTY_LABELS, GameDifficulty } from './utils/difficulties'
 import { type VerifiedPuzzle, verifyPuzzle } from './utils/generators/hodoku'
 import { getPreloadedPuzzleAvailability, takePreloadedPuzzle } from './utils/preloadedPuzzles'
+import { useI18n } from './utils/i18n'
 
 type PuzzleRatingSummary = {
   difficulty: GameDifficulty | null
@@ -23,7 +24,7 @@ type PuzzleRatingSummary = {
 /** Parse ?p= once, synchronously. Imported puzzle verification runs later via Hodoku. */
 type ParsedUrl =
   | { type: 'game'; initial: Grid }
-  | { type: 'error'; message: string }
+  | { type: 'error'; reason: 'invalidPuzzleLink' }
   | { type: 'none' }
 
 const PENDING_IMPORTED_PUZZLE_KEY = 'pending-imported-puzzle'
@@ -110,17 +111,17 @@ function parseUrlGame(): ParsedUrl {
     const directPuzzle = params.get('p')
     const encodedPuzzle = directPuzzle ?? readPendingImportedPuzzle()
     if (!encodedPuzzle) return { type: 'none' }
-    const initial = decodeGrid(encodedPuzzle)
-    if (!initial) {
-      clearPendingImportedPuzzle()
-      return { type: 'error', message: 'Invalid puzzle link.' }
-    }
+      const initial = decodeGrid(encodedPuzzle)
+      if (!initial) {
+        clearPendingImportedPuzzle()
+        return { type: 'error', reason: 'invalidPuzzleLink' }
+      }
     if (directPuzzle) {
       storePendingImportedPuzzle(encodedPuzzle)
     }
     return { type: 'game', initial }
   } catch {
-    return { type: 'error', message: 'Invalid puzzle link.' }
+    return { type: 'error', reason: 'invalidPuzzleLink' }
   }
 }
 
@@ -177,6 +178,7 @@ function getEffectiveAvailability(
 }
 
 export default function App(){
+  const { languageSetting, setLanguageSetting, t } = useI18n()
   const preloadedAvailability = getPreloadedPuzzleAvailability()
   const [theme, setTheme] = useState<'light'|'dark'>(() => {
     try {
@@ -284,7 +286,7 @@ export default function App(){
     && shouldAutoOpenImportedGame()
     && savedGame?.puzzleMetadata?.source === 'imported'
     && !!savedGame.current
-  const [homeError, setHomeError] = useState<string | null>(() => urlGame.type === 'error' ? urlGame.message : null)
+  const [homeError, setHomeError] = useState<string | null>(() => urlGame.type === 'error' ? t('app.invalidPuzzleLink') : null)
 
   const [showHome, setShowHome] = useState(() => urlGame.type !== 'game' && !autoOpenImportedGame)
   const [creatorMode, setCreatorMode] = useState(false)
@@ -367,7 +369,7 @@ export default function App(){
         if (!active || controller.signal.aborted) return
         if (!verified) {
           clearAutoOpenImportedGame()
-          setHomeError('This puzzle has no valid solution.')
+          setHomeError(t('app.noValidSolution'))
           setShowHome(true)
           setPuzzle(null)
           setSolution(null)
@@ -396,7 +398,7 @@ export default function App(){
         if (error instanceof Error && error.name === 'AbortError') return
         console.error('Failed to verify imported puzzle:', error)
         clearAutoOpenImportedGame()
-        setHomeError('Failed to verify imported puzzle.')
+        setHomeError(t('app.failedVerifyImportedPuzzle'))
         setShowHome(true)
         setPuzzle(null)
         setSolution(null)
@@ -429,11 +431,11 @@ export default function App(){
     params.set('p', encodeGrid(initialGrid))
     const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`
     const share = () => {
-      setToast('Link copied!')
+      setToast(t('app.linkCopied'))
       setTimeout(() => setToast(null), 2200)
     }
     if (navigator.share) {
-      navigator.share({ title: 'Sudoku', url }).catch(() => {
+      navigator.share({ title: t('app.title'), url }).catch(() => {
         navigator.clipboard.writeText(url).then(share)
       })
     } else {
@@ -464,8 +466,9 @@ export default function App(){
     setCoordinateLabels(DEFAULT_COORDINATE_LABELS)
     setPaintingScope(DEFAULT_PAINTING_SCOPE)
     setFirstColorFlag(DEFAULT_FIRST_COLOR_FLAG)
+    setLanguageSetting('system')
     resetPuzzleQueueDaemon()
-    setToast('Settings reset.')
+    setToast(t('app.settingsReset'))
     setTimeout(() => setToast(null), 2200)
     setSettingsOpen(false)
   }
@@ -557,7 +560,7 @@ export default function App(){
         canClearDrawings={canClearDrawings}
         onIdentifyCandidates={showBoard ? () => identifyCandidatesRef.current?.() : undefined}
         canIdentifyCandidates={canIdentifyCandidates}
-        title="Sudoku"
+        title={t('app.title')}
       />
       <div className="app">
         {showHome ? (
@@ -573,7 +576,7 @@ export default function App(){
           />
         ) : importVerificationPending ? (
           <div className="home">
-            <p>Verifying imported puzzle...</p>
+            <p>{t('app.verifyingImportedPuzzle')}</p>
           </div>
         ) : (
           <Board
@@ -605,7 +608,7 @@ export default function App(){
              puzzleMetadata={puzzleMetadata}
            />
          )}
-         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} onReset={handleResetSettings} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
+         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} onReset={handleResetSettings} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} languageSetting={languageSetting} setLanguageSetting={setLanguageSetting} />
          <PuzzleInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} metadata={puzzleMetadata} />
          <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} availability={effectiveAvailability} />
        </div>

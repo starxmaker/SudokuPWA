@@ -4,6 +4,7 @@ import App from './App'
 import './index.css'
 import { initSudoku } from './utils/sudoku'
 import { startPuzzleQueueDaemon } from './utils/appPuzzleQueue'
+import { LocalizationProvider } from './utils/i18n'
 
 function hideSplashScreen() {
   const splash = document.getElementById('app-splash')
@@ -22,7 +23,9 @@ function hideSplashScreen() {
 
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <App />
+      <LocalizationProvider>
+        <App />
+      </LocalizationProvider>
     </React.StrictMode>
   )
   requestAnimationFrame(() => hideSplashScreen())

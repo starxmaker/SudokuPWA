@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest'
 describe('TopBar', () => {
   it('renders default title', () => {
     render(<TopBar onOpenSettings={vi.fn()} />)
-    expect(screen.getByRole('heading', { name: /sudoku pwa/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^sudoku$/i })).toBeInTheDocument()
   })
 
   it('renders custom title', () => {

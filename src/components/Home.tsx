@@ -1,6 +1,7 @@
 import '@khmyznikov/pwa-install'
 import React, { useEffect, useRef, useState } from 'react'
 import { FaGithub } from 'react-icons/fa'
+import { useI18n } from '../utils/i18n'
 
 declare const __APP_VERSION__: string
 declare const __REPO_URL__: string
@@ -47,6 +48,7 @@ function isAppleMobileBrowser(): boolean {
 }
 
 export default function Home({ hasSaved, onNew, onContinue, onCreated, error, hasAvailablePuzzle }: Props){
+  const { t } = useI18n()
   const installRef = useRef<PwaInstallElement | null>(null)
   const promptEventRef = useRef<BeforeInstallPromptEvent | null>(null)
   const [isInstalledPwa, setIsInstalledPwa] = useState(() => isStandalonePwa())
@@ -136,24 +138,24 @@ export default function Home({ hasSaved, onNew, onContinue, onCreated, error, ha
   return (
     <div style={{padding:20,display:'flex',flexDirection:'column',alignItems:'center',gap:12,minHeight:'calc(100vh - 72px)'}}>
       <div style={{width:'100%',maxWidth:720,textAlign:'center'}}>
-        <h2 style={{margin:0,paddingTop:'6vh'}}>Welcome</h2>
+        <h2 style={{margin:0,paddingTop:'6vh'}}>{t('home.welcome')}</h2>
       </div>
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>
         <div style={{display:'flex',flexDirection:'column',gap:20,alignItems:'stretch',width:'100%',maxWidth:240}}>
           <button className="home-btn" onClick={onNew} disabled={!hasAvailablePuzzle}>
-            {hasAvailablePuzzle ? 'New Game' : 'Loading...'}
+            {hasAvailablePuzzle ? t('home.newGame') : t('home.loading')}
           </button>
-          {hasSaved && <button className="home-btn" onClick={onContinue}>Continue</button>}
-          <button className="home-btn" onClick={onCreated}>Create new game</button>
+          {hasSaved && <button className="home-btn" onClick={onContinue}>{t('home.continue')}</button>}
+          <button className="home-btn" onClick={onCreated}>{t('home.createNewGame')}</button>
         </div>
       </div>
       {error && <p style={{color:'#e53935',fontWeight:600}}>{error}</p>}
-      {!hasSaved && !error && <p style={{color:'#666'}}>No saved game found — start a new puzzle.</p>}
+      {!hasSaved && !error && <p style={{color:'#666'}}>{t('home.noSavedGame')}</p>}
       <a
         href={__REPO_URL__}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="View on GitHub"
+        aria-label={t('home.viewOnGitHub')}
         style={{color:'#999',display:'flex',alignItems:'center',textDecoration:'none'}}
       >
         <FaGithub size={36} />
@@ -165,7 +167,7 @@ export default function Home({ hasSaved, onNew, onContinue, onCreated, error, ha
           onClick={handleInstallClick}
           style={{color:'#999',fontSize:'0.75rem',textDecoration:'underline'}}
         >
-          Install app
+          {t('home.installApp')}
         </a>
       )}
       {React.createElement('pwa-install', {
