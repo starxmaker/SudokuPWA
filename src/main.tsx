@@ -5,6 +5,7 @@ import './index.css'
 import { initSudoku } from './utils/sudoku'
 import { startPuzzleQueueDaemon } from './utils/appPuzzleQueue'
 import { LocalizationProvider } from './utils/i18n'
+import { installZoomGuards } from './utils/zoomGuards'
 
 function hideSplashScreen() {
   const splash = document.getElementById('app-splash')
@@ -14,6 +15,7 @@ function hideSplashScreen() {
 }
 
 (async function bootstrap(){
+  installZoomGuards()
   try{
     await initSudoku()
   }catch(e){
