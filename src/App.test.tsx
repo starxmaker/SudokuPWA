@@ -19,6 +19,7 @@ const appPuzzleQueueMocks = vi.hoisted(() => {
   return {
     availability,
     getPuzzleQueueAvailability: vi.fn(() => availability),
+    resetPuzzleQueueDaemon: vi.fn(),
     startPuzzleQueueDaemon: vi.fn(),
     subscribePuzzleQueueAvailability: vi.fn((listener: (availability: typeof availability) => void) => {
       listener(availability)
@@ -65,6 +66,7 @@ vi.mock('./utils/sudoku', async (importOriginal) => {
 
 vi.mock('./utils/appPuzzleQueue', () => ({
   getPuzzleQueueAvailability: appPuzzleQueueMocks.getPuzzleQueueAvailability,
+  resetPuzzleQueueDaemon: appPuzzleQueueMocks.resetPuzzleQueueDaemon,
   startPuzzleQueueDaemon: appPuzzleQueueMocks.startPuzzleQueueDaemon,
   subscribePuzzleQueueAvailability: appPuzzleQueueMocks.subscribePuzzleQueueAvailability,
   takeQueuedGame: appPuzzleQueueMocks.takeQueuedGame,
@@ -144,6 +146,7 @@ beforeEach(() => {
     return vi.fn()
   })
   appPuzzleQueueMocks.takeQueuedGame.mockResolvedValue({ puzzle, solution, score: null, difficulty: 'MEDIUM' })
+  appPuzzleQueueMocks.resetPuzzleQueueDaemon.mockClear()
   appPuzzleQueueMocks.startPuzzleQueueDaemon.mockClear()
   hodokuMocks.evaluate.mockReset()
   hodokuMocks.evaluate.mockResolvedValue([{
@@ -210,6 +213,22 @@ describe('App', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(false)
     await user.click(screen.getByRole('switch', { name: /dark mode/i }))
     expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('resets settings and restarts queue generation from settings', async () => {
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
+    await user.click(screen.getByRole('switch', { name: /dark mode/i }))
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: /reset settings/i }))
+
+    expect(appPuzzleQueueMocks.resetPuzzleQueueDaemon).toHaveBeenCalledOnce()
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(screen.queryByRole('dialog', { name: /settings/i })).toBeNull()
+    expect(screen.getByText('Settings reset.')).toBeInTheDocument()
   })
 
   it('opens new game modal when New Game clicked', async () => {

@@ -7,8 +7,7 @@ Sudoku PWA is distributed under the GNU General Public License, version 3 or any
 | Component | Version | Role in this project | License | Source |
 | --- | --- | --- | --- | --- |
 | `Hodoku` | `2.3.2` | HoDoKu logical difficulty rating used by `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/PseudoFish/Hodoku> |
-| `hodoku-core-js` | `2.3.2` | Port of above component to JS used in `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/starxmaker/Hodoku> |
-| `qqwing` | `1.3.4` | Sudoku generation and coarse difficulty prefiltering used by `src\utils\generators\hodoku.ts` and `src\utils\generators\qqwing.ts` | `GPL-2.0-or-later` per the distributed source header | <https://github.com/stephenostermiller/qqwing> |
+| `hodoku-core-js` | `1.1.0` | Port of above component to JS used in `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/starxmaker/Hodoku> |
 
 ## Other shipped runtime packages
 
@@ -40,17 +39,6 @@ The app uses `react-icons@5.6.0` as an MIT-licensed wrapper that exposes icon se
 
 The static files in `public\icons\` are the PWA/app icons used by the web manifest and install surfaces. They are separate assets from the runtime UI icons imported from `react-icons`.
 
-## qqwing licensing note
-
-The `qqwing` npm package metadata currently reports `GPL-2.0`, but the distributed source file bundled from that package (`node_modules\qqwing\qqwing-1.3.4.js`) contains this notice:
-
-> This program is free software; you can redistribute it and/or modify
-> it under the terms of the GNU General Public License as published by
-> the Free Software Foundation; either version 2 of the License, or
-> (at your option) any later version.
-
-Sudoku PWA relies on that "`or any later version`" clause and distributes the combined work under `GPL-3.0-or-later`, which is compatible with the `GPL-3.0-only` HoDoKu TypeScript port.
-
 ## Corresponding source and rebuild information
 
 The preferred form of the work for making modifications is available from:
@@ -71,8 +59,7 @@ The production build also copies this notice file and the GPL text into `dist\` 
 To fetch npm source tarballs for the exact package versions used by this project:
 
 ```bash
-npm pack hodoku-core-js@0.2.0
-npm pack qqwing@1.3.4
+npm pack hodoku-core-js@1.1.0
 npm pack react@18.3.1
 npm pack react-dom@18.3.1
 npm pack @khmyznikov/pwa-install@0.6.3

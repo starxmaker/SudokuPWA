@@ -9,7 +9,7 @@ import PuzzleCreator from './components/PuzzleCreator'
 import { Grid } from './utils/sudoku'
 import { loadSaved, saveGame, clearElapsed, clearCompleted, loadCompleted, saveCompleted, encodeGrid, decodeGrid, loadBrushPrefs, saveBrushPrefs, type PuzzleMetadata, type PuzzleSource } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
-import { getPuzzleQueueAvailability, startPuzzleQueueDaemon, subscribePuzzleQueueAvailability, takeQueuedGame } from './utils/appPuzzleQueue'
+import { getPuzzleQueueAvailability, resetPuzzleQueueDaemon, startPuzzleQueueDaemon, subscribePuzzleQueueAvailability, takeQueuedGame } from './utils/appPuzzleQueue'
 import type { PuzzleQueueAvailability } from './utils/puzzleQueue'
 import { DIFFICULTY_LABELS, GameDifficulty } from './utils/difficulties'
 import { type VerifiedPuzzle, verifyPuzzle } from './utils/generators/hodoku'
@@ -28,6 +28,18 @@ type ParsedUrl =
 
 const PENDING_IMPORTED_PUZZLE_KEY = 'pending-imported-puzzle'
 const AUTO_OPEN_IMPORTED_GAME_KEY = 'auto-open-imported-game'
+const DEFAULT_AUTO_CHECK = true
+const DEFAULT_AUTO_REMOVE = true
+const DEFAULT_HAPTIC = true
+const DEFAULT_PENCIL_MODE = false
+const DEFAULT_COORDINATE_LABELS = false
+const DEFAULT_FIRST_COLOR_FLAG = false
+const DEFAULT_PAINTING_SCOPE = 'digit' as const
+
+function getDefaultThemePreference(): 'light' | 'dark' {
+  const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  return prefersDark ? 'dark' : 'light'
+}
 
 function currentLocationUrl() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`
@@ -171,8 +183,7 @@ export default function App(){
       const saved = localStorage.getItem('theme')
       if(saved === 'dark' || saved === 'light') return saved
     } catch {}
-    const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-    return prefersDark ? 'dark' : 'light'
+    return getDefaultThemePreference()
   })
 
   const [autoCheck, setAutoCheck] = useState<boolean>(() => {
@@ -180,7 +191,7 @@ export default function App(){
       const saved = localStorage.getItem('autoCheck')
       if (saved !== null) return saved === 'true'
     } catch {}
-    return true
+    return DEFAULT_AUTO_CHECK
   })
 
   const [autoRemove, setAutoRemove] = useState<boolean>(() => {
@@ -188,7 +199,7 @@ export default function App(){
       const saved = localStorage.getItem('autoRemove')
       if (saved !== null) return saved === 'true'
     } catch {}
-    return true
+    return DEFAULT_AUTO_REMOVE
   })
 
   useEffect(()=>{
@@ -211,7 +222,7 @@ export default function App(){
       const saved = localStorage.getItem('haptic')
       if (saved !== null) return saved === 'true'
     } catch {}
-    return true
+    return DEFAULT_HAPTIC
   })
 
   useEffect(() => {
@@ -223,7 +234,7 @@ export default function App(){
       const saved = localStorage.getItem('pencilMode')
       if (saved !== null) return saved === 'true'
     } catch {}
-    return false
+    return DEFAULT_PENCIL_MODE
   })
 
   useEffect(() => {
@@ -235,7 +246,7 @@ export default function App(){
       const saved = localStorage.getItem('coordinateLabels')
       if (saved !== null) return saved === 'true'
     } catch {}
-    return false
+    return DEFAULT_COORDINATE_LABELS
   })
 
   useEffect(() => {
@@ -247,7 +258,7 @@ export default function App(){
       const saved = localStorage.getItem('firstColorFlag')
       if (saved !== null) return saved === 'true'
     } catch {}
-    return false
+    return DEFAULT_FIRST_COLOR_FLAG
   })
 
   useEffect(() => {
@@ -310,7 +321,7 @@ export default function App(){
   const [canClearDrawings, setCanClearDrawings] = useState(false)
   const [canIdentifyCandidates, setCanIdentifyCandidates] = useState(false)
   const [paintingScope, setPaintingScope] = useState<'digit' | 'candidate'>(() =>
-    loadBrushPrefs()?.candidateMode ? 'candidate' : 'digit'
+    loadBrushPrefs()?.candidateMode ? 'candidate' : DEFAULT_PAINTING_SCOPE
   )
   const [importVerificationPending, setImportVerificationPending] = useState(() => urlGame.type === 'game')
 
@@ -333,9 +344,9 @@ export default function App(){
       savedBrushPrefs?.activeColors ?? [],
       paintingScope === 'candidate',
       savedBrushPrefs?.activeDrawingColors ?? [],
-      savedBrushPrefs?.firstColorFlagEnabled ?? true,
+      firstColorFlag,
     )
-  }, [paintingScope])
+  }, [firstColorFlag, paintingScope])
 
   useEffect(() => {
     if (showHome || creatorMode) {
@@ -442,6 +453,21 @@ export default function App(){
     setHomeError(null)
     setCreatorMode(true)
     setShowHome(false)
+  }
+
+  function handleResetSettings() {
+    setTheme(getDefaultThemePreference())
+    setAutoCheck(DEFAULT_AUTO_CHECK)
+    setAutoRemove(DEFAULT_AUTO_REMOVE)
+    setHaptic(DEFAULT_HAPTIC)
+    setPencilMode(DEFAULT_PENCIL_MODE)
+    setCoordinateLabels(DEFAULT_COORDINATE_LABELS)
+    setPaintingScope(DEFAULT_PAINTING_SCOPE)
+    setFirstColorFlag(DEFAULT_FIRST_COLOR_FLAG)
+    resetPuzzleQueueDaemon()
+    setToast('Settings reset.')
+    setTimeout(() => setToast(null), 2200)
+    setSettingsOpen(false)
   }
 
   async function startNewWithDifficulty(difficultyId: GameDifficulty, signal: AbortSignal){
@@ -579,7 +605,7 @@ export default function App(){
              puzzleMetadata={puzzleMetadata}
            />
          )}
-         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
+         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} onReset={handleResetSettings} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} />
          <PuzzleInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} metadata={puzzleMetadata} />
          <NewGameModal open={newGameOpen} onClose={() => setNewGameOpen(false)} onStart={startNewWithDifficulty} availability={effectiveAvailability} />
        </div>

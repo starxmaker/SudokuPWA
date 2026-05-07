@@ -4,7 +4,7 @@ import type { SolvablePuzzle } from './generators/types'
 
 const DIFFICULTIES = Object.keys(DIFFICULTY_LABELS) as GameDifficulty[]
 
-export const PUZZLE_QUEUE_TARGET_SIZE = 10
+export const PUZZLE_QUEUE_TARGET_SIZE = 5
 export const PUZZLE_QUEUE_STORAGE_KEY = 'puzzleQueue:v1'
 
 export type PuzzleQueueAvailability = Record<GameDifficulty, number>
@@ -120,19 +120,13 @@ export function createPuzzleQueueManager({
 
   function pickNextDifficulty(): GameDifficulty | null {
     const availability = getAvailability()
-    let candidate: GameDifficulty | null = null
-    let lowestCount = Number.POSITIVE_INFINITY
 
     for (const difficulty of DIFFICULTIES) {
       const count = availability[difficulty]
-      if (count >= queueTargetSize) continue
-      if (count < lowestCount) {
-        candidate = difficulty
-        lowestCount = count
-      }
+      if (count < queueTargetSize) return difficulty
     }
 
-    return candidate
+    return null
   }
 
   function start() {
@@ -142,6 +136,13 @@ export function createPuzzleQueueManager({
 
   function stop() {
     // Queue persistence is independent from the daemon lifecycle.
+  }
+
+  function reset() {
+    ensureLoaded()
+    queue = createEmptyQueue()
+    persist()
+    notify()
   }
 
   function subscribe(listener: Listener) {
@@ -207,7 +208,9 @@ export function createPuzzleQueueManager({
   return {
     enqueue,
     getAvailability,
+    getNextDifficulty: pickNextDifficulty,
     hasCapacity,
+    reset,
     start,
     stop,
     subscribe,

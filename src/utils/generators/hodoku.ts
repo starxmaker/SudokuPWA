@@ -1,4 +1,4 @@
-import { rateSudokus, HodokuDifficulty } from 'hodoku-core-js'
+import { rateSudokus, generateSudokus, HodokuDifficulty } from 'hodoku-core-js'
 import type { SolveRating } from './types'
 import { GameDifficulty } from '../difficulties'
 import type { Grid } from '../sudoku_types'
@@ -56,6 +56,35 @@ export const HODOKU_ESTIMATIONS: Record<GameDifficulty, HodokuEstimation> = {
   },
 }
 
+export async function generate(difficulty : GameDifficulty, onValidNewPuzzle: (puzzle: SolveRating) => boolean, signal?: AbortSignal): Promise<void> {
+  const constraints = HODOKU_ESTIMATIONS[difficulty]
+  await generateSudokus({
+    difficulty: constraints.difficulty,
+    minScore: constraints.minScore,
+    maxScore: constraints.maxScore,
+    signal
+  }, (puzzle, control) => {
+    if (signal?.aborted) {
+      control.cancel()
+      return
+    }
+    const valid = !puzzle.unsolvable && !puzzle.givenUp && !!puzzle.solution
+    let result : SolveRating = {
+        puzzle: puzzle.puzzle,
+        solution: puzzle.solution ?? null,
+        difficulty: getMatchingDifficulty(puzzle.score, puzzle.difficulty),
+        score: puzzle.score ?? null,
+      }
+    if (valid) {
+      const continueProcessing = onValidNewPuzzle(result)
+      if (!continueProcessing) {
+        control.cancel()
+        return
+      }
+    }
+  })
+}
+
 export async function evaluate(
   puzzles: string[],
   onValidNewPuzzle?: (rating: SolveRating) => boolean,
@@ -64,7 +93,8 @@ export async function evaluate(
   const results: SolveRating[] = []
   await rateSudokus({
     puzzles,
-    includeSolution: true
+    includeSolution: true,
+    signal
   }, (rating, control) => {
     if (signal?.aborted) {
       control.cancel()

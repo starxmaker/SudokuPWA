@@ -3,6 +3,7 @@ import React from 'react'
 type Props = {
   open: boolean
   onClose: () => void
+  onReset: () => void
   theme: 'light'|'dark'
   setTheme: (t: 'light'|'dark') => void
   autoCheck: boolean
@@ -21,7 +22,7 @@ type Props = {
   setFirstColorFlag: (v: boolean) => void
 }
 
-export default function Settings({ open, onClose, theme, setTheme, autoCheck, setAutoCheck, autoRemove, setAutoRemove, haptic, setHaptic, pencilMode, setPencilMode, coordinateLabels, setCoordinateLabels, paintingScope, setPaintingScope, firstColorFlag, setFirstColorFlag }: Props){
+export default function Settings({ open, onClose, onReset, theme, setTheme, autoCheck, setAutoCheck, autoRemove, setAutoRemove, haptic, setHaptic, pencilMode, setPencilMode, coordinateLabels, setCoordinateLabels, paintingScope, setPaintingScope, firstColorFlag, setFirstColorFlag }: Props){
   React.useEffect(()=>{
     function onKey(e: KeyboardEvent){ if(e.key === 'Escape') onClose() }
     if(open){ window.addEventListener('keydown', onKey) }
@@ -180,7 +181,8 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
             <span className="switch" />
           </label>
         </div>
-        <div style={{display:'flex',justifyContent:'flex-end',marginTop:16}}>
+        <div style={{display:'flex',justifyContent:'space-between',marginTop:16,gap:12}}>
+          <button type="button" onClick={onReset}>Reset settings</button>
           <button onClick={onClose}>Close</button>
         </div>
       </div>

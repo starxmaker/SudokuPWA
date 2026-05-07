@@ -1,5 +1,6 @@
 import type { Grid, Difficulty } from './sudoku_types'
-import { generateForDifficulty } from './generators/orchestrator'
+import { decodeGrid } from './gameStorage'
+import { generate } from './generators/hodoku'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
 import { GameDifficulty } from './difficulties'
 
@@ -128,7 +129,60 @@ function generateGameOnCurrentThread(
   difficulty: GameDifficulty,
   signal?: AbortSignal,
 ): Promise<{ puzzle: Grid; solution: Grid }> {
-  return generateForDifficulty(difficulty, signal)
+  return new Promise<{ puzzle: Grid; solution: Grid }>((resolve, reject) => {
+    const controller = new AbortController()
+    let settled = false
+
+    const cleanup = () => {
+      signal?.removeEventListener('abort', handleAbort)
+    }
+
+    const finishWithError = (error: Error) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      if (!controller.signal.aborted) {
+        controller.abort()
+      }
+      reject(error)
+    }
+
+    const finishWithResult = (result: { puzzle: Grid; solution: Grid }) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      if (!controller.signal.aborted) {
+        controller.abort()
+      }
+      resolve(result)
+    }
+
+    const handleAbort = () => {
+      finishWithError(new DOMException('Aborted', 'AbortError'))
+    }
+
+    if (signal?.aborted) {
+      handleAbort()
+      return
+    }
+
+    signal?.addEventListener('abort', handleAbort, { once: true })
+
+    void generate(difficulty, (rating) => {
+      if (!rating.solution) return true
+      const puzzle = decodeGrid(rating.puzzle)
+      const solution = decodeGrid(rating.solution)
+      if (!puzzle || !solution) return true
+      finishWithResult({ puzzle, solution })
+      return false
+    }, controller.signal).catch((error) => {
+      finishWithError(
+        error instanceof Error
+          ? error
+          : new Error('Failed to generate puzzle'),
+      )
+    })
+  })
 }
 
 export function setGenerationWorkerFactoryForTests(factory: GenerationWorkerFactory | null) {
@@ -230,6 +284,7 @@ export async function generateGame(
 
     const request: GenerateWorkerRequest = {
       type: 'stream-start',
+      difficulty,
     }
     worker.postMessage(request)
   })

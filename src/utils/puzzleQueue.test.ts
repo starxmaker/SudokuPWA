@@ -87,6 +87,28 @@ describe('puzzle queue', () => {
     expect(manager.hasCapacity()).toBe(false)
   })
 
+  it('prioritizes lower difficulties when multiple queues are below target', () => {
+    const storageKey = `${PUZZLE_QUEUE_STORAGE_KEY}:priority`
+    localStorage.setItem(storageKey, JSON.stringify({
+      VERY_EASY: [],
+      EASY: [{ puzzle: encodeGrid(createPair(1).puzzle), solution: encodeGrid(createPair(1).solution), score: 1200 }],
+      MEDIUM: [],
+      HARD: [],
+      VERY_HARD: [],
+      EXPERT: [],
+      NIGHTMARE: [],
+      DIABOLICAL: [],
+    }))
+
+    const manager = createPuzzleQueueManager({
+      storage: localStorage,
+      storageKey,
+      queueTargetSize: 2,
+    })
+
+    expect(manager.getNextDifficulty()).toBe('VERY_EASY')
+  })
+
   it('takes a queued puzzle and updates availability for that difficulty', async () => {
     localStorage.setItem(
       `${PUZZLE_QUEUE_STORAGE_KEY}:take`,
@@ -176,5 +198,23 @@ describe('puzzle queue', () => {
 
     expect(taken?.puzzle[0][4]).toBe(0)
     expect(taken?.score).toBeNull()
+  })
+
+  it('resets queued puzzles and availability', async () => {
+    const storageKey = `${PUZZLE_QUEUE_STORAGE_KEY}:reset`
+    const manager = createPuzzleQueueManager({
+      storage: localStorage,
+      storageKey,
+      queueTargetSize: 1,
+    })
+
+    expect(manager.enqueue(createCalibratedPair(2, 'MEDIUM'))).toBe(true)
+    expect(manager.getAvailability().MEDIUM).toBe(1)
+
+    manager.reset()
+
+    expect(manager.getAvailability().MEDIUM).toBe(0)
+    expect(JSON.parse(localStorage.getItem(storageKey)!).MEDIUM).toEqual([])
+    expect(await manager.take('MEDIUM')).toBeNull()
   })
 })
