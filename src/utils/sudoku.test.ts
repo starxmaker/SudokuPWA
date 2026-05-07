@@ -81,7 +81,7 @@ describe('sudoku utils', () => {
   it.each(GENERATION_DIFFICULTIES)('has Hodoku estimation coverage for %s', (id) => {
     const estimation = HODOKU_ESTIMATIONS[id]
     expect(estimation).toBeDefined()
-    expect(estimation.difficulty).toMatch(/^(EASY|MEDIUM|HARD|UNFAIR|EXTREME)$/)
+    expect(estimation.difficulty.toUpperCase()).toMatch(/^(EASY|MEDIUM|HARD|UNFAIR|EXTREME)$/)
     if (estimation.minScore !== undefined && estimation.maxScore !== undefined) {
       expect(estimation.minScore).toBeLessThan(estimation.maxScore)
     }

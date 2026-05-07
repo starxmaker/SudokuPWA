@@ -1,4 +1,4 @@
-import { createRuntime } from 'hodoku-core-js'
+import { rateSudokus, HodokuDifficulty } from 'hodoku-core-js'
 import type { SolveRating } from './types'
 import { GameDifficulty } from '../difficulties'
 import type { Grid } from '../sudoku_types'
@@ -18,64 +18,40 @@ type HodokuEstimation = {
   maxScore?: number
 }
 
-type HodokuDifficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'UNFAIR' | 'EXTREME'
-
-
-let runtimeWarmupPromise: Promise<boolean> | null = null
-
-export function warmupHodoku(): Promise<boolean> {
-  if (!runtimeWarmupPromise) {
-    runtimeWarmupPromise = (async (): Promise<boolean> => {
-      try {
-        const pool = createRuntime()
-        try {
-          const samplePuzzle = '.................................................................................'
-          await pool.executeCommand(['/o', 'stdout', samplePuzzle])
-          return true
-        } finally {
-          pool.dispose()
-        }
-      } catch {
-        return false
-      }
-    })()
-  }
-  return runtimeWarmupPromise
-}
 
 export const HODOKU_ESTIMATIONS: Record<GameDifficulty, HodokuEstimation> = {
   VERY_EASY: {
-    difficulty: 'EASY',
+    difficulty: 'Easy',
     maxScore: 300,
   },
   EASY: {
-    difficulty: 'EASY',
+    difficulty: 'Easy',
     minScore: 300,
     maxScore: 800,
   },
   MEDIUM: {
-    difficulty: 'MEDIUM',
+    difficulty: 'Medium',
     maxScore: 1000,
   },
   HARD: {
-    difficulty: 'HARD',
+    difficulty: 'Hard',
     maxScore: 1600,
   },
   VERY_HARD: {
-    difficulty: 'UNFAIR',
+    difficulty: 'Unfair',
     maxScore: 1800,
   },
   EXPERT: {
-    difficulty: 'EXTREME',
+    difficulty: 'Extreme',
     maxScore: 5000,
   },
   NIGHTMARE: {
-    difficulty: 'EXTREME',
+    difficulty: 'Extreme',
     minScore: 5000,
     maxScore: 10000,
   },
   DIABOLICAL: {
-    difficulty: 'EXTREME',
+    difficulty: 'Extreme',
     minScore: 10000
   },
 }
@@ -86,33 +62,31 @@ export async function evaluate(
   signal?: AbortSignal
 ): Promise<SolveRating[]> {
   const results: SolveRating[] = []
-  const args = ['/o', 'stdout', '/vs', ...puzzles]
-  const pool = createRuntime()
-  await pool.executeCommand(args, line => {
+  await rateSudokus({
+    puzzles,
+    includeSolution: true
+  }, (rating, control) => {
     if (signal?.aborted) {
-      return false
+      control.cancel()
+      return
     }
-    const puzzleLine = map(line)
-    if (puzzleLine) {
-      const solution = puzzleLine.solution
-      const puzzle = puzzles[puzzleLine.puzzleNumber - 1]
-      const validSolution = !puzzleLine.givenUp && isValidSudokuSolution(solution)
-      const result : SolveRating = {
-        puzzle,
+    const solution = rating.solution ?? null
+    const validSolution = !rating.givenUp && !rating.unsolvable && !!solution
+    const result : SolveRating = {
+        puzzle: rating.puzzle,
         solution : validSolution ? solution : null,
-        difficulty: validSolution ? getMatchingDifficulty(puzzleLine.score, puzzleLine.difficulty) : null,
-        score: validSolution ? puzzleLine.score : null,
+        difficulty: validSolution ? getMatchingDifficulty(rating.score, rating.difficulty) : null,
+        score: validSolution ? rating.score : null,
       }
-      if (onValidNewPuzzle && validSolution) {
-        const continueProcessing = onValidNewPuzzle(result)
-        if (!continueProcessing) {
-          return false
-        }
+    if (onValidNewPuzzle && validSolution) {
+      const continueProcessing = onValidNewPuzzle(result)
+      if (!continueProcessing) {
+        control.cancel()
+        return
       }
-      results.push(result)
     }
+    results.push(result)
   })
-  pool.dispose()
   return results
 }
 
@@ -155,53 +129,6 @@ export const map = (line: string): PuzzleLine | null => {
     }
   }
   return null
-}
-
-
-function isValidSudokuSolution(solution : string) : boolean {
-  if (!/^[1-9]{81}$/.test(solution)) return false;
-
-  const grid = solution.split('').map(Number);
-
-  const isSetValid = (nums: number[]) => {
-    const seen = new Set(nums);
-    return seen.size === 9 && nums.every(n => n >= 1 && n <= 9);
-  };
-
-  // Rows
-  for (let r = 0; r < 9; r++) {
-    const row = [];
-    for (let c = 0; c < 9; c++) {
-      row.push(grid[r * 9 + c]);
-    }
-    if (!isSetValid(row)) return false;
-  }
-
-  // Columns
-  for (let c = 0; c < 9; c++) {
-    const col = [];
-    for (let r = 0; r < 9; r++) {
-      col.push(grid[r * 9 + c]);
-    }
-    if (!isSetValid(col)) return false;
-  }
-
-  // 3x3 boxes
-  for (let boxRow = 0; boxRow < 3; boxRow++) {
-    for (let boxCol = 0; boxCol < 3; boxCol++) {
-      const box = [];
-      for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 3; c++) {
-          const row = boxRow * 3 + r;
-          const col = boxCol * 3 + c;
-          box.push(grid[row * 9 + col]);
-        }
-      }
-      if (!isSetValid(box)) return false;
-    }
-  }
-
-  return true;
 }
 
 function getMatchingDifficulty (score: number, difficulty: HodokuDifficulty): GameDifficulty | null {
