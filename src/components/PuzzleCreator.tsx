@@ -5,6 +5,7 @@ import { FcOk } from 'react-icons/fc'
 import { type Grid, validateCreatedPuzzle } from '../utils/sudoku'
 import { type VerifiedPuzzle, verifyPuzzle } from '../utils/generators/hodoku'
 import PencilOverlay from './PencilOverlay'
+import { useI18n } from '../utils/i18n'
 
 type Props = {
   onStart: (puzzle: Grid, verified: VerifiedPuzzle) => void
@@ -33,6 +34,7 @@ export default function PuzzleCreator({
   onTriggerHaptic,
   onTriggerErrorHaptic,
 }: Props) {
+  const { t } = useI18n()
   const [grid, setGrid] = useState<Grid>(() => initialGrid ? cloneGrid(initialGrid) : cloneGrid(EMPTY_GRID))
   const [history, setHistory] = useState<Grid[]>([])
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null)
@@ -104,7 +106,7 @@ export default function PuzzleCreator({
     setPencilOverlayCell(null)
     const result = validateCreatedPuzzle(grid)
     if (!result.valid) {
-      setError(result.message)
+      setError(t(`creator.validation.${result.messageKey}`))
       if (haptic) onTriggerErrorHaptic?.()
       return
     }
@@ -114,7 +116,7 @@ export default function PuzzleCreator({
     try {
       const verified = await verifyPuzzle(grid)
       if (!verified) {
-        setError('This puzzle has no valid solution.')
+        setError(t('creator.validation.noValidSolution'))
         if (haptic) onTriggerErrorHaptic?.()
         return
       }
@@ -123,7 +125,7 @@ export default function PuzzleCreator({
       if (haptic) onTriggerHaptic?.()
       onStart(cloneGrid(grid), verified)
     } catch {
-      setError('This puzzle could not be validated.')
+      setError(t('creator.validation.failed'))
       if (haptic) onTriggerErrorHaptic?.()
     } finally {
       setIsVerifying(false)
@@ -263,8 +265,8 @@ export default function PuzzleCreator({
       <div className="game-main">
         <div className="board-area">
           <div className="creator-status-row">
-            <span className="difficulty-label">Create new game</span>
-            <span className="creator-status-text">{isVerifying ? 'Verifying...' : `${clueCount} clues`}</span>
+            <span className="difficulty-label">{t('creator.title')}</span>
+            <span className="creator-status-text">{isVerifying ? t('creator.verifying') : t('creator.clues', { count: clueCount })}</span>
           </div>
           {error && <p className="creator-error" role="alert">{error}</p>}
           <div className="board-wrapper" style={pencilMode ? ({ '--board-safe-space': '140px' } as React.CSSProperties) : undefined}>
@@ -284,18 +286,18 @@ export default function PuzzleCreator({
                   ))}
                 </div>
               )}
-              <div className="board" role="grid" aria-label="Created puzzle grid">
+              <div className="board" role="grid" aria-label={t('creator.gridLabel')}>
                 {cells}
               </div>
             </div>
           </div>
         </div>
         <div className="controls-panel">
-          <div className="num-pad-toolbar" role="toolbar" aria-label="Creation tools">
+          <div className="num-pad-toolbar" role="toolbar" aria-label={t('creator.tools')}>
             <button
               className="num-key clear"
               type="button"
-              aria-label="Undo"
+              aria-label={t('creator.undo')}
               disabled={history.length === 0}
               onClick={handleUndo}
             >
@@ -304,7 +306,7 @@ export default function PuzzleCreator({
             <button
               className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`}
               type="button"
-              aria-label="Eraser mode"
+              aria-label={t('creator.eraserMode')}
               aria-pressed={eraserMode}
               onClick={() => {
                 setEraserMode(prev => !prev)
@@ -316,14 +318,14 @@ export default function PuzzleCreator({
             <button
               className="num-key clear"
               type="button"
-              aria-label="Confirm created puzzle"
+              aria-label={t('creator.confirm')}
               disabled={clueCount === 0 || isVerifying}
               onClick={() => { void handleConfirm() }}
             >
               <FcOk size={22} />
             </button>
           </div>
-          <div className="number-pad" role="toolbar" aria-label="Number entry">
+          <div className="number-pad" role="toolbar" aria-label={t('board.numberEntry')}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(digit => (
               <button
                 key={digit}

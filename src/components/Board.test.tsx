@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import Board from './Board'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { saveGame } from '../utils/gameStorage'
+import { emptyCandidateColors, emptyCellColors, saveGame } from '../utils/gameStorage'
 
 // Mock generateGame so Board tests don't run the real (slow) hodoku generator
 vi.mock('../utils/sudoku', async (importOriginal) => {
@@ -316,6 +316,88 @@ describe('Board component', () => {
     expect(screen.queryByRole('button', { name: /^4,/ })).toBeNull()
   })
 
+  it('candidate tool shows the basic candidates action and fills candidates', async () => {
+    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} />)
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    const cells = screen.getAllByRole('gridcell')
+    expect(cells[2].querySelector('.cell-notes')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    await user.click(screen.getByRole('button', { name: /show all basic candidates/i }))
+
+    await waitFor(() => expect(cells[2].querySelector('.cell-notes')).not.toBeNull())
+  })
+
+  it('candidate tool promotes single candidates to digits', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    await user.click(screen.getByRole('button', { name: /show all basic candidates/i }))
+    expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /single candidate to digit/i }))
+    await waitFor(() => expect(cells[2]).toHaveTextContent('4'))
+  })
+
+  it('shows eraser-mode clear actions instead of numbers or colors', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    expect(screen.getByRole('button', { name: /^4,/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+
+    expect(screen.getByRole('button', { name: /clean colors/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /clean drawings/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^4,/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /brush color 1/i })).toBeNull()
+  })
+
+  it('clears loaded colors and drawings from the eraser action bar', async () => {
+    const cellColors = emptyCellColors()
+    cellColors[0][2] = ['rose']
+    saveGame(
+      PUZZLE,
+      PUZZLE,
+      SOLUTION,
+      emptyNotesGrid(),
+      cellColors,
+      emptyCandidateColors(),
+      [{ color: '#111111', points: [[0.1, 0.1], [0.3, 0.3]] }]
+    )
+
+    const view = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    expect(view.container.querySelector('.cell-color-layer')).not.toBeNull()
+    expect(view.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(1)
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    await user.click(screen.getByRole('button', { name: /clean colors/i }))
+    await waitFor(() => expect(view.container.querySelector('.cell-color-layer')).toBeNull())
+
+    await user.click(screen.getByRole('button', { name: /clean drawings/i }))
+    await waitFor(() => expect(view.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(0))
+  })
+
+  it('keeps icons in the main tool tray', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+
+    const toolbar = screen.getByRole('toolbar', { name: /game tools/i })
+    expect(within(toolbar).getByRole('button', { name: /undo/i }).querySelector('svg')).not.toBeNull()
+    expect(within(toolbar).getByRole('button', { name: /eraser mode/i }).querySelector('svg')).not.toBeNull()
+    expect(within(toolbar).getByRole('button', { name: /toggle notes mode/i }).querySelector('svg')).not.toBeNull()
+    expect(within(toolbar).getByRole('button', { name: /toggle candidate tools/i }).querySelector('svg')).not.toBeNull()
+  })
+
   it('keeps brush colors visible in pencil mode and paints a candidate directly without opening the candidate painter', async () => {
     const notes = emptyNotesGrid()
     notes[0][2] = [4]
@@ -476,8 +558,8 @@ describe('Board with fixed puzzle', () => {
     const colorLayer = cells[2].querySelector('.cell-color-layer')
     expect(colorLayer).not.toBeNull()
     expect(colorLayer?.getAttribute('style')).toContain('linear-gradient')
-    expect(colorLayer?.getAttribute('style')).toContain('rgba(244, 63, 94, 0.28)')
-    expect(colorLayer?.getAttribute('style')).toContain('rgba(249, 115, 22, 0.28)')
+    expect(colorLayer?.getAttribute('style')).toContain('var(--brush-fill-rose)')
+    expect(colorLayer?.getAttribute('style')).toContain('var(--brush-fill-orange)')
     expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: /brush color 2/i }).getAttribute('aria-pressed')).toBe('true')
   })
@@ -577,6 +659,29 @@ describe('Board with fixed puzzle', () => {
     expect(noteSpans[3].textContent).toBe('4')
     expect(noteSpans[0].textContent).toBe('')
     expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
+  })
+
+  it('opens the candidate overlay in eraser mode and removes only the selected candidate', async () => {
+    const notes = emptyNotesGrid()
+    notes[0][2] = [4, 7]
+    saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
+
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    mockCellRect(cells[2])
+    await user.click(cells[2])
+
+    expect(screen.getByRole('dialog', { name: /candidate eraser/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /erase candidate 7/i }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /candidate eraser/i })).toBeNull())
+    const noteSpans = cells[2].querySelectorAll('.cell-note')
+    expect(noteSpans[3].textContent).toBe('4')
+    expect(noteSpans[6].textContent).toBe('')
   })
 
   it('does not open the candidate overlay when candidate painting mode is enabled but the cell has no candidates', async () => {
@@ -1212,6 +1317,38 @@ describe('Board haptic callbacks', () => {
     expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
   })
 
+  it('calls onTriggerHaptic once for a regular touch digit entry', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    onTriggerHaptic.mockClear()
+
+    const btn7 = screen.getByRole('button', { name: /^7,/ })
+    fireEvent.pointerDown(btn7, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.pointerUp(btn7, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.click(btn7)
+
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onTriggerHaptic on touch when entering the last remaining digit', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    onTriggerHaptic.mockClear()
+
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    fireEvent.pointerDown(btn4, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.pointerUp(btn4, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.click(btn4)
+
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
   it('calls onTriggerHaptic when erasing a cell via eraser mode', async () => {
     const onTriggerHaptic = vi.fn()
     render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
@@ -1223,8 +1360,78 @@ describe('Board haptic callbacks', () => {
     onTriggerHaptic.mockClear()
 
     await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    onTriggerHaptic.mockClear()
     await user.click(cells[2])
 
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onTriggerHaptic when main tool buttons are pressed', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+
+    for (const name of [
+      /eraser mode/i,
+      /toggle notes mode/i,
+      /toggle brush mode/i,
+      /toggle free drawing/i,
+      /toggle candidate tools/i,
+    ]) {
+      onTriggerHaptic.mockClear()
+      await user.click(screen.getByRole('button', { name }))
+      expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+    }
+
+    onTriggerHaptic.mockClear()
+    const notesButton = screen.getByRole('button', { name: /toggle notes mode/i })
+    await user.click(notesButton)
+    await user.click(notesButton)
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(2)
+  })
+
+  it('calls onTriggerHaptic when eraser subtools are pressed', async () => {
+    const onTriggerHaptic = vi.fn()
+    const cellColors = emptyCellColors()
+    cellColors[0][2] = ['rose']
+    saveGame(
+      PUZZLE,
+      PUZZLE,
+      SOLUTION,
+      emptyNotesGrid(),
+      cellColors,
+      emptyCandidateColors(),
+      [{ color: '#111111', points: [[0.1, 0.1], [0.3, 0.3]] }]
+    )
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    onTriggerHaptic.mockClear()
+
+    await user.click(screen.getByRole('button', { name: /clean colors/i }))
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+
+    onTriggerHaptic.mockClear()
+    await user.click(screen.getByRole('button', { name: /clean drawings/i }))
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onTriggerHaptic when candidate subtools are pressed', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    onTriggerHaptic.mockClear()
+
+    await user.click(screen.getByRole('button', { name: /show all basic candidates/i }))
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+    expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+
+    onTriggerHaptic.mockClear()
+    await user.click(screen.getByRole('button', { name: /single candidate to digit/i }))
     expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
   })
 
@@ -1270,9 +1477,10 @@ describe('Board haptic callbacks', () => {
 })
 
 describe('Board numpad touch handling', () => {
-  // Simulate what iOS does: fire pointerdown (touch) then a ghost click on the same button.
+  // Simulate what iOS does: fire pointerdown/pointerup (touch) then a ghost click on the same button.
   function touchThenGhostClick(btn: HTMLElement) {
-    fireEvent.pointerDown(btn, { pointerType: 'touch', bubbles: true })
+    fireEvent.pointerDown(btn, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.pointerUp(btn, { pointerType: 'touch', pointerId: 1, bubbles: true })
     fireEvent.click(btn)
   }
 
@@ -1319,6 +1527,21 @@ describe('Board numpad touch handling', () => {
     // Now a plain mouse click (from userEvent) should toggle it off
     await user.click(btn4)
     await waitFor(() => expect(cells[2].querySelector('.cell-notes')).toBeNull())
+  })
+
+  it('mouse click still works after a last-remaining touch digit entry', async () => {
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    touchThenGhostClick(btn4)
+    await waitFor(() => expect(cells[2]).toHaveTextContent('4'))
+
+    await user.click(cells[4])
+    await user.click(screen.getByRole('button', { name: /^7,/ }))
+    await waitFor(() => expect(cells[4]).toHaveTextContent('7'))
   })
 })
 

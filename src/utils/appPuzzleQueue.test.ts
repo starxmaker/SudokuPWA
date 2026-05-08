@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { encodeGrid } from './gameStorage'
 
 type QueueModule = typeof import('./appPuzzleQueue')
 
@@ -10,6 +11,16 @@ function createPuzzle(difficulty: keyof ReturnType<typeof createAvailability>) {
     solution: grid.map(r => [...r]),
     difficulty,
     score: 100,
+  }
+}
+
+function createRating(difficulty: keyof ReturnType<typeof createAvailability>) {
+  const puzzle = createPuzzle(difficulty)
+  return {
+    puzzle: encodeGrid(puzzle.puzzle),
+    solution: encodeGrid(puzzle.solution),
+    difficulty,
+    score: puzzle.score,
   }
 }
 
@@ -31,11 +42,13 @@ let importedModule: QueueModule | null = null
 async function loadQueueModule({
   hasCapacity,
   availability,
-  generateContinuouslyImpl = (..._args: unknown[]) => new Promise<never>(() => {}),
+  nextDifficulty = hasCapacity ? 'VERY_EASY' : null,
+  generateImpl = (..._args: unknown[]) => new Promise<never>(() => {}),
 }: {
   hasCapacity: boolean
   availability: ReturnType<typeof createAvailability>
-  generateContinuouslyImpl?: (...args: unknown[]) => Promise<unknown>
+  nextDifficulty?: keyof ReturnType<typeof createAvailability> | null
+  generateImpl?: (...args: unknown[]) => Promise<unknown>
 }) {
   vi.resetModules()
   delete window.__sudokuGeneratorStatus
@@ -43,23 +56,29 @@ async function loadQueueModule({
   const manager = {
     enqueue: vi.fn(() => true),
     getAvailability: vi.fn(() => availability),
+    getNextDifficulty: vi.fn(() => nextDifficulty),
     hasCapacity: vi.fn(() => hasCapacity),
+    reset: vi.fn(),
     start: vi.fn(),
     stop: vi.fn(),
     subscribe: vi.fn(),
     take: vi.fn(),
   }
-  const generateContinuously = vi.fn(generateContinuouslyImpl)
+  const generate = vi.fn(generateImpl)
 
   vi.doMock('./puzzleQueue', () => ({
     createPuzzleQueueManager: () => manager,
   }))
-  vi.doMock('./generators/orchestrator', () => ({
-    generateContinuously,
-  }))
+  vi.doMock('./generators/hodoku', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./generators/hodoku')>()
+    return {
+      ...actual,
+      generate,
+    }
+  })
 
   importedModule = await import('./appPuzzleQueue')
-  return { module: importedModule, manager, generateContinuously }
+  return { module: importedModule, manager, generate }
 }
 
 afterEach(() => {
@@ -68,7 +87,7 @@ afterEach(() => {
   delete window.__sudokuGeneratorStatus
   vi.useRealTimers()
   vi.doUnmock('./puzzleQueue')
-  vi.doUnmock('./generators/orchestrator')
+  vi.doUnmock('./generators/hodoku')
 })
 
 describe('appPuzzleQueue debug hook', () => {
@@ -93,7 +112,7 @@ describe('appPuzzleQueue debug hook', () => {
 
   it('reports scheduled, running, and stopped while the generator daemon changes state', async () => {
     vi.useFakeTimers()
-    const { module, generateContinuously } = await loadQueueModule({
+    const { module, generate } = await loadQueueModule({
       hasCapacity: true,
       availability: createAvailability(0),
     })
@@ -103,7 +122,7 @@ describe('appPuzzleQueue debug hook', () => {
 
     await vi.runOnlyPendingTimersAsync()
 
-    expect(generateContinuously).toHaveBeenCalledOnce()
+    expect(generate).toHaveBeenCalledOnce()
     expect(window.__sudokuGeneratorStatus?.()).toMatchObject({
       status: 'running',
       daemonStarted: true,
@@ -124,14 +143,15 @@ describe('appPuzzleQueue debug hook', () => {
   })
 
   it('reports idle when the daemon is started but every queue is already full', async () => {
-    const { module, generateContinuously } = await loadQueueModule({
+    const { module, generate } = await loadQueueModule({
       hasCapacity: false,
       availability: createAvailability(10),
+      nextDifficulty: null,
     })
 
     module.startPuzzleQueueDaemon()
 
-    expect(generateContinuously).not.toHaveBeenCalled()
+    expect(generate).not.toHaveBeenCalled()
     expect(window.__sudokuGeneratorStatus?.()).toEqual({
       status: 'idle',
       daemonStarted: true,
@@ -146,12 +166,12 @@ describe('appPuzzleQueue debug hook', () => {
 
   it('includes generated counts per difficulty', async () => {
     vi.useFakeTimers()
-    let onGenerate: ((puzzle: ReturnType<typeof createPuzzle>) => boolean | void) | null = null
+    let onGenerate: ((puzzle: ReturnType<typeof createRating>) => boolean | void) | null = null
     const streamNeverSettles = new Promise<never>(() => {})
     const { module } = await loadQueueModule({
       hasCapacity: true,
       availability: createAvailability(0),
-      generateContinuouslyImpl: (callback: typeof onGenerate) => {
+      generateImpl: (_difficulty: string, callback: typeof onGenerate) => {
         onGenerate = callback
         return streamNeverSettles
       },
@@ -161,17 +181,32 @@ describe('appPuzzleQueue debug hook', () => {
     await vi.runOnlyPendingTimersAsync()
 
     expect(onGenerate).not.toBeNull()
-    onGenerate?.(createPuzzle('HARD'))
-    onGenerate?.(createPuzzle('HARD'))
-    onGenerate?.(createPuzzle('EASY'))
+    onGenerate?.(createRating('VERY_EASY'))
+    onGenerate?.(createRating('VERY_EASY'))
+    onGenerate?.(createRating('VERY_EASY'))
 
     expect(window.__sudokuGeneratorStatus?.()).toMatchObject({
       generatedCounts: {
         ...createAvailability(0),
-        EASY: 1,
-        HARD: 2,
+        VERY_EASY: 3,
       },
       totalGenerated: 3,
+    })
+  })
+
+  it('resets queue state and generation counters', async () => {
+    const { module, manager } = await loadQueueModule({
+      hasCapacity: true,
+      availability: createAvailability(0),
+    })
+
+    module.startPuzzleQueueDaemon()
+    module.resetPuzzleQueueDaemon()
+
+    expect(manager.reset).toHaveBeenCalledOnce()
+    expect(window.__sudokuGeneratorStatus?.()).toMatchObject({
+      generatedCounts: createAvailability(0),
+      totalGenerated: 0,
     })
   })
 })

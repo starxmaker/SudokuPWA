@@ -81,7 +81,7 @@ describe('sudoku utils', () => {
   it.each(GENERATION_DIFFICULTIES)('has Hodoku estimation coverage for %s', (id) => {
     const estimation = HODOKU_ESTIMATIONS[id]
     expect(estimation).toBeDefined()
-    expect(estimation.difficulty).toMatch(/^(EASY|MEDIUM|HARD|UNFAIR|EXTREME)$/)
+    expect(estimation.difficulty.toUpperCase()).toMatch(/^(EASY|MEDIUM|HARD|UNFAIR|EXTREME)$/)
     if (estimation.minScore !== undefined && estimation.maxScore !== undefined) {
       expect(estimation.minScore).toBeLessThan(estimation.maxScore)
     }
@@ -112,7 +112,7 @@ describe('sudoku utils', () => {
     const result = validateCreatedPuzzle(puzzle)
     expect(result).toEqual({
       valid: false,
-      message: 'A created puzzle needs at least 17 clues.',
+      messageKey: 'needs17Clues',
     })
   })
 
@@ -131,7 +131,7 @@ describe('sudoku utils', () => {
     const result = validateCreatedPuzzle(puzzle)
     expect(result).toEqual({
       valid: false,
-      message: 'This puzzle has conflicting givens.',
+      messageKey: 'conflictingGivens',
     })
   })
 
@@ -139,7 +139,7 @@ describe('sudoku utils', () => {
     const result = validateCreatedPuzzle(MULTI_SOLUTION_PUZZLE)
     expect(result).toEqual({
       valid: false,
-      message: 'This puzzle must have exactly one solution.',
+      messageKey: 'multipleSolutions',
     })
   })
 })

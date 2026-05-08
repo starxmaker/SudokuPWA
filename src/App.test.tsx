@@ -19,6 +19,7 @@ const appPuzzleQueueMocks = vi.hoisted(() => {
   return {
     availability,
     getPuzzleQueueAvailability: vi.fn(() => availability),
+    resetPuzzleQueueDaemon: vi.fn(),
     startPuzzleQueueDaemon: vi.fn(),
     subscribePuzzleQueueAvailability: vi.fn((listener: (availability: typeof availability) => void) => {
       listener(availability)
@@ -29,7 +30,6 @@ const appPuzzleQueueMocks = vi.hoisted(() => {
 })
 
 const hodokuMocks = vi.hoisted(() => ({
-  warmupHodoku: vi.fn().mockResolvedValue(true),
   evaluate: vi.fn(),
   verifyPuzzle: vi.fn(),
 }))
@@ -66,6 +66,7 @@ vi.mock('./utils/sudoku', async (importOriginal) => {
 
 vi.mock('./utils/appPuzzleQueue', () => ({
   getPuzzleQueueAvailability: appPuzzleQueueMocks.getPuzzleQueueAvailability,
+  resetPuzzleQueueDaemon: appPuzzleQueueMocks.resetPuzzleQueueDaemon,
   startPuzzleQueueDaemon: appPuzzleQueueMocks.startPuzzleQueueDaemon,
   subscribePuzzleQueueAvailability: appPuzzleQueueMocks.subscribePuzzleQueueAvailability,
   takeQueuedGame: appPuzzleQueueMocks.takeQueuedGame,
@@ -75,7 +76,6 @@ vi.mock('./utils/generators/hodoku', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./utils/generators/hodoku')>()
   return {
     ...actual,
-    warmupHodoku: hodokuMocks.warmupHodoku,
     evaluate: hodokuMocks.evaluate,
     verifyPuzzle: hodokuMocks.verifyPuzzle,
   }
@@ -146,6 +146,7 @@ beforeEach(() => {
     return vi.fn()
   })
   appPuzzleQueueMocks.takeQueuedGame.mockResolvedValue({ puzzle, solution, score: null, difficulty: 'MEDIUM' })
+  appPuzzleQueueMocks.resetPuzzleQueueDaemon.mockClear()
   appPuzzleQueueMocks.startPuzzleQueueDaemon.mockClear()
   hodokuMocks.evaluate.mockReset()
   hodokuMocks.evaluate.mockResolvedValue([{
@@ -214,6 +215,22 @@ describe('App', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
+  it('resets settings and restarts queue generation from settings', async () => {
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
+    await user.click(screen.getByRole('switch', { name: /dark mode/i }))
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: /reset settings/i }))
+
+    expect(appPuzzleQueueMocks.resetPuzzleQueueDaemon).toHaveBeenCalledOnce()
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(screen.queryByRole('dialog', { name: /settings/i })).toBeNull()
+    expect(screen.getByText('Settings reset.')).toBeInTheDocument()
+  })
+
   it('opens new game modal when New Game clicked', async () => {
     render(<App />)
     await userEvent.click(await screen.findByRole('button', { name: /^new game$/i }))
@@ -276,7 +293,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
   })
 
-  it('identifies candidates from the hamburger menu on the board', async () => {
+  it('identifies candidates from the wand toolbar on the board', async () => {
     saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
     render(<App />)
     const user = userEvent.setup()
@@ -284,15 +301,15 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /continue/i }))
     const cells = await screen.findAllByRole('gridcell')
 
-    await user.click(screen.getByRole('button', { name: /menu/i }))
-    const identifyItem = screen.getByRole('menuitem', { name: /show basic candidates/i })
-    expect(identifyItem).not.toBeDisabled()
-    await user.click(identifyItem)
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    const identifyButton = screen.getByRole('button', { name: /show all basic candidates/i })
+    expect(identifyButton).toBeEnabled()
+    await user.click(identifyButton)
 
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
   })
 
-  it('disables clean painting and clean drawings when there is nothing to clear', async () => {
+  it('disables clean colors and clean drawings when there is nothing to clear', async () => {
     saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
     render(<App />)
     const user = userEvent.setup()
@@ -300,9 +317,9 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /continue/i }))
     await screen.findAllByRole('gridcell')
 
-    await user.click(screen.getByRole('button', { name: /menu/i }))
-    expect(screen.getByRole('menuitem', { name: /clean painting/i })).toBeDisabled()
-    expect(screen.getByRole('menuitem', { name: /clean drawings/i })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    expect(screen.getByRole('button', { name: /clean colors/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /clean drawings/i })).toBeDisabled()
   })
 
   it('toggles painting scope from settings and enables candidate painting', async () => {

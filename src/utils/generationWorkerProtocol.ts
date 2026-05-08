@@ -3,6 +3,7 @@ import type { GameDifficulty } from './difficulties'
 
 export type GenerateWorkerRequest = {
   type: 'stream-start'
+  difficulty: GameDifficulty
 }
 
 export type GenerateWorkerResponse =

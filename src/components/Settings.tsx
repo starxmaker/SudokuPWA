@@ -1,8 +1,11 @@
 import React from 'react'
+import type { AppLanguageSetting } from '../utils/i18n'
+import { useI18n } from '../utils/i18n'
 
 type Props = {
   open: boolean
   onClose: () => void
+  onReset: () => void
   theme: 'light'|'dark'
   setTheme: (t: 'light'|'dark') => void
   autoCheck: boolean
@@ -19,9 +22,35 @@ type Props = {
   setPaintingScope: (v: 'digit' | 'candidate') => void
   firstColorFlag: boolean
   setFirstColorFlag: (v: boolean) => void
+  languageSetting: AppLanguageSetting
+  setLanguageSetting: (language: AppLanguageSetting) => void
 }
 
-export default function Settings({ open, onClose, theme, setTheme, autoCheck, setAutoCheck, autoRemove, setAutoRemove, haptic, setHaptic, pencilMode, setPencilMode, coordinateLabels, setCoordinateLabels, paintingScope, setPaintingScope, firstColorFlag, setFirstColorFlag }: Props){
+export default function Settings({
+  open,
+  onClose,
+  onReset,
+  theme,
+  setTheme,
+  autoCheck,
+  setAutoCheck,
+  autoRemove,
+  setAutoRemove,
+  haptic,
+  setHaptic,
+  pencilMode,
+  setPencilMode,
+  coordinateLabels,
+  setCoordinateLabels,
+  paintingScope,
+  setPaintingScope,
+  firstColorFlag,
+  setFirstColorFlag,
+  languageSetting,
+  setLanguageSetting,
+}: Props){
+  const { t } = useI18n()
+
   React.useEffect(()=>{
     function onKey(e: KeyboardEvent){ if(e.key === 'Escape') onClose() }
     if(open){ window.addEventListener('keydown', onKey) }
@@ -32,10 +61,10 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
   return (
     <div className="settings-overlay" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="settings-panel" onClick={(e)=> e.stopPropagation()}>
-        <h2>Settings</h2>
+        <h2>{t('settings.title')}</h2>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:12}}>
-          <div>Dark mode</div>
-          <label className="toggle-switch" aria-label="Toggle dark mode">
+          <div>{t('settings.darkMode')}</div>
+          <label className="toggle-switch" aria-label={t('settings.toggleDarkMode')}>
             <input
               type="checkbox"
               role="switch"
@@ -47,11 +76,24 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
           </label>
         </div>
         <div style={{marginTop:16}}>
+          <div>{t('language.label')}</div>
+          <select
+            aria-label={t('language.label')}
+            value={languageSetting}
+            onChange={(event) => setLanguageSetting(event.target.value as AppLanguageSetting)}
+            style={{marginTop:8,width:'100%'}}
+          >
+            <option value="system">{t('language.auto')}</option>
+            <option value="en">{t('language.english')}</option>
+            <option value="es">{t('language.spanish')}</option>
+          </select>
+        </div>
+        <div style={{marginTop:16}}>
           <div>
-            <div>Painting scope</div>
-            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Choose whether painting applies to digits or candidates</div>
+            <div>{t('settings.paintingScope')}</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.paintingScopeDescription')}</div>
           </div>
-          <div role="group" aria-label="Painting scope" style={{display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:8,marginTop:10}}>
+          <div role="group" aria-label={t('settings.paintingScope')} style={{display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:8,marginTop:10}}>
             <button
               type="button"
               aria-pressed={paintingScope === 'digit'}
@@ -65,7 +107,7 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
                 border:paintingScope === 'digit' ? 'none' : '1px solid rgba(128,128,128,0.35)',
               }}
             >
-              Digits
+              {t('settings.digits')}
             </button>
             <button
               type="button"
@@ -80,16 +122,16 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
                 border:paintingScope === 'candidate' ? 'none' : '1px solid rgba(128,128,128,0.35)',
               }}
             >
-              Candidates
+              {t('settings.candidates')}
             </button>
           </div>
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
           <div>
-            <div>Auto-check errors</div>
-            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Highlight wrong numbers in red</div>
+            <div>{t('settings.autoCheckErrors')}</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.autoCheckDescription')}</div>
           </div>
-          <label className="toggle-switch" aria-label="Toggle auto-check errors">
+          <label className="toggle-switch" aria-label={t('settings.toggleAutoCheck')}>
             <input
               type="checkbox"
               role="switch"
@@ -102,10 +144,10 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
           <div>
-            <div>Auto-remove candidates</div>
-            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Remove notes from same row, column &amp; box</div>
+            <div>{t('settings.autoRemoveCandidates')}</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.autoRemoveDescription')}</div>
           </div>
-          <label className="toggle-switch" aria-label="Toggle auto-remove candidates">
+          <label className="toggle-switch" aria-label={t('settings.toggleAutoRemove')}>
             <input
               type="checkbox"
               role="switch"
@@ -118,10 +160,10 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
           <div>
-            <div>Haptic feedback</div>
-            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Vibration when tapping cells &amp; numbers</div>
+            <div>{t('settings.hapticFeedback')}</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.hapticDescription')}</div>
           </div>
-          <label className="toggle-switch" aria-label="Toggle haptic feedback">
+          <label className="toggle-switch" aria-label={t('settings.toggleHaptic')}>
             <input
               type="checkbox"
               role="switch"
@@ -134,10 +176,10 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
           <div>
-            <div>Pencil mode</div>
-            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Draw digits with your finger or stylus</div>
+            <div>{t('settings.stylusMode')}</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.stylusDescription')}</div>
           </div>
-          <label className="toggle-switch" aria-label="Toggle pencil mode">
+          <label className="toggle-switch" aria-label={t('settings.toggleStylusMode')}>
             <input
               type="checkbox"
               role="switch"
@@ -150,10 +192,10 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
           <div>
-            <div>Coordinate labels</div>
-            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Show row letters A-I and column numbers 1-9</div>
+            <div>{t('settings.coordinateLabels')}</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.coordinateLabelsDescription')}</div>
           </div>
-          <label className="toggle-switch" aria-label="Toggle coordinate labels">
+          <label className="toggle-switch" aria-label={t('settings.toggleCoordinateLabels')}>
             <input
               type="checkbox"
               role="switch"
@@ -166,10 +208,10 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
           <div>
-            <div>First color flag</div>
-            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>Flag the first colored cell for quick reference</div>
+            <div>{t('settings.firstColorFlag')}</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.firstColorFlagDescription')}</div>
           </div>
-          <label className="toggle-switch" aria-label="Toggle first color flag">
+          <label className="toggle-switch" aria-label={t('settings.toggleFirstColorFlag')}>
             <input
               type="checkbox"
               role="switch"
@@ -180,8 +222,9 @@ export default function Settings({ open, onClose, theme, setTheme, autoCheck, se
             <span className="switch" />
           </label>
         </div>
-        <div style={{display:'flex',justifyContent:'flex-end',marginTop:16}}>
-          <button onClick={onClose}>Close</button>
+        <div style={{display:'flex',justifyContent:'space-between',marginTop:16,gap:12}}>
+          <button type="button" onClick={onReset}>{t('settings.reset')}</button>
+          <button onClick={onClose}>{t('settings.close')}</button>
         </div>
       </div>
     </div>

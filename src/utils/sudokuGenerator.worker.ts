@@ -1,4 +1,5 @@
-import { generateContinuously } from './generators/orchestrator'
+import { decodeGrid } from './gameStorage'
+import { generate } from './generators/hodoku'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
 
 const workerScope = self as DedicatedWorkerGlobalScope
@@ -32,15 +33,20 @@ workerScope.onmessage = async (event: MessageEvent<GenerateWorkerRequest>) => {
   streamController = controller
 
   try {
-    await generateContinuously((generated) => {
+    await generate(message.difficulty, (rating) => {
+      if (!rating.solution) return true
+      const puzzle = decodeGrid(rating.puzzle)
+      const solution = decodeGrid(rating.solution)
+      if (!puzzle || !solution) return true
       const response: GenerateWorkerResponse = {
         type: 'stream-puzzle',
-        puzzle: generated.puzzle,
-        solution: generated.solution,
-        difficulty: generated.difficulty,
-        score: generated.score,
+        puzzle,
+        solution,
+        difficulty: message.difficulty,
+        score: rating.score ?? null,
       }
       workerScope.postMessage(response)
+      return true
     }, controller.signal)
   } catch (error) {
     if (!controller.signal.aborted && !isAbortError(error)) {

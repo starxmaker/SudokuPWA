@@ -1,5 +1,6 @@
 import type { Grid, Difficulty } from './sudoku_types'
-import { generateForDifficulty } from './generators/orchestrator'
+import { decodeGrid } from './gameStorage'
+import { generate } from './generators/hodoku'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
 import { GameDifficulty } from './difficulties'
 
@@ -128,7 +129,60 @@ function generateGameOnCurrentThread(
   difficulty: GameDifficulty,
   signal?: AbortSignal,
 ): Promise<{ puzzle: Grid; solution: Grid }> {
-  return generateForDifficulty(difficulty, signal)
+  return new Promise<{ puzzle: Grid; solution: Grid }>((resolve, reject) => {
+    const controller = new AbortController()
+    let settled = false
+
+    const cleanup = () => {
+      signal?.removeEventListener('abort', handleAbort)
+    }
+
+    const finishWithError = (error: Error) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      if (!controller.signal.aborted) {
+        controller.abort()
+      }
+      reject(error)
+    }
+
+    const finishWithResult = (result: { puzzle: Grid; solution: Grid }) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      if (!controller.signal.aborted) {
+        controller.abort()
+      }
+      resolve(result)
+    }
+
+    const handleAbort = () => {
+      finishWithError(new DOMException('Aborted', 'AbortError'))
+    }
+
+    if (signal?.aborted) {
+      handleAbort()
+      return
+    }
+
+    signal?.addEventListener('abort', handleAbort, { once: true })
+
+    void generate(difficulty, (rating) => {
+      if (!rating.solution) return true
+      const puzzle = decodeGrid(rating.puzzle)
+      const solution = decodeGrid(rating.solution)
+      if (!puzzle || !solution) return true
+      finishWithResult({ puzzle, solution })
+      return false
+    }, controller.signal).catch((error) => {
+      finishWithError(
+        error instanceof Error
+          ? error
+          : new Error('Failed to generate puzzle'),
+      )
+    })
+  })
 }
 
 export function setGenerationWorkerFactoryForTests(factory: GenerationWorkerFactory | null) {
@@ -136,29 +190,35 @@ export function setGenerationWorkerFactoryForTests(factory: GenerationWorkerFact
 }
 
 /** Solve a puzzle and return the completed grid, or null if unsolvable. Synchronous. */
+export type CreatedPuzzleValidationMessageKey =
+  | 'needs17Clues'
+  | 'conflictingGivens'
+  | 'noSolution'
+  | 'multipleSolutions'
+
 export type CreatedPuzzleValidationResult =
   | { valid: true; solution: Grid }
-  | { valid: false; message: string }
+  | { valid: false; messageKey: CreatedPuzzleValidationMessageKey }
 
 export function validateCreatedPuzzle(puzzle: Grid): CreatedPuzzleValidationResult {
   const clueCount = puzzle.flat().filter(value => value !== 0).length
   if (clueCount < 17) {
-    return { valid: false, message: 'A created puzzle needs at least 17 clues.' }
+    return { valid: false, messageKey: 'needs17Clues' }
   }
 
   if (hasConflictingGivens(puzzle)) {
-    return { valid: false, message: 'This puzzle has conflicting givens.' }
+    return { valid: false, messageKey: 'conflictingGivens' }
   }
 
   const solutions: Grid[] = []
   collectSolutions(cloneGrid(puzzle), solutions, 2)
 
   if (solutions.length === 0) {
-    return { valid: false, message: 'This puzzle has no solution.' }
+    return { valid: false, messageKey: 'noSolution' }
   }
 
   if (solutions.length > 1) {
-    return { valid: false, message: 'This puzzle must have exactly one solution.' }
+    return { valid: false, messageKey: 'multipleSolutions' }
   }
 
   return { valid: true, solution: solutions[0] }
@@ -230,6 +290,7 @@ export async function generateGame(
 
     const request: GenerateWorkerRequest = {
       type: 'stream-start',
+      difficulty,
     }
     worker.postMessage(request)
   })

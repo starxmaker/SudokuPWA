@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest'
 describe('TopBar', () => {
   it('renders default title', () => {
     render(<TopBar onOpenSettings={vi.fn()} />)
-    expect(screen.getByRole('heading', { name: /sudoku pwa/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^sudoku$/i })).toBeInTheDocument()
   })
 
   it('renders custom title', () => {
@@ -86,46 +86,20 @@ describe('TopBar', () => {
     expect(onOpenInfo).toHaveBeenCalledOnce()
   })
 
-  it('shows clean painting item disabled when unavailable', async () => {
-    render(<TopBar onOpenSettings={vi.fn()} onClearPainting={vi.fn()} canClearPainting={false} />)
+  it('does not show clean painting or clean drawings in the side menu', async () => {
+    render(<TopBar onOpenSettings={vi.fn()} onOpenInfo={vi.fn()} onShare={vi.fn()} onRestart={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /menu/i }))
-    expect(screen.getByRole('menuitem', { name: /clean painting/i })).toBeDisabled()
+    expect(screen.queryByRole('menuitem', { name: /clean painting/i })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /clean drawings/i })).toBeNull()
   })
 
-  it('shows clean painting item and calls onClearPainting when provided', async () => {
-    const onClearPainting = vi.fn()
-    render(<TopBar onOpenSettings={vi.fn()} onClearPainting={onClearPainting} canClearPainting />)
+  it('keeps icons for the remaining side menu items', async () => {
+    render(<TopBar onOpenSettings={vi.fn()} onOpenInfo={vi.fn()} onShare={vi.fn()} onRestart={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /menu/i }))
-    await userEvent.click(screen.getByRole('menuitem', { name: /clean painting/i }))
-    expect(onClearPainting).toHaveBeenCalledOnce()
-  })
-
-  it('shows clean drawings item disabled when unavailable', async () => {
-    render(<TopBar onOpenSettings={vi.fn()} onClearDrawings={vi.fn()} canClearDrawings={false} />)
-    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
-    expect(screen.getByRole('menuitem', { name: /clean drawings/i })).toBeDisabled()
-  })
-
-  it('shows clean drawings item and calls onClearDrawings when provided', async () => {
-    const onClearDrawings = vi.fn()
-    render(<TopBar onOpenSettings={vi.fn()} onClearDrawings={onClearDrawings} canClearDrawings />)
-    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
-    await userEvent.click(screen.getByRole('menuitem', { name: /clean drawings/i }))
-    expect(onClearDrawings).toHaveBeenCalledOnce()
-  })
-
-  it('shows identify candidates item disabled when unavailable', async () => {
-    render(<TopBar onOpenSettings={vi.fn()} onIdentifyCandidates={vi.fn()} canIdentifyCandidates={false} />)
-    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
-    expect(screen.getByRole('menuitem', { name: /show basic candidates/i })).toBeDisabled()
-  })
-
-  it('calls onIdentifyCandidates when available', async () => {
-    const onIdentifyCandidates = vi.fn()
-    render(<TopBar onOpenSettings={vi.fn()} onIdentifyCandidates={onIdentifyCandidates} canIdentifyCandidates />)
-    await userEvent.click(screen.getByRole('button', { name: /menu/i }))
-    await userEvent.click(screen.getByRole('menuitem', { name: /show basic candidates/i }))
-    expect(onIdentifyCandidates).toHaveBeenCalledOnce()
+    expect(screen.getByRole('menuitem', { name: /restart/i }).querySelector('svg')).not.toBeNull()
+    expect(screen.getByRole('menuitem', { name: /info/i }).querySelector('svg')).not.toBeNull()
+    expect(screen.getByRole('menuitem', { name: /share/i }).querySelector('svg')).not.toBeNull()
+    expect(screen.getByRole('menuitem', { name: /settings/i }).querySelector('svg')).not.toBeNull()
   })
 
   it('closes menu on Escape key', async () => {

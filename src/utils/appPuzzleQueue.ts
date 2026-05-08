@@ -1,5 +1,6 @@
-import { generateContinuously } from './generators/orchestrator'
-import type { SolvablePuzzle } from './generators/types'
+import { decodeGrid } from './gameStorage'
+import { generate } from './generators/hodoku'
+import type { SolveRating, SolvablePuzzle } from './generators/types'
 import { createPuzzleQueueManager } from './puzzleQueue'
 import type { PuzzleQueueAvailability } from './puzzleQueue'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
@@ -25,6 +26,7 @@ declare global {
 const manager = createPuzzleQueueManager({})
 let daemonStarted = false
 let stopActiveGeneration: (() => void) | null = null
+let activeGenerationDifficulty: GameDifficulty | null = null
 let restartTimer: ReturnType<typeof setTimeout> | null = null
 let generatedCounts = createEmptyDifficultyCounts()
 let totalGenerated = 0
@@ -33,6 +35,11 @@ function createEmptyDifficultyCounts(): PuzzleQueueAvailability {
   return Object.fromEntries(
     (Object.keys(DIFFICULTY_LABELS) as GameDifficulty[]).map(difficulty => [difficulty, 0]),
   ) as PuzzleQueueAvailability
+}
+
+function resetGeneratedCounts() {
+  generatedCounts = createEmptyDifficultyCounts()
+  totalGenerated = 0
 }
 
 function getGeneratorStatus(
@@ -51,6 +58,19 @@ function getGeneratorStatus(
 function recordGeneratedPuzzle(puzzle: SolvablePuzzle) {
   generatedCounts[puzzle.difficulty] += 1
   totalGenerated += 1
+}
+
+function toSolvablePuzzle(rating: SolveRating, requestedDifficulty: GameDifficulty): SolvablePuzzle | null {
+  if (!rating.solution) return null
+  const puzzle = decodeGrid(rating.puzzle)
+  const solution = decodeGrid(rating.solution)
+  if (!puzzle || !solution) return null
+  return {
+    puzzle,
+    solution,
+    difficulty: requestedDifficulty,
+    score: rating.score ?? null,
+  }
 }
 
 function clearRestartTimer() {
@@ -72,6 +92,17 @@ function shouldGenerate() {
   return daemonStarted && manager.hasCapacity()
 }
 
+function getNextDifficultyToGenerate() {
+  return daemonStarted ? manager.getNextDifficulty() : null
+}
+
+function stopCurrentGeneration() {
+  const stop = stopActiveGeneration
+  stopActiveGeneration = null
+  activeGenerationDifficulty = null
+  stop?.()
+}
+
 function scheduleGeneration() {
   if (!shouldGenerate() || stopActiveGeneration || restartTimer !== null) return
 
@@ -84,17 +115,20 @@ function scheduleGeneration() {
 function finishGenerationLoop(stop: () => void, error?: unknown) {
   if (stopActiveGeneration !== stop) return
   stopActiveGeneration = null
+  activeGenerationDifficulty = null
 
   if (error && !hasAbortError(error)) {
     console.error('Puzzle queue generator failed:', error)
   }
 
-  if (shouldGenerate()) {
-    scheduleGeneration()
-  }
+  syncGenerationLoop()
 }
 
-function startCurrentThreadGenerationStream() {
+function shouldContinueGenerating(difficulty: GameDifficulty) {
+  return getNextDifficultyToGenerate() === difficulty
+}
+
+function startCurrentThreadGenerationStream(difficulty: GameDifficulty) {
   const controller = new AbortController()
   const stop = () => {
     if (!controller.signal.aborted) {
@@ -102,14 +136,14 @@ function startCurrentThreadGenerationStream() {
     }
   }
 
-  void generateContinuously((generated) => {
+  void generate(difficulty, (rating) => {
     if (!daemonStarted || controller.signal.aborted) return false
+    const generated = toSolvablePuzzle(rating, difficulty)
+    if (!generated) return true
     recordGeneratedPuzzle(generated)
     manager.enqueue(generated)
 
-    if (!manager.hasCapacity()) {
-      return false
-    }
+    return shouldContinueGenerating(difficulty)
   }, controller.signal)
     .catch((error) => {
       finishGenerationLoop(stop, error)
@@ -121,7 +155,7 @@ function startCurrentThreadGenerationStream() {
   return stop
 }
 
-function startWorkerGenerationStream() {
+function startWorkerGenerationStream(difficulty: GameDifficulty) {
   const worker = new Worker(new URL('./sudokuGenerator.worker.ts', import.meta.url), { type: 'module' })
   let stopped = false
 
@@ -145,7 +179,7 @@ function startWorkerGenerationStream() {
       recordGeneratedPuzzle(generated)
       manager.enqueue(generated)
 
-      if (!manager.hasCapacity()) {
+      if (!shouldContinueGenerating(difficulty)) {
         stop()
         finishGenerationLoop(stop)
       }
@@ -169,16 +203,34 @@ function startWorkerGenerationStream() {
     finishGenerationLoop(stop, error)
   }
 
-  const request: GenerateWorkerRequest = { type: 'stream-start' }
+  const request: GenerateWorkerRequest = { type: 'stream-start', difficulty }
   worker.postMessage(request)
   return stop
 }
 
+function syncGenerationLoop() {
+  const nextDifficulty = getNextDifficultyToGenerate()
+
+  if (!nextDifficulty) {
+    clearRestartTimer()
+    stopCurrentGeneration()
+    return
+  }
+
+  if (activeGenerationDifficulty && activeGenerationDifficulty !== nextDifficulty) {
+    stopCurrentGeneration()
+  }
+
+  scheduleGeneration()
+}
+
 function startGenerationLoop() {
-  if (!shouldGenerate() || stopActiveGeneration) return
+  const difficulty = getNextDifficultyToGenerate()
+  if (!difficulty || stopActiveGeneration) return
+  activeGenerationDifficulty = difficulty
   stopActiveGeneration = shouldUseGenerationWorker()
-    ? startWorkerGenerationStream()
-    : startCurrentThreadGenerationStream()
+    ? startWorkerGenerationStream(difficulty)
+    : startCurrentThreadGenerationStream(difficulty)
 }
 
 export function getPuzzleQueueAvailability(): PuzzleQueueAvailability {
@@ -211,21 +263,30 @@ export function subscribePuzzleQueueAvailability(
 export function startPuzzleQueueDaemon() {
   manager.start()
   daemonStarted = true
-  scheduleGeneration()
+  syncGenerationLoop()
 }
 
 export function stopPuzzleQueueDaemon() {
   daemonStarted = false
   clearRestartTimer()
-  stopActiveGeneration?.()
-  stopActiveGeneration = null
+  stopCurrentGeneration()
   manager.stop()
+}
+
+export function resetPuzzleQueueDaemon() {
+  const wasRunning = daemonStarted
+  stopPuzzleQueueDaemon()
+  manager.reset()
+  resetGeneratedCounts()
+  if (wasRunning) {
+    startPuzzleQueueDaemon()
+  }
 }
 
 export function takeQueuedGame(difficulty: GameDifficulty): Promise<SolvablePuzzle | null> {
   return manager.take(difficulty).then((puzzle) => {
     if (daemonStarted) {
-      scheduleGeneration()
+      syncGenerationLoop()
     }
     return puzzle
   })

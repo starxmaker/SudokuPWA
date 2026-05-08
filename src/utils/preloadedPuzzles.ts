@@ -1,4 +1,4 @@
-import preloadedPuzzleData from '../../public/preloaded-puzzles.json'
+import preloadedPuzzleData from '../data/preloaded-puzzles.json'
 import { decodeGrid } from './gameStorage'
 import { DIFFICULTY_LABELS, type GameDifficulty } from './difficulties'
 import type { Grid } from './sudoku_types'
