@@ -136,12 +136,12 @@ export default function Home({ hasSaved, onNew, onContinue, onCreated, error, ha
   }
 
   return (
-    <div style={{padding:20,display:'flex',flexDirection:'column',alignItems:'center',gap:12,minHeight:'calc(100vh - 72px)'}}>
-      <div style={{width:'100%',maxWidth:720,textAlign:'center'}}>
-        <h2 style={{margin:0,paddingTop:'6vh'}}>{t('home.welcome')}</h2>
+    <div className="home-page">
+      <div className="home-page__header">
+        <h2 className="home-page__title">{t('home.welcome')}</h2>
       </div>
-      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>
-        <div style={{display:'flex',flexDirection:'column',gap:20,alignItems:'stretch',width:'100%',maxWidth:240}}>
+      <div className="home-page__main">
+        <div className="home-page__actions">
           <button className="home-btn" onClick={onNew} disabled={!hasAvailablePuzzle}>
             {hasAvailablePuzzle ? t('home.newGame') : t('home.loading')}
           </button>
@@ -149,27 +149,29 @@ export default function Home({ hasSaved, onNew, onContinue, onCreated, error, ha
           <button className="home-btn" onClick={onCreated}>{t('home.createNewGame')}</button>
         </div>
       </div>
-      {error && <p style={{color:'#e53935',fontWeight:600}}>{error}</p>}
-      {!hasSaved && !error && <p style={{color:'#666'}}>{t('home.noSavedGame')}</p>}
-      <a
-        href={__REPO_URL__}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={t('home.viewOnGitHub')}
-        style={{color:'#999',display:'flex',alignItems:'center',textDecoration:'none'}}
-      >
-        <FaGithub size={36} />
-      </a>
-      <p style={{color:'#999',fontSize:'0.75rem',margin:0}}>v{__APP_VERSION__}</p>
-      {!isInstalledPwa && installReady && (
+      {error && <p className="home-page__message home-page__message--error">{error}</p>}
+      {!hasSaved && !error && <p className="home-page__message home-page__message--muted">{t('home.noSavedGame')}</p>}
+      <div className="home-page__footer">
         <a
-          href="#install"
-          onClick={handleInstallClick}
-          style={{color:'#999',fontSize:'0.75rem',textDecoration:'underline'}}
+          href={__REPO_URL__}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={t('home.viewOnGitHub')}
+          className="home-page__github"
         >
-          {t('home.installApp')}
+          <FaGithub size={36} />
         </a>
-      )}
+        <p className="home-page__version">v{__APP_VERSION__}</p>
+        {!isInstalledPwa && installReady && (
+          <a
+            href="#install"
+            onClick={handleInstallClick}
+            className="home-page__install"
+          >
+            {t('home.installApp')}
+          </a>
+        )}
+      </div>
       {React.createElement('pwa-install', {
         ref: installRef,
         'manifest-url': `${import.meta.env.BASE_URL}manifest.webmanifest`,

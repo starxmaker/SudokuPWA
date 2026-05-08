@@ -5,7 +5,7 @@ html,body{height:100%;margin:0;overscroll-behavior:none}
 body{font-family:system-ui,Arial;}
 
 /* Dark theme overrides when `.dark` is present on the documentElement */
-.dark { --bg: #121212; --text: #e6eef8; --muted: #9fb6d6; --card: #1e1e1e; --accent: #58a6ff; --accent-soft: rgba(88,166,255,0.12); --board-outer: #ffffff; --cell-inner: #555555; --cell-box: #888888; --cell-cross-bg: rgba(255,255,255,0.12); --cell-related-bg: rgba(88,166,255,0.18); --cell-clue-text: #aaaaaa; --cell-user-text: #6ab8ff; --cell-selected-bg: rgba(88,166,255,0.32); --brush-fill-rose: rgba(251, 113, 133, 0.48); --brush-fill-orange: rgba(251, 146, 60, 0.48); --brush-fill-amber: rgba(251, 191, 36, 0.44); --brush-fill-lime: rgba(163, 230, 53, 0.46); --brush-fill-emerald: rgba(52, 211, 153, 0.46); --brush-fill-sky: rgba(56, 189, 248, 0.46); --brush-fill-violet: rgba(167, 139, 250, 0.46); --brush-fill-pink: rgba(244, 114, 182, 0.46) }
+.dark { --bg: #121212; --text: #e6eef8; --muted: #9fb6d6; --card: #1e1e1e; --accent: #58a6ff; --accent-soft: rgba(88,166,255,0.12); --board-outer: #ffffff; --cell-inner: #555555; --cell-box: #888888; --cell-cross-bg: rgba(255,255,255,0.12); --cell-related-bg: rgba(88,166,255,0.18); --cell-clue-text: #aaaaaa; --cell-user-text: #6ab8ff; --cell-selected-bg: rgba(88,166,255,0.32) }
 
 body{background:var(--bg);color:var(--text)}
 .app-root{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
@@ -145,8 +145,77 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   text-align:center;
 }
 .home-btn{
-  font-size:1.1rem;
-  padding:14px 20px;
+  font-size:clamp(1rem, 0.96rem + 0.4vh, 1.1rem);
+  padding:clamp(12px, 1.6vh, 14px) 20px;
+}
+.home-page{
+  flex:1;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:clamp(8px, 1.8vh, 12px);
+  width:100%;
+  padding:clamp(8px, 1.8vh, 20px) 8px calc(12px + env(safe-area-inset-bottom));
+}
+.home-page__header{
+  width:100%;
+  max-width:720px;
+  text-align:center;
+}
+.home-page__title{
+  margin:0;
+  padding-top:clamp(0px, 1vh, 10px);
+}
+.home-page__main{
+  flex:1;
+  min-height:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+}
+.home-page__actions{
+  display:flex;
+  flex-direction:column;
+  gap:clamp(12px, 2.4vh, 20px);
+  align-items:stretch;
+  width:100%;
+  max-width:240px;
+}
+.home-page__message{
+  margin:0;
+  text-align:center;
+}
+.home-page__message--error{
+  color:#e53935;
+  font-weight:600;
+}
+.home-page__message--muted{
+  color:#666;
+}
+.home-page__footer{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  flex:0 0 auto;
+}
+.home-page__github{
+  color:#999;
+  display:flex;
+  align-items:center;
+  text-decoration:none;
+}
+.home-page__version{
+  color:#999;
+  font-size:0.75rem;
+  margin:0;
+}
+.home-page__install{
+  color:#999;
+  font-size:0.75rem;
+  text-decoration:underline;
 }
 .timer-display{
   font-size:1rem;
@@ -1325,6 +1394,13 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 
 @media (max-height: 760px) {
   :root{ --board-safe-space: 210px }
+  .home-page{
+    gap:8px;
+    padding-top:8px;
+  }
+  .home-page__footer{
+    gap:6px;
+  }
   .game-layout{
     gap:6px;
     padding-bottom:12px;

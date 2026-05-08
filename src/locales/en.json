@@ -25,7 +25,7 @@
   "home.newGame": "New Game",
   "home.loading": "Loading...",
   "home.continue": "Continue",
-  "home.createNewGame": "Create new game",
+  "home.createNewGame": "Create game",
   "home.noSavedGame": "No saved game found — start a new puzzle.",
   "home.viewOnGitHub": "View on GitHub",
   "home.installApp": "Install app",
@@ -89,7 +89,7 @@
   "puzzleInfo.source.created": "Created",
   "puzzleInfo.source.unknown": "Unknown",
 
-  "creator.title": "Create new game",
+  "creator.title": "Create game",
   "creator.verifying": "Verifying...",
   "creator.clues": "{count} clues",
   "creator.gridLabel": "Created puzzle grid",

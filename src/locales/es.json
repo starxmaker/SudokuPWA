@@ -25,7 +25,7 @@
   "home.newGame": "Nuevo juego",
   "home.loading": "Cargando...",
   "home.continue": "Continuar",
-  "home.createNewGame": "Crear nuevo juego",
+  "home.createNewGame": "Crear juego",
   "home.noSavedGame": "No se encontró una partida guardada: empieza un nuevo sudoku.",
   "home.viewOnGitHub": "Ver en GitHub",
   "home.installApp": "Instalar app",
@@ -89,7 +89,7 @@
   "puzzleInfo.source.created": "Creado",
   "puzzleInfo.source.unknown": "Desconocido",
 
-  "creator.title": "Crear nuevo juego",
+  "creator.title": "Crear juego",
   "creator.verifying": "Verificando...",
   "creator.clues": "{count} pistas",
   "creator.gridLabel": "Cuadrícula del sudoku creado",
