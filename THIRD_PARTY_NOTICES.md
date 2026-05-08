@@ -34,11 +34,10 @@ The app uses `react-icons@5.6.0` as an MIT-licensed wrapper that exposes icon se
 
 | Import path | Upstream icon family | License | Used icons in this app | Source |
 | --- | --- | --- | --- | --- |
-| `react-icons/md` | Material Design Icons | Apache-2.0 | `MdPlayArrow`, `MdPause`, `MdUndo`, `MdOutlineFormatColorReset` | <https://github.com/google/material-design-icons> |
+| `react-icons/md` | Material Design Icons | Apache-2.0 | `MdPlayArrow`, `MdPause`, `MdUndo`, `MdOutlineFormatColorReset`,`MdDrawer` | <https://github.com/google/material-design-icons> |
 | `react-icons/fa` | Font Awesome 5 | CC BY 4.0 | `FaEraser`, `FaGithub` | <https://fontawesome.com/> |
 | `react-icons/fa6` | Font Awesome 6 | CC BY 4.0 | `FaBrush`, `FaWandMagic` | <https://fontawesome.com/> |
 | `react-icons/gi` | Game Icons | CC BY 3.0 | `GiMagicBroom` | <https://game-icons.net/> |
-| `react-icons/lia` | Icons8 Line Awesome | MIT | `LiaMarkerSolid` | <https://github.com/icons8/line-awesome> |
 | `react-icons/pi` | Phosphor Icons | MIT | `PiFlagCheckeredFill` | <https://github.com/phosphor-icons/core> |
 | `react-icons/tb` | Tabler Icons | MIT | `TbNumbers` | <https://github.com/tabler/tabler-icons> |
 | `react-icons/fc` | Flat Color Icons | MIT | `FcOk` | <https://github.com/icons8/flat-color-icons> |

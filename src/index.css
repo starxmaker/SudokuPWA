@@ -769,8 +769,11 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   border:1px solid #555 !important;
 }
 .number-pad .num-key.num-key--notes{
-  font-size:inherit;
+  font-size:clamp(1.55rem, 6vw, 3rem);
   color:#a0aec0 !important;
+}
+@media (min-width: 480px) {
+  .number-pad .num-key.num-key--notes{ font-size:1.42rem; }
 }
 .number-pad .num-key.num-key--notes::before{
   color:#a0aec0;

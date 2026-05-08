@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { MdPlayArrow, MdPause, MdUndo } from 'react-icons/md'
+import { MdPlayArrow, MdPause, MdUndo, MdDraw } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
 import { FaBrush, FaWandMagic } from 'react-icons/fa6'
 import { GiMagicBroom } from 'react-icons/gi'
-import { LiaMarkerSolid } from 'react-icons/lia'
 import { PiFlagCheckeredFill } from 'react-icons/pi'
 import { TbNumbers } from 'react-icons/tb'
 import { generateGame, Grid } from '../utils/sudoku'
@@ -1615,7 +1614,7 @@ export default function Board({
       case 'brush':
         return <FaBrush size={20} />
       case 'drawing':
-        return <LiaMarkerSolid size={22} />
+        return <MdDraw size={22} />
     }
   }
 
@@ -1986,7 +1985,7 @@ export default function Board({
                   className="num-key drawing-toggle"
                   tabIndex={-1}
                 >
-                  <LiaMarkerSolid size={22} />
+                  <MdDraw size={22} />
                 </button>
               </div>
               <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
@@ -2026,7 +2025,7 @@ export default function Board({
                   className="num-key drawing-toggle drawing-toggle--active"
                   tabIndex={-1}
                 >
-                  <LiaMarkerSolid size={22} />
+                  <MdDraw size={22} />
                 </button>
                 <div className="tool-tray__content tool-tray__content--drawing">
                   <button type="button" className="num-key clear" tabIndex={-1}><MdUndo size={24} /></button>
@@ -2109,7 +2108,7 @@ export default function Board({
                 disabled={paused || won}
                 onClick={toggleDrawingTools}
               >
-                <LiaMarkerSolid size={22} />
+                <MdDraw size={22} />
               </button>
             </div>
             {toolTrayOverlayView === 'main' && (
@@ -2131,7 +2130,7 @@ export default function Board({
                   <FaBrush size={20} />
                 </button>
                 <button type="button" className="num-key drawing-toggle" tabIndex={-1}>
-                  <LiaMarkerSolid size={22} />
+                  <MdDraw size={22} />
                 </button>
               </div>
             )}
