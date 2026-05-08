@@ -1,4 +1,10 @@
-import { rateSudokus, generateSudokus, HodokuDifficulty } from 'hodoku-core-js'
+import {
+  rateSudoku,
+  rateSudokus,
+  generateSudokus,
+  type SudokuSolutionPathStep,
+  HodokuDifficulty,
+} from 'hodoku-core-js'
 import type { SolveRating } from './types'
 import { GameDifficulty } from '../difficulties'
 import type { Grid } from '../sudoku_types'
@@ -126,6 +132,15 @@ export type VerifiedPuzzle = {
   score: number | null
 }
 
+export type RequiredTechniques = {
+  difficulty: HodokuDifficulty
+  score: number
+  givenUp: boolean
+  bruteForced: boolean
+  unsolvable: boolean
+  steps: SudokuSolutionPathStep[]
+}
+
 export async function verifyPuzzle(puzzle: Grid, signal?: AbortSignal): Promise<VerifiedPuzzle | null> {
   const [rating] = await evaluate([encodeGrid(puzzle)], undefined, signal)
   if (!rating?.solution) {
@@ -141,6 +156,30 @@ export async function verifyPuzzle(puzzle: Grid, signal?: AbortSignal): Promise<
     solution,
     difficulty: rating.difficulty,
     score: rating.score ?? null,
+  }
+}
+
+export async function analyzeRequiredTechniques(
+  puzzle: Grid,
+  signal?: AbortSignal,
+): Promise<RequiredTechniques | null> {
+  const puzzleString = encodeGrid(puzzle)
+  const rating = await rateSudoku({
+    puzzle: puzzleString,
+    includePath: true,
+    signal,
+  })
+  if (rating === null) {
+    return null
+  }
+
+  return {
+    difficulty: rating.difficulty,
+    score: rating.score,
+    givenUp: rating.givenUp,
+    bruteForced: rating.bruteForced,
+    unsolvable: rating.unsolvable,
+    steps: rating.steps ?? [],
   }
 }
 

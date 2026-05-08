@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import Board from './Board'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { emptyCandidateColors, emptyCellColors, saveGame } from '../utils/gameStorage'
+import { analyzeRequiredTechniques } from '../utils/generators/hodoku'
 
 // Mock generateGame so Board tests don't run the real (slow) hodoku generator
 vi.mock('../utils/sudoku', async (importOriginal) => {
@@ -28,7 +29,16 @@ vi.mock('../utils/sudoku', async (importOriginal) => {
   }
 })
 
-beforeEach(() => localStorage.clear())
+vi.mock('../utils/generators/hodoku', () => ({
+  analyzeRequiredTechniques: vi.fn(),
+}))
+
+const mockedAnalyzeRequiredTechniques = vi.mocked(analyzeRequiredTechniques)
+
+beforeEach(() => {
+  localStorage.clear()
+  mockedAnalyzeRequiredTechniques.mockReset()
+})
 
 // A valid, fully-solved sudoku grid (Wikipedia example)
 const SOLUTION: number[][] = [
@@ -345,6 +355,65 @@ describe('Board component', () => {
 
     await user.click(screen.getByRole('button', { name: /single candidate to digit/i }))
     await waitFor(() => expect(cells[2]).toHaveTextContent('4'))
+  })
+
+  it('shows required techniques in a sidebar and reveals notation on click', async () => {
+    mockedAnalyzeRequiredTechniques.mockResolvedValue({
+      difficulty: 'Extreme',
+      score: 3018,
+      givenUp: false,
+      bruteForced: false,
+      unsolvable: false,
+      steps: [
+        { stepNumber: 1, technique: 'Hidden Single', notation: 'r5c5=9' },
+        { stepNumber: 2, technique: 'XYZ-Wing', notation: '4/7/8 in r56c6,r6c1 => r6c5<>4' },
+      ],
+    })
+
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    await waitForBoard()
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    const expectedPuzzleState = PUZZLE_WITH_7_REMAINING.map(row => [...row])
+    expectedPuzzleState[0][2] = 4
+
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^4,/ }))
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledWith(expectedPuzzleState, expect.any(AbortSignal))
+
+    const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
+    expect(within(sidebar).getByText('2 techniques')).toBeInTheDocument()
+    expect(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i })).toHaveAttribute('aria-expanded', 'false')
+    expect(within(sidebar).queryByText('r5c5=9')).toBeNull()
+
+    await user.click(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i }))
+
+    expect(within(sidebar).getByText('r5c5=9')).toBeInTheDocument()
+    expect(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('shows an error when hodoku reports the current board is unsolvable', async () => {
+    mockedAnalyzeRequiredTechniques.mockResolvedValue({
+      difficulty: 'Extreme',
+      score: 0,
+      givenUp: false,
+      bruteForced: false,
+      unsolvable: true,
+      steps: [],
+    })
+
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+
+    expect(await screen.findByText(/this puzzle is not solvable/i)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /required techniques/i })).toBeNull()
   })
 
   it('shows eraser-mode clear actions instead of numbers or colors', async () => {

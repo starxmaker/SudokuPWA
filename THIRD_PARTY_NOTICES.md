@@ -7,7 +7,7 @@ Sudoku PWA is distributed under the GNU General Public License, version 3 or any
 | Component | Version | Role in this project | License | Source |
 | --- | --- | --- | --- | --- |
 | `Hodoku` | `2.3.2` | HoDoKu logical difficulty rating used by `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/PseudoFish/Hodoku> |
-| `hodoku-core-js` | `1.1.0` | Port of above component to JS used in `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/starxmaker/Hodoku> |
+| `hodoku-core-js` | `1.2.0` | Port of above component to JS used in `src\utils\generators\hodoku.ts` | `GPL-3.0` | <https://github.com/starxmaker/Hodoku> |
 
 ## Other shipped runtime packages
 
@@ -34,7 +34,7 @@ The app uses `react-icons@5.6.0` as an MIT-licensed wrapper that exposes icon se
 
 | Import path | Upstream icon family | License | Used icons in this app | Source |
 | --- | --- | --- | --- | --- |
-| `react-icons/md` | Material Design Icons | Apache-2.0 | `MdPlayArrow`, `MdPause`, `MdUndo`, `MdRedo`, `MdHistory`, `MdOutlineInvertColorsOff`, `MdDrawer` | <https://github.com/google/material-design-icons> |
+| `react-icons/md` | Material Design Icons | Apache-2.0 | `MdPlayArrow`, `MdPause`, `MdUndo`, `MdRedo`, `MdHistory`, `MdOutlineInvertColorsOff`, `MdLightbulbOutline`, `MdDrawer` | <https://github.com/google/material-design-icons> |
 | `react-icons/fa` | Font Awesome 5 | CC BY 4.0 | `FaEraser`, `FaGithub` | <https://fontawesome.com/> |
 | `react-icons/fa6` | Font Awesome 6 | CC BY 4.0 | `FaBrush`, `FaWandMagicSparkles` | <https://fontawesome.com/> |
 | `react-icons/gi` | Game Icons | CC BY 3.0 | `GiMagicBroom` | <https://game-icons.net/> |
@@ -67,7 +67,7 @@ The production build also copies this notice file and the GPL text into `dist\` 
 To fetch npm source tarballs for the exact package versions used by this project:
 
 ```bash
-npm pack hodoku-core-js@1.1.0
+npm pack hodoku-core-js@1.2.0
 npm pack react@18.3.1
 npm pack react-dom@18.3.1
 npm pack @khmyznikov/pwa-install@0.6.3

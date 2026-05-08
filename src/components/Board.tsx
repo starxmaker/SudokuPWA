@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react'
-import { MdPlayArrow, MdPause, MdUndo, MdRedo, MdHistory, MdDraw, MdOutlineInvertColorsOff } from 'react-icons/md'
+import { createPortal } from 'react-dom'
+import { MdPlayArrow, MdPause, MdUndo, MdRedo, MdHistory, MdDraw, MdOutlineInvertColorsOff, MdLightbulbOutline } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
 import { FaBrush, FaWandMagicSparkles } from 'react-icons/fa6'
 import { GiMagicBroom } from 'react-icons/gi'
 import { PiFlagCheckeredFill, PiPencilSlash } from 'react-icons/pi'
 import { TbNumbers } from 'react-icons/tb'
 import { generateGame, Grid } from '../utils/sudoku'
+import { analyzeRequiredTechniques, type RequiredTechniques } from '../utils/generators/hodoku'
 import PencilOverlay from './PencilOverlay'
 import {
   type CandidateColorGrid,
@@ -359,6 +361,11 @@ export default function Board({
   const [won, setWon] = useState(false)
   const [finalTime, setFinalTime] = useState(0)
   const [shareCopied, setShareCopied] = useState(false)
+  const [requiredTechniquesOpen, setRequiredTechniquesOpen] = useState(false)
+  const [requiredTechniquesLoading, setRequiredTechniquesLoading] = useState(false)
+  const [requiredTechniquesResult, setRequiredTechniquesResult] = useState<RequiredTechniques | null>(null)
+  const [requiredTechniquesError, setRequiredTechniquesError] = useState<string | null>(null)
+  const [expandedTechniqueSteps, setExpandedTechniqueSteps] = useState<number[]>([])
   const [brushMode, setBrushMode] = useState(false)
   const [drawingMode, setDrawingMode] = useState(false)
   const [candidateToolMode, setCandidateToolMode] = useState(false)
@@ -388,6 +395,7 @@ export default function Board({
   const [lowerPadTransition, setLowerPadTransition] = useState<LowerPadTransition | null>(null)
   const lowerPadTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const drawingPointerIdRef = React.useRef<number | null>(null)
+  const requiredTechniquesAbortRef = React.useRef<AbortController | null>(null)
   const boardRef = React.useRef<HTMLDivElement | null>(null)
   const toolTrayRef = React.useRef<HTMLDivElement | null>(null)
   const [boardPixelWidth, setBoardPixelWidth] = useState<number | null>(null)
@@ -469,6 +477,7 @@ export default function Board({
   }, [activeBrushColor, activeDrawingColor, activePaintingScope])
 
   useEffect(() => () => {
+    requiredTechniquesAbortRef.current?.abort()
     if (toolTrayTimerRef.current !== null) {
       window.clearTimeout(toolTrayTimerRef.current)
     }
@@ -479,6 +488,19 @@ export default function Board({
       window.clearTimeout(lowerPadTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!requiredTechniquesOpen) return
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setRequiredTechniquesOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [requiredTechniquesOpen])
 
   // Win detection
   useEffect(() => {
@@ -568,6 +590,7 @@ export default function Board({
   }
 
   async function newGame(){
+    resetRequiredTechniquesState()
     const { puzzle: p, solution: s } = await generateGame()
     const initial = cloneGrid(p)
     setInitialGrid(initial)
@@ -617,6 +640,7 @@ export default function Board({
 
   function handleRetry() {
     if (!initialGrid) return
+    resetRequiredTechniquesState()
     setInternalPuzzle(cloneGrid(initialGrid))
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setCellColors(emptyCellColors())
@@ -1048,6 +1072,70 @@ export default function Board({
     action()
     event.currentTarget.blur()
     if (haptic) onTriggerHaptic?.()
+  }
+
+  function closeRequiredTechniquesSidebar() {
+    setRequiredTechniquesOpen(false)
+  }
+
+  function resetRequiredTechniquesState() {
+    requiredTechniquesAbortRef.current?.abort()
+    requiredTechniquesAbortRef.current = null
+    setRequiredTechniquesOpen(false)
+    setRequiredTechniquesLoading(false)
+    setRequiredTechniquesResult(null)
+    setRequiredTechniquesError(null)
+    setExpandedTechniqueSteps([])
+  }
+
+  function toggleTechniqueStep(stepNumber: number) {
+    setExpandedTechniqueSteps(prev =>
+      prev.includes(stepNumber)
+        ? prev.filter(currentStepNumber => currentStepNumber !== stepNumber)
+        : [...prev, stepNumber]
+    )
+  }
+
+  async function showRequiredTechniques() {
+    closeCandidateOverlay()
+    requiredTechniquesAbortRef.current?.abort()
+    const controller = new AbortController()
+    requiredTechniquesAbortRef.current = controller
+    setRequiredTechniquesOpen(true)
+    setRequiredTechniquesLoading(true)
+    setRequiredTechniquesResult(null)
+    setRequiredTechniquesError(null)
+    setExpandedTechniqueSteps([])
+
+    try {
+      const analysis = await analyzeRequiredTechniques(internalPuzzle, controller.signal)
+      if (controller.signal.aborted) return false
+
+      if (analysis === null) {
+        setRequiredTechniquesOpen(false)
+        setRequiredTechniquesError(t('board.requiredTechniquesFailed'))
+        return false
+      }
+
+      if (analysis.unsolvable) {
+        setRequiredTechniquesOpen(false)
+        setRequiredTechniquesError(t('board.requiredTechniquesUnsolvable'))
+        return false
+      }
+
+      setRequiredTechniquesResult(analysis)
+      return true
+    } catch {
+      if (controller.signal.aborted) return false
+      setRequiredTechniquesOpen(false)
+      setRequiredTechniquesError(t('board.requiredTechniquesFailed'))
+      return false
+    } finally {
+      if (requiredTechniquesAbortRef.current === controller) {
+        requiredTechniquesAbortRef.current = null
+        setRequiredTechniquesLoading(false)
+      }
+    }
   }
 
   function clearSelectedBrushColors() {
@@ -2005,6 +2093,24 @@ export default function Board({
           </span>
           <span className="eraser-action-button__label">{t('board.singleCandidateToDigit')}</span>
         </button>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.seeRequiredTechniques')}
+          aria-busy={requiredTechniquesLoading}
+          disabled={paused || won || requiredTechniquesLoading}
+          onClick={async (event) => {
+            event.currentTarget.blur()
+            if (haptic) onTriggerHaptic?.()
+            await showRequiredTechniques()
+          }}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <MdLightbulbOutline size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.seeRequiredTechniques')}</span>
+        </button>
       </>
     )
   }
@@ -2457,6 +2563,11 @@ export default function Board({
               </div>
             )}
           </div>
+          {requiredTechniquesError && (
+            <p className="creator-error board-technique-error" role="status">
+              {requiredTechniquesError}
+            </p>
+          )}
           {historyToolMode ? (
             <div className="input-pad-switcher input-pad-switcher--history-actions">
               <div
@@ -2480,7 +2591,7 @@ export default function Board({
           ) : candidateToolMode ? (
             <div className="input-pad-switcher input-pad-switcher--candidate-actions">
               <div
-                className="candidate-action-pad"
+                className="candidate-action-pad candidate-action-pad--single-row"
                 role="toolbar"
                 aria-label={t('board.candidateActions')}
               >
@@ -2612,6 +2723,74 @@ export default function Board({
             })}
           </div>
         </>
+      )}
+      {requiredTechniquesOpen && createPortal(
+        <>
+          <div
+            className="sidebar-backdrop open"
+            data-testid="required-techniques-backdrop"
+            onClick={closeRequiredTechniquesSidebar}
+            aria-hidden="true"
+          />
+          <aside
+            className="sidebar sidebar--techniques open"
+            role="dialog"
+            aria-label={t('board.requiredTechniquesSidebar')}
+            aria-modal="true"
+          >
+            <div className="sidebar-header sidebar-header--title">
+              <h2 className="sidebar-title">{t('board.requiredTechniquesTitle')}</h2>
+              <button
+                type="button"
+                className="sidebar-close"
+                aria-label={t('board.closeRequiredTechniques')}
+                onClick={closeRequiredTechniquesSidebar}
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="2" y1="2" x2="16" y2="16"/>
+                  <line x1="16" y1="2" x2="2" y2="16"/>
+                </svg>
+              </button>
+            </div>
+            <div className="board-techniques-sidebar">
+              {requiredTechniquesLoading ? (
+                <p className="board-techniques-sidebar__summary">{t('board.requiredTechniquesLoading')}</p>
+              ) : requiredTechniquesResult ? (
+                <>
+                  <p className="board-techniques-sidebar__summary">
+                    {t('board.requiredTechniquesCount', { count: requiredTechniquesResult.steps.length })}
+                  </p>
+                  {requiredTechniquesResult.steps.length === 0 ? (
+                    <p className="board-techniques-sidebar__empty">{t('board.requiredTechniquesEmpty')}</p>
+                  ) : (
+                    <ol className="board-techniques-sidebar__list">
+                      {requiredTechniquesResult.steps.map(step => {
+                        const expanded = expandedTechniqueSteps.includes(step.stepNumber)
+                        return (
+                          <li key={`${step.stepNumber}-${step.technique}`} className="board-techniques-step">
+                            <button
+                              type="button"
+                              className="board-techniques-step__button"
+                              aria-expanded={expanded}
+                              onClick={() => toggleTechniqueStep(step.stepNumber)}
+                            >
+                              <span className="board-techniques-step__number">{step.stepNumber}.</span>
+                              <span className="board-techniques-step__technique">{step.technique}</span>
+                            </button>
+                            {expanded && step.notation.length > 0 && (
+                              <p className="board-techniques-step__notation">{step.notation}</p>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ol>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </aside>
+        </>,
+        document.body
       )}
       {won && (
         <div className="victory-overlay">
