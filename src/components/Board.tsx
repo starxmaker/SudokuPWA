@@ -972,10 +972,20 @@ export default function Board({
   function handleMomentaryButtonClick(
     event: React.MouseEvent<HTMLButtonElement>,
     action: () => boolean,
+    alwaysHaptic = false,
   ) {
     const changed = action()
     event.currentTarget.blur()
-    if (changed && haptic) onTriggerHaptic?.()
+    if (haptic && (alwaysHaptic || changed)) onTriggerHaptic?.()
+  }
+
+  function handleModeButtonClick(
+    event: React.MouseEvent<HTMLButtonElement>,
+    action: () => void,
+  ) {
+    action()
+    event.currentTarget.blur()
+    if (haptic) onTriggerHaptic?.()
   }
 
   function clearSelectedBrushColors() {
@@ -1831,7 +1841,7 @@ export default function Board({
           aria-label={t('board.brushColorRemover')}
           aria-pressed={false}
           disabled={paused || won || !selectedHasAnyColors}
-          onClick={(event) => handleMomentaryButtonClick(event, clearSelectedBrushColors)}
+          onClick={(event) => handleMomentaryButtonClick(event, clearSelectedBrushColors, true)}
           tabIndex={tabIndex}
         >
           <span className="brush-color-button__clear-mark" aria-hidden="true">×</span>
@@ -1848,7 +1858,7 @@ export default function Board({
           className="eraser-action-button"
           aria-label={t('board.cleanColors')}
           disabled={paused || won || !hasAnyColors}
-          onClick={(event) => handleMomentaryButtonClick(event, clearAllColors)}
+          onClick={(event) => handleMomentaryButtonClick(event, clearAllColors, true)}
           tabIndex={tabIndex}
         >
           <span className="eraser-action-button__icon" aria-hidden="true">
@@ -1861,7 +1871,7 @@ export default function Board({
           className="eraser-action-button"
           aria-label={t('board.cleanDrawings')}
           disabled={paused || won || !hasAnyDrawings}
-          onClick={(event) => handleMomentaryButtonClick(event, clearAllDrawings)}
+          onClick={(event) => handleMomentaryButtonClick(event, clearAllDrawings, true)}
           tabIndex={tabIndex}
         >
           <span className="eraser-action-button__icon" aria-hidden="true">
@@ -1881,7 +1891,7 @@ export default function Board({
           className="eraser-action-button"
           aria-label={t('board.showAllBasicCandidates')}
           disabled={paused || won || !hasAnyFillableCell}
-          onClick={(event) => handleMomentaryButtonClick(event, fillAllCandidates)}
+          onClick={(event) => handleMomentaryButtonClick(event, fillAllCandidates, true)}
           tabIndex={tabIndex}
         >
           <span className="eraser-action-button__icon" aria-hidden="true">
@@ -1894,7 +1904,7 @@ export default function Board({
           className="eraser-action-button"
           aria-label={t('board.singleCandidateToDigit')}
           disabled={paused || won || !notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))}
-          onClick={(event) => handleMomentaryButtonClick(event, applySingleCandidatesToDigits)}
+          onClick={(event) => handleMomentaryButtonClick(event, applySingleCandidatesToDigits, true)}
           tabIndex={tabIndex}
         >
           <span className="eraser-action-button__icon" aria-hidden="true">
@@ -2274,10 +2284,10 @@ export default function Board({
                 aria-label={t('board.eraserMode')}
                 aria-pressed={eraserMode}
                 disabled={paused || won}
-                onClick={() => {
+                onClick={(event) => handleModeButtonClick(event, () => {
                   setCandidateToolMode(false)
                   setEraserMode(prev => !prev)
-                }}
+                })}
               >
                 {renderToolTrayButtonIcon('eraser')}
               </button>
@@ -2288,7 +2298,7 @@ export default function Board({
                 aria-label={t('board.toggleNotesMode')}
                 aria-pressed={notesMode}
                 disabled={paused || won}
-                onClick={toggleNotesTools}
+                onClick={(event) => handleModeButtonClick(event, toggleNotesTools)}
               >
                 {renderToolTrayButtonIcon('notes')}
               </button>
@@ -2299,7 +2309,7 @@ export default function Board({
                 aria-label={t('board.toggleBrushMode')}
                 aria-pressed={brushMode}
                 disabled={paused || won}
-                onClick={toggleBrushTools}
+                onClick={(event) => handleModeButtonClick(event, toggleBrushTools)}
               >
                 {renderToolTrayButtonIcon('brush')}
               </button>
@@ -2310,7 +2320,7 @@ export default function Board({
                 aria-label={t('board.toggleFreeDrawing')}
                 aria-pressed={drawingMode}
                 disabled={paused || won}
-                onClick={toggleDrawingTools}
+                onClick={(event) => handleModeButtonClick(event, toggleDrawingTools)}
               >
                 {renderToolTrayButtonIcon('drawing')}
               </button>
@@ -2320,7 +2330,7 @@ export default function Board({
                 aria-label={t('board.toggleCandidateTools')}
                 aria-pressed={candidateToolMode}
                 disabled={paused || won}
-                onClick={toggleCandidateTools}
+                onClick={(event) => handleModeButtonClick(event, toggleCandidateTools)}
               >
                 <FaWandMagicSparkles size={20} />
               </button>

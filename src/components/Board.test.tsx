@@ -1360,8 +1360,78 @@ describe('Board haptic callbacks', () => {
     onTriggerHaptic.mockClear()
 
     await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    onTriggerHaptic.mockClear()
     await user.click(cells[2])
 
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onTriggerHaptic when main tool buttons are pressed', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+
+    for (const name of [
+      /eraser mode/i,
+      /toggle notes mode/i,
+      /toggle brush mode/i,
+      /toggle free drawing/i,
+      /toggle candidate tools/i,
+    ]) {
+      onTriggerHaptic.mockClear()
+      await user.click(screen.getByRole('button', { name }))
+      expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+    }
+
+    onTriggerHaptic.mockClear()
+    const notesButton = screen.getByRole('button', { name: /toggle notes mode/i })
+    await user.click(notesButton)
+    await user.click(notesButton)
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(2)
+  })
+
+  it('calls onTriggerHaptic when eraser subtools are pressed', async () => {
+    const onTriggerHaptic = vi.fn()
+    const cellColors = emptyCellColors()
+    cellColors[0][2] = ['rose']
+    saveGame(
+      PUZZLE,
+      PUZZLE,
+      SOLUTION,
+      emptyNotesGrid(),
+      cellColors,
+      emptyCandidateColors(),
+      [{ color: '#111111', points: [[0.1, 0.1], [0.3, 0.3]] }]
+    )
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    onTriggerHaptic.mockClear()
+
+    await user.click(screen.getByRole('button', { name: /clean colors/i }))
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+
+    onTriggerHaptic.mockClear()
+    await user.click(screen.getByRole('button', { name: /clean drawings/i }))
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onTriggerHaptic when candidate subtools are pressed', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    onTriggerHaptic.mockClear()
+
+    await user.click(screen.getByRole('button', { name: /show all basic candidates/i }))
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+    expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
+
+    onTriggerHaptic.mockClear()
+    await user.click(screen.getByRole('button', { name: /single candidate to digit/i }))
     expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
   })
 
