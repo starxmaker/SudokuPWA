@@ -900,7 +900,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   box-shadow:none !important;
   border-radius:0 !important;
   padding:0 !important;
-  z-index:21;
+  z-index:19;
 }
 .brush-candidate-overlay{
   position:fixed;
