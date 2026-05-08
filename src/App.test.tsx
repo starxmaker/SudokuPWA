@@ -293,7 +293,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
   })
 
-  it('identifies candidates from the hamburger menu on the board', async () => {
+  it('identifies candidates from the wand toolbar on the board', async () => {
     saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
     render(<App />)
     const user = userEvent.setup()
@@ -301,15 +301,15 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /continue/i }))
     const cells = await screen.findAllByRole('gridcell')
 
-    await user.click(screen.getByRole('button', { name: /menu/i }))
-    const identifyItem = screen.getByRole('menuitem', { name: /show basic candidates/i })
-    expect(identifyItem).not.toBeDisabled()
-    await user.click(identifyItem)
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    const identifyButton = screen.getByRole('button', { name: /show all basic candidates/i })
+    expect(identifyButton).toBeEnabled()
+    await user.click(identifyButton)
 
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
   })
 
-  it('disables clean painting and clean drawings when there is nothing to clear', async () => {
+  it('disables clean colors and clean drawings when there is nothing to clear', async () => {
     saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
     render(<App />)
     const user = userEvent.setup()
@@ -317,9 +317,9 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /continue/i }))
     await screen.findAllByRole('gridcell')
 
-    await user.click(screen.getByRole('button', { name: /menu/i }))
-    expect(screen.getByRole('menuitem', { name: /clean painting/i })).toBeDisabled()
-    expect(screen.getByRole('menuitem', { name: /clean drawings/i })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    expect(screen.getByRole('button', { name: /clean colors/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /clean drawings/i })).toBeDisabled()
   })
 
   it('toggles painting scope from settings and enables candidate painting', async () => {
