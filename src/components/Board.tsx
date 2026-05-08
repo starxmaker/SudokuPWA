@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { MdPlayArrow, MdPause, MdUndo, MdDraw } from 'react-icons/md'
+import { MdPlayArrow, MdPause, MdUndo, MdDraw, MdOutlineInvertColorsOff } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
-import { FaBrush, FaWandMagic } from 'react-icons/fa6'
+import { FaBrush, FaWandMagicSparkles } from 'react-icons/fa6'
 import { GiMagicBroom } from 'react-icons/gi'
-import { PiFlagCheckeredFill } from 'react-icons/pi'
+import { PiFlagCheckeredFill, PiPencilSlash } from 'react-icons/pi'
 import { TbNumbers } from 'react-icons/tb'
 import { generateGame, Grid } from '../utils/sudoku'
 import PencilOverlay from './PencilOverlay'
@@ -358,6 +358,7 @@ export default function Board({
   const [shareCopied, setShareCopied] = useState(false)
   const [brushMode, setBrushMode] = useState(false)
   const [drawingMode, setDrawingMode] = useState(false)
+  const [candidateToolMode, setCandidateToolMode] = useState(false)
   const [activeBrushColor, setActiveBrushColor] = useState<BrushColorId>(() => {
     const savedColors = savedBrushPrefs?.activeColors
       ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
@@ -584,6 +585,7 @@ export default function Board({
     setWon(false)
     setBrushMode(false)
     setDrawingMode(false)
+    setCandidateToolMode(false)
     setCandidateOverlay(null)
     setToolTrayTransition(null)
     setToolTraySequence(null)
@@ -626,6 +628,7 @@ export default function Board({
     setWon(false)
     setBrushMode(false)
     setDrawingMode(false)
+    setCandidateToolMode(false)
     setCandidateOverlay(null)
     setToolTrayTransition(null)
     setToolTraySequence(null)
@@ -914,6 +917,7 @@ export default function Board({
     closeCandidateOverlay()
     setNotesMode(next)
     setEraserMode(false)
+    setCandidateToolMode(false)
     if (next) {
       setBrushMode(false)
       setDrawingMode(false)
@@ -925,6 +929,7 @@ export default function Board({
     const next = !brushMode
     setBrushMode(next)
     setEraserMode(false)
+    setCandidateToolMode(false)
     if (next) {
       closeCandidateOverlay()
       setNotesMode(false)
@@ -941,11 +946,25 @@ export default function Board({
     closeCandidateOverlay()
     setDrawingMode(next)
     setEraserMode(false)
+    setCandidateToolMode(false)
     if (next) {
       setNotesMode(false)
       setBrushMode(false)
       switchLowerPad('colors', 'forward')
     } else {
+      switchLowerPad('numbers', 'backward')
+    }
+  }
+
+  function toggleCandidateTools() {
+    const next = !candidateToolMode
+    closeCandidateOverlay()
+    setCandidateToolMode(next)
+    setEraserMode(false)
+    if (next) {
+      setNotesMode(false)
+      setBrushMode(false)
+      setDrawingMode(false)
       switchLowerPad('numbers', 'backward')
     }
   }
@@ -1318,6 +1337,85 @@ export default function Board({
     return true
   }
 
+  function applySingleCandidatesToDigits() {
+    const hasSingleCandidate = internalPuzzle.some((row, r) =>
+      row.some((n, c) => !isClue(r, c) && n === 0 && notesRef.current[r][c].length === 1)
+    )
+    if (!hasSingleCandidate) return false
+
+    const historyEntry = makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+      drawingStrokesRef.current,
+      flaggedColorCellRef.current,
+    )
+    const nextPuzzle = cloneGrid(internalPuzzle)
+    const nextNotes = cloneNotesGrid(notesRef.current)
+    const nextCellColors = cloneCellColorsGrid(cellColorsRef.current)
+    const nextCandidateColors = cloneCandidateColorsGrid(candidateColorsRef.current)
+    let changed = false
+    let keepPromoting = true
+
+    while (keepPromoting) {
+      keepPromoting = false
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (isClue(r, c) || nextPuzzle[r][c] !== 0 || nextNotes[r][c].length !== 1) continue
+          const d = nextNotes[r][c][0]
+          nextPuzzle[r][c] = d
+          nextNotes[r][c] = []
+          nextCellColors[r][c] = []
+          nextCandidateColors[r][c] = emptyCandidateColorCell()
+
+          const canValidateEntry = autoCheck && solutionGrid !== null
+          const isCorrectEntry = solutionGrid !== null && d === solutionGrid[r][c]
+          const shouldAutoRemove = autoRemove && (!canValidateEntry || isCorrectEntry)
+          if (shouldAutoRemove) {
+            const boxR = Math.floor(r / 3) * 3
+            const boxC = Math.floor(c / 3) * 3
+            for (let i = 0; i < 9; i++) {
+              if (nextNotes[r][i].length) nextNotes[r][i] = nextNotes[r][i].filter(n => n !== d)
+              if (nextNotes[i][c].length) nextNotes[i][c] = nextNotes[i][c].filter(n => n !== d)
+              nextCandidateColors[r][i][d - 1] = []
+              nextCandidateColors[i][c][d - 1] = []
+            }
+            for (let br = boxR; br < boxR + 3; br++) {
+              for (let bc = boxC; bc < boxC + 3; bc++) {
+                if (nextNotes[br][bc].length) nextNotes[br][bc] = nextNotes[br][bc].filter(n => n !== d)
+                nextCandidateColors[br][bc][d - 1] = []
+              }
+            }
+          }
+
+          changed = true
+          keepPromoting = true
+        }
+      }
+    }
+
+    if (!changed) return false
+    const nextFlaggedColorCell = resolveFlaggedColorCell(
+      flaggedColorCellRef.current,
+      nextCellColors,
+      nextCandidateColors,
+      false,
+      null,
+      firstColorFlagEnabled,
+    )
+    setHistory(h => [...h.slice(-50), historyEntry])
+    flaggedColorCellRef.current = nextFlaggedColorCell
+    setCandidateSelectedDigit(null)
+    setNotes(nextNotes)
+    setCandidateColors(nextCandidateColors)
+    setCellColors(nextCellColors)
+    setFlaggedColorCell(nextFlaggedColorCell)
+    setInternalPuzzle(nextPuzzle)
+    if (setPuzzleProp) setPuzzleProp(nextPuzzle)
+    return true
+  }
+
   function applyBrushColor(colorId: BrushColorId) {
     if (drawingMode) {
       setActiveDrawingColor(colorId)
@@ -1561,7 +1659,7 @@ export default function Board({
     return 'input-pad__panel--fade-out'
   }
 
-  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'undo') {
+  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'candidates' | 'undo') {
     const classes = ['tool-tray__main-button']
     const fadingTarget = stagedToolTarget !== null && button === stagedToolTarget
     if (isToolTrayOpening && isToolTrayFadingOut) {
@@ -1610,8 +1708,12 @@ export default function Board({
     }
   }
 
-  function renderToolIcon(target: ToolTrayAnimatedTarget) {
+  function renderToolTrayButtonIcon(target: 'undo' | 'eraser' | ToolTrayAnimatedTarget) {
     switch (target) {
+      case 'undo':
+        return <MdUndo size={24} />
+      case 'eraser':
+        return <FaEraser size={22} />
       case 'notes':
         return <TbNumbers size={20} />
       case 'brush':
@@ -1733,6 +1835,72 @@ export default function Board({
           tabIndex={tabIndex}
         >
           <span className="brush-color-button__clear-mark" aria-hidden="true">×</span>
+        </button>
+      </>
+    )
+  }
+
+  function renderEraserActionPad(tabIndex?: number) {
+    return (
+      <>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.cleanColors')}
+          disabled={paused || won || !hasAnyColors}
+          onClick={(event) => handleMomentaryButtonClick(event, clearAllColors)}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <MdOutlineInvertColorsOff size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.cleanColors')}</span>
+        </button>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.cleanDrawings')}
+          disabled={paused || won || !hasAnyDrawings}
+          onClick={(event) => handleMomentaryButtonClick(event, clearAllDrawings)}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <PiPencilSlash size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.cleanDrawings')}</span>
+        </button>
+      </>
+    )
+  }
+
+  function renderCandidateActionPad(tabIndex?: number) {
+    return (
+      <>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.showAllBasicCandidates')}
+          disabled={paused || won || !hasAnyFillableCell}
+          onClick={(event) => handleMomentaryButtonClick(event, fillAllCandidates)}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <FaWandMagicSparkles size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.showAllBasicCandidates')}</span>
+        </button>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.singleCandidateToDigit')}
+          disabled={paused || won || !notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))}
+          onClick={(event) => handleMomentaryButtonClick(event, applySingleCandidatesToDigits)}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <FaWandMagicSparkles size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.singleCandidateToDigit')}</span>
         </button>
       </>
     )
@@ -1985,10 +2153,10 @@ export default function Board({
             <div className="tool-tray__measure" aria-hidden="true">
               <div className="num-pad-toolbar tool-tray__panel">
                 <button type="button" className="num-key clear" tabIndex={-1}>
-                  <MdUndo size={24} />
+                  {renderToolTrayButtonIcon('undo')}
                 </button>
                 <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
-                  <FaEraser size={22} />
+                  {renderToolTrayButtonIcon('eraser')}
                 </button>
                 <button
                   ref={measureMainNotesButtonRef}
@@ -1996,7 +2164,7 @@ export default function Board({
                   className="num-key notes-toggle"
                   tabIndex={-1}
                 >
-                  <TbNumbers size={20} />
+                  {renderToolTrayButtonIcon('notes')}
                 </button>
                 <button
                   ref={measureMainBrushButtonRef}
@@ -2004,7 +2172,7 @@ export default function Board({
                   className="num-key brush-toggle"
                   tabIndex={-1}
                 >
-                  <FaBrush size={20} />
+                  {renderToolTrayButtonIcon('brush')}
                 </button>
                 <button
                   ref={measureMainDrawingButtonRef}
@@ -2012,7 +2180,14 @@ export default function Board({
                   className="num-key drawing-toggle"
                   tabIndex={-1}
                 >
-                  <MdDraw size={22} />
+                  {renderToolTrayButtonIcon('drawing')}
+                </button>
+                <button
+                  type="button"
+                  className="num-key candidates-toggle"
+                  tabIndex={-1}
+                >
+                  <FaWandMagicSparkles size={20} />
                 </button>
               </div>
               <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
@@ -2022,11 +2197,10 @@ export default function Board({
                   className="num-key notes-toggle notes-toggle--active"
                   tabIndex={-1}
                 >
-                  <TbNumbers size={20} />
+                  {renderToolTrayButtonIcon('notes')}
                 </button>
                 <div className="tool-tray__content tool-tray__content--notes">
                   <button type="button" className="num-key clear" tabIndex={-1}><MdUndo size={24} /></button>
-                  <button type="button" className="num-key clear" tabIndex={-1}><FaWandMagic size={20} /></button>
                 </div>
               </div>
               <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
@@ -2036,11 +2210,11 @@ export default function Board({
                   className="num-key brush-toggle brush-toggle--active"
                   tabIndex={-1}
                 >
-                  <FaBrush size={20} />
+                  {renderToolTrayButtonIcon('brush')}
                 </button>
                 <div className="tool-tray__content tool-tray__content--brush">
                   <button type="button" className="num-key clear" tabIndex={-1}><MdUndo size={24} /></button>
-                  <button type="button" className="num-key clear" tabIndex={-1}><TbNumbers size={18} /></button>
+                  <button type="button" className="num-key clear" tabIndex={-1}>{renderToolTrayButtonIcon('notes')}</button>
                   <button type="button" className="num-key clear" tabIndex={-1}><PiFlagCheckeredFill size={18} /></button>
                   <button type="button" className="num-key clear" tabIndex={-1}><GiMagicBroom size={18} /></button>
                 </div>
@@ -2052,7 +2226,7 @@ export default function Board({
                   className="num-key drawing-toggle drawing-toggle--active"
                   tabIndex={-1}
                 >
-                  <MdDraw size={22} />
+                  {renderToolTrayButtonIcon('drawing')}
                 </button>
                 <div className="tool-tray__content tool-tray__content--drawing">
                   <button type="button" className="num-key clear" tabIndex={-1}><MdUndo size={24} /></button>
@@ -2076,7 +2250,7 @@ export default function Board({
                     : 'translate(0, 0)',
                 }}
               >
-                {renderToolIcon(toolTraySequence.target)}
+                {renderToolTrayButtonIcon(toolTraySequence.target)}
               </button>
             )}
             <div
@@ -2092,7 +2266,7 @@ export default function Board({
                 disabled={undoDisabled}
                 onClick={(event) => handleMomentaryButtonClick(event, undo)}
               >
-                <MdUndo size={24} />
+                {renderToolTrayButtonIcon('undo')}
               </button>
               <button
                 className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''} ${mainToolButtonClass('clear')}`}
@@ -2100,9 +2274,12 @@ export default function Board({
                 aria-label={t('board.eraserMode')}
                 aria-pressed={eraserMode}
                 disabled={paused || won}
-                onClick={() => setEraserMode(prev => !prev)}
+                onClick={() => {
+                  setCandidateToolMode(false)
+                  setEraserMode(prev => !prev)
+                }}
               >
-                <FaEraser size={22} />
+                {renderToolTrayButtonIcon('eraser')}
               </button>
               <button
                 type="button"
@@ -2113,7 +2290,7 @@ export default function Board({
                 disabled={paused || won}
                 onClick={toggleNotesTools}
               >
-                <TbNumbers size={20} />
+                {renderToolTrayButtonIcon('notes')}
               </button>
               <button
                 type="button"
@@ -2124,7 +2301,7 @@ export default function Board({
                 disabled={paused || won}
                 onClick={toggleBrushTools}
               >
-                <FaBrush size={20} />
+                {renderToolTrayButtonIcon('brush')}
               </button>
               <button
                 type="button"
@@ -2135,7 +2312,17 @@ export default function Board({
                 disabled={paused || won}
                 onClick={toggleDrawingTools}
               >
-                <MdDraw size={22} />
+                {renderToolTrayButtonIcon('drawing')}
+              </button>
+              <button
+                type="button"
+                className={`num-key candidates-toggle${candidateToolMode ? ' candidates-toggle--active' : ''} ${mainToolButtonClass('candidates')}`}
+                aria-label={t('board.toggleCandidateTools')}
+                aria-pressed={candidateToolMode}
+                disabled={paused || won}
+                onClick={toggleCandidateTools}
+              >
+                <FaWandMagicSparkles size={20} />
               </button>
             </div>
             {toolTrayOverlayView === 'main' && (
@@ -2145,24 +2332,47 @@ export default function Board({
                 aria-hidden="true"
               >
                 <button type="button" className="num-key clear" tabIndex={-1}>
-                  <MdUndo size={24} />
+                  {renderToolTrayButtonIcon('undo')}
                 </button>
                 <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
-                  <FaEraser size={22} />
+                  {renderToolTrayButtonIcon('eraser')}
                 </button>
                 <button type="button" className="num-key notes-toggle" tabIndex={-1}>
-                  <TbNumbers size={20} />
+                  {renderToolTrayButtonIcon('notes')}
                 </button>
                 <button type="button" className="num-key brush-toggle" tabIndex={-1}>
-                  <FaBrush size={20} />
+                  {renderToolTrayButtonIcon('brush')}
                 </button>
                 <button type="button" className="num-key drawing-toggle" tabIndex={-1}>
-                  <MdDraw size={22} />
+                  {renderToolTrayButtonIcon('drawing')}
+                </button>
+                <button type="button" className="num-key candidates-toggle" tabIndex={-1}>
+                  <FaWandMagicSparkles size={20} />
                 </button>
               </div>
             )}
           </div>
-          {pencilMode ? (
+          {eraserMode ? (
+            <div className="input-pad-switcher input-pad-switcher--eraser-actions">
+              <div
+                className="eraser-action-pad"
+                role="toolbar"
+                aria-label={t('board.eraserActions')}
+              >
+                {renderEraserActionPad()}
+              </div>
+            </div>
+          ) : candidateToolMode ? (
+            <div className="input-pad-switcher input-pad-switcher--candidate-actions">
+              <div
+                className="candidate-action-pad"
+                role="toolbar"
+                aria-label={t('board.candidateActions')}
+              >
+                {renderCandidateActionPad()}
+              </div>
+            </div>
+          ) : pencilMode ? (
             brushMode || drawingMode ? (
               <div className="input-pad-switcher input-pad-switcher--colors">
                 <div

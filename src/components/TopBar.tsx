@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { FaEraser } from 'react-icons/fa'
-import { MdOutlineFormatColorReset } from 'react-icons/md'
-import { TbNumbers } from 'react-icons/tb'
 import { useI18n } from '../utils/i18n'
 
 type Props = {
@@ -12,12 +9,6 @@ type Props = {
   onOpenInfo?: () => void
   onShare?: () => void
   onRestart?: () => void
-  onClearPainting?: () => void
-  canClearPainting?: boolean
-  onClearDrawings?: () => void
-  canClearDrawings?: boolean
-  onIdentifyCandidates?: () => void
-  canIdentifyCandidates?: boolean
   title?: string
 }
 
@@ -28,12 +19,6 @@ export default function TopBar({
   onOpenInfo,
   onShare,
   onRestart,
-  onClearPainting,
-  canClearPainting = false,
-  onClearDrawings,
-  canClearDrawings = false,
-  onIdentifyCandidates,
-  canIdentifyCandidates = false,
   title,
 }: Props) {
   const { t } = useI18n()
@@ -77,36 +62,6 @@ export default function TopBar({
               <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
             </svg>
             {t('topBar.restart')}
-          </button>
-        )}
-        {onClearPainting && (
-          <button
-            role="menuitem"
-            disabled={!canClearPainting}
-            onClick={() => { setMenuOpen(false); onClearPainting() }}
-          >
-            <MdOutlineFormatColorReset size={20} style={{flexShrink:0}} />
-            {t('topBar.cleanPainting')}
-          </button>
-        )}
-        {onClearDrawings && (
-          <button
-            role="menuitem"
-            disabled={!canClearDrawings}
-            onClick={() => { setMenuOpen(false); onClearDrawings() }}
-          >
-            <FaEraser size={18} style={{flexShrink:0}} />
-            {t('topBar.cleanDrawings')}
-          </button>
-        )}
-        {onIdentifyCandidates && (
-          <button
-            role="menuitem"
-            disabled={!canIdentifyCandidates}
-            onClick={() => { setMenuOpen(false); onIdentifyCandidates() }}
-          >
-            <TbNumbers size={20} style={{flexShrink:0}} />
-            {t('topBar.showBasicCandidates')}
           </button>
         )}
         {onOpenInfo && (

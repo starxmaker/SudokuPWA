@@ -316,12 +316,6 @@ export default function App(){
   const [gameId, setGameId] = useState(0)
   const [gameCompleted, setGameCompleted] = useState<boolean>(() => loadCompleted())
   const boardRestartRef = useRef<(() => void) | null>(null)
-  const clearColorsRef = useRef<(() => void) | null>(null)
-  const clearDrawingsRef = useRef<(() => void) | null>(null)
-  const identifyCandidatesRef = useRef<(() => void) | null>(null)
-  const [canClearPainting, setCanClearPainting] = useState(false)
-  const [canClearDrawings, setCanClearDrawings] = useState(false)
-  const [canIdentifyCandidates, setCanIdentifyCandidates] = useState(false)
   const [paintingScope, setPaintingScope] = useState<'digit' | 'candidate'>(() =>
     loadBrushPrefs()?.candidateMode ? 'candidate' : DEFAULT_PAINTING_SCOPE
   )
@@ -352,9 +346,6 @@ export default function App(){
 
   useEffect(() => {
     if (showHome || creatorMode) {
-      setCanClearPainting(false)
-      setCanClearDrawings(false)
-      setCanIdentifyCandidates(false)
       setInfoOpen(false)
     }
   }, [showHome, creatorMode])
@@ -554,12 +545,6 @@ export default function App(){
         onOpenInfo={showBoard && !!initialGrid ? () => setInfoOpen(true) : undefined}
         onShare={showBoard && !!initialGrid ? handleShare : undefined}
         onRestart={showBoard && !!initialGrid ? () => boardRestartRef.current?.() : undefined}
-        onClearPainting={showBoard ? () => clearColorsRef.current?.() : undefined}
-        canClearPainting={canClearPainting}
-        onClearDrawings={showBoard ? () => clearDrawingsRef.current?.() : undefined}
-        canClearDrawings={canClearDrawings}
-        onIdentifyCandidates={showBoard ? () => identifyCandidatesRef.current?.() : undefined}
-        canIdentifyCandidates={canIdentifyCandidates}
         title={t('app.title')}
       />
       <div className="app">
@@ -598,15 +583,9 @@ export default function App(){
             coordinateLabels={coordinateLabels}
             firstColorFlag={firstColorFlag}
             restartRef={boardRestartRef}
-            clearColorsRef={clearColorsRef}
-            clearDrawingsRef={clearDrawingsRef}
-            identifyCandidatesRef={identifyCandidatesRef}
-            onClearPaintingAvailabilityChange={setCanClearPainting}
-            onClearDrawingsAvailabilityChange={setCanClearDrawings}
-             onIdentifyCandidatesAvailabilityChange={setCanIdentifyCandidates}
-             paintingScope={paintingScope}
-             puzzleMetadata={puzzleMetadata}
-           />
+            paintingScope={paintingScope}
+            puzzleMetadata={puzzleMetadata}
+            />
          )}
          <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} onReset={handleResetSettings} theme={theme} setTheme={(t)=> setTheme(t)} autoCheck={autoCheck} setAutoCheck={setAutoCheck} autoRemove={autoRemove} setAutoRemove={setAutoRemove} haptic={haptic} setHaptic={setHaptic} pencilMode={pencilMode} setPencilMode={setPencilMode} coordinateLabels={coordinateLabels} setCoordinateLabels={setCoordinateLabels} paintingScope={paintingScope} setPaintingScope={setPaintingScope} firstColorFlag={firstColorFlag} setFirstColorFlag={setFirstColorFlag} languageSetting={languageSetting} setLanguageSetting={setLanguageSetting} />
          <PuzzleInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} metadata={puzzleMetadata} />
