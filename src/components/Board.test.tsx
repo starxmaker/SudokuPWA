@@ -1235,6 +1235,38 @@ describe('Board haptic callbacks', () => {
     expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
   })
 
+  it('calls onTriggerHaptic once for a regular touch digit entry', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    onTriggerHaptic.mockClear()
+
+    const btn7 = screen.getByRole('button', { name: /^7,/ })
+    fireEvent.pointerDown(btn7, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.pointerUp(btn7, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.click(btn7)
+
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onTriggerHaptic on touch when entering the last remaining digit', async () => {
+    const onTriggerHaptic = vi.fn()
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    await user.click(cells[2])
+    onTriggerHaptic.mockClear()
+
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    fireEvent.pointerDown(btn4, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.pointerUp(btn4, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.click(btn4)
+
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
+  })
+
   it('calls onTriggerHaptic when erasing a cell via eraser mode', async () => {
     const onTriggerHaptic = vi.fn()
     render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
@@ -1293,9 +1325,10 @@ describe('Board haptic callbacks', () => {
 })
 
 describe('Board numpad touch handling', () => {
-  // Simulate what iOS does: fire pointerdown (touch) then a ghost click on the same button.
+  // Simulate what iOS does: fire pointerdown/pointerup (touch) then a ghost click on the same button.
   function touchThenGhostClick(btn: HTMLElement) {
-    fireEvent.pointerDown(btn, { pointerType: 'touch', bubbles: true })
+    fireEvent.pointerDown(btn, { pointerType: 'touch', pointerId: 1, bubbles: true })
+    fireEvent.pointerUp(btn, { pointerType: 'touch', pointerId: 1, bubbles: true })
     fireEvent.click(btn)
   }
 
@@ -1342,6 +1375,21 @@ describe('Board numpad touch handling', () => {
     // Now a plain mouse click (from userEvent) should toggle it off
     await user.click(btn4)
     await waitFor(() => expect(cells[2].querySelector('.cell-notes')).toBeNull())
+  })
+
+  it('mouse click still works after a last-remaining touch digit entry', async () => {
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[2])
+    const btn4 = screen.getByRole('button', { name: /^4,/ })
+    touchThenGhostClick(btn4)
+    await waitFor(() => expect(cells[2]).toHaveTextContent('4'))
+
+    await user.click(cells[4])
+    await user.click(screen.getByRole('button', { name: /^7,/ }))
+    await waitFor(() => expect(cells[4]).toHaveTextContent('7'))
   })
 })
 

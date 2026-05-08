@@ -345,8 +345,11 @@ export default function Board({
     drawingStrokes: DrawingStroke[]
     flaggedColorCell: FlaggedColorCell
   }[]>([])
-  // Guards against touch ghost-click: onPointerDown stores 'ok'|'error', onClick fires haptic then skips apply.
-  const touchFiredRef = React.useRef<'ok' | 'error' | null>(null)
+  // Guards against touch ghost-click: onPointerDown applies immediately, and onClick skips re-applying.
+  // For the last remaining digit, the button disables before click arrives, so haptic is deferred to pointerup.
+  const touchFiredRef = React.useRef<
+    'ok' | 'error' | 'pending-ok' | 'pending-error' | 'handled-ok' | 'handled-error' | null
+  >(null)
   const [elapsed, setElapsed] = useState(() => loadElapsed())
   const [paused, setPaused] = useState(false)
   const [manualPause, setManualPause] = useState(false)
@@ -1642,9 +1645,33 @@ export default function Board({
             onPointerDown={(e) => {
               if (interactionDisabled) return
               if (e.pointerType === 'touch') {
+                const shouldHandleHapticOnPointerUp = remaining[d] === 1
+                if (shouldHandleHapticOnPointerUp && typeof e.currentTarget.setPointerCapture === 'function') {
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                }
                 const isError = applyDigit(d)
-                touchFiredRef.current = isError ? 'error' : 'ok'
+                touchFiredRef.current = shouldHandleHapticOnPointerUp
+                  ? (isError ? 'pending-error' : 'pending-ok')
+                  : (isError ? 'error' : 'ok')
               }
+            }}
+            onPointerUp={(e) => {
+              if (interactionDisabled || e.pointerType !== 'touch') return
+              const result = touchFiredRef.current
+              if (result !== 'pending-ok' && result !== 'pending-error') return
+              touchFiredRef.current = result === 'pending-error' ? 'handled-error' : 'handled-ok'
+              if (haptic) {
+                if (result === 'pending-error') onTriggerErrorHaptic?.()
+                else onTriggerHaptic?.()
+              }
+              if (typeof e.currentTarget.hasPointerCapture === 'function' && e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId)
+              }
+              window.setTimeout(() => {
+                if (touchFiredRef.current === 'handled-ok' || touchFiredRef.current === 'handled-error') {
+                  touchFiredRef.current = null
+                }
+              }, 0)
             }}
             onClick={() => {
               if (interactionDisabled) {
@@ -1655,7 +1682,7 @@ export default function Board({
               if (touchFiredRef.current !== null) {
                 const result = touchFiredRef.current
                 touchFiredRef.current = null
-                if (haptic) {
+                if (haptic && (result === 'ok' || result === 'error')) {
                   if (result === 'error') onTriggerErrorHaptic?.()
                   else onTriggerHaptic?.()
                 }

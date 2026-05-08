@@ -31,9 +31,6 @@ You can try it  [here](https://starxmaker.github.io/SudokuPWA/)
 - No score or time tracking
 - No hints
 
-## TODO
-- i18n
-- Better Difficulty selection UI with notes about times on nightmare and diabolical difficulties
 
 ## License and source availability
 
