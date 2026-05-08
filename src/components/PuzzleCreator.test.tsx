@@ -1,11 +1,15 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import PuzzleCreator from './PuzzleCreator'
 
 const hodokuMocks = vi.hoisted(() => ({
   verifyPuzzle: vi.fn(),
+}))
+
+const clipboardMocks = vi.hoisted(() => ({
+  readClipboardText: vi.fn(),
 }))
 
 vi.mock('../utils/generators/hodoku', async (importOriginal) => {
@@ -15,6 +19,10 @@ vi.mock('../utils/generators/hodoku', async (importOriginal) => {
     verifyPuzzle: hodokuMocks.verifyPuzzle,
   }
 })
+
+vi.mock('../utils/clipboard', () => ({
+  readClipboardText: clipboardMocks.readClipboardText,
+}))
 
 const UNIQUE_PUZZLE: number[][] = [
   [5,3,0,0,7,0,0,0,0],
@@ -52,6 +60,8 @@ const UNIQUE_SOLUTION: number[][] = [
   [3, 4, 5, 2, 8, 6, 1, 7, 9],
 ]
 
+const UNIQUE_PUZZLE_CLUES = UNIQUE_PUZZLE.flat().filter(value => value !== 0).length
+
 describe('PuzzleCreator', () => {
   beforeEach(() => {
     hodokuMocks.verifyPuzzle.mockReset()
@@ -60,17 +70,100 @@ describe('PuzzleCreator', () => {
       difficulty: 'VERY_HARD',
       score: 1700,
     })
+    clipboardMocks.readClipboardText.mockReset()
+    clipboardMocks.readClipboardText.mockResolvedValue('')
   })
 
   it('renders the simplified creation tools', async () => {
     render(<PuzzleCreator onStart={vi.fn()} />)
     expect(screen.getByRole('grid', { name: /created puzzle grid/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /import from clipboard/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /eraser mode/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /confirm created puzzle/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /toggle notes mode/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /toggle brush mode/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /toggle free drawing/i })).toBeNull()
+  })
+
+  it.each([
+    ['dots', '.'],
+    ['zeros', '0'],
+    ['dashes', '-'],
+  ])('imports a %s-based puzzle from longer clipboard text', async (_label, emptyCell) => {
+    const user = userEvent.setup()
+    const encoded = UNIQUE_PUZZLE
+      .flat()
+      .map(value => (value === 0 ? emptyCell : String(value)))
+      .join('')
+
+    clipboardMocks.readClipboardText.mockResolvedValueOnce(`notes before\n${encoded}\nnotes after`)
+
+    render(<PuzzleCreator onStart={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /import from clipboard/i }))
+
+    await waitFor(() => {
+      const cells = screen.getAllByRole('gridcell')
+      expect(cells[0]).toHaveTextContent('5')
+      expect(cells[1]).toHaveTextContent('3')
+      expect(cells[4]).toHaveTextContent('7')
+    })
+    expect(screen.getByText(new RegExp(`${UNIQUE_PUZZLE_CLUES} clues`, 'i'))).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('shows an error when the clipboard does not contain a puzzle', async () => {
+    const user = userEvent.setup()
+    clipboardMocks.readClipboardText.mockResolvedValueOnce('meeting notes without a sudoku')
+
+    render(<PuzzleCreator onStart={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /import from clipboard/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/clipboard does not contain a puzzle/i)
+  })
+
+  it('opens a paste fallback dialog when direct clipboard access is unavailable', async () => {
+    const user = userEvent.setup()
+    clipboardMocks.readClipboardText.mockResolvedValueOnce(null)
+
+    render(<PuzzleCreator onStart={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /import from clipboard/i }))
+
+    const dialog = await screen.findByRole('dialog', { name: /paste puzzle text/i })
+    expect(within(dialog).getByRole('textbox', { name: /puzzle text/i })).toBeInTheDocument()
+  })
+
+  it('imports a puzzle from pasted text when clipboard reads are blocked', async () => {
+    const user = userEvent.setup()
+    const encoded = UNIQUE_PUZZLE
+      .flat()
+      .map(value => (value === 0 ? '.' : String(value)))
+      .join('')
+
+    clipboardMocks.readClipboardText.mockRejectedValueOnce(new Error('NotAllowedError'))
+
+    render(<PuzzleCreator onStart={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /import from clipboard/i }))
+
+    const dialog = await screen.findByRole('dialog', { name: /paste puzzle text/i })
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /puzzle text/i }), {
+      target: { value: `notes before\n${encoded}\nnotes after` },
+    })
+
+    await user.click(within(dialog).getByRole('button', { name: /import pasted text/i }))
+
+    await waitFor(() => {
+      const cells = screen.getAllByRole('gridcell')
+      expect(cells[0]).toHaveTextContent('5')
+      expect(cells[1]).toHaveTextContent('3')
+      expect(cells[4]).toHaveTextContent('7')
+      expect(screen.queryByRole('dialog', { name: /paste puzzle text/i })).toBeNull()
+    })
+    expect(screen.getByText(new RegExp(`${UNIQUE_PUZZLE_CLUES} clues`, 'i'))).toBeInTheDocument()
   })
 
   it('starts the game when the created puzzle has a unique solution', async () => {

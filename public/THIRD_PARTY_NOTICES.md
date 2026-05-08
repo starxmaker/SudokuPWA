@@ -30,6 +30,7 @@ The app uses `react-icons@5.6.0` as an MIT-licensed wrapper that exposes icon se
 | `react-icons/fa` | Font Awesome 5 | CC BY 4.0 | `FaEraser`, `FaGithub` | <https://fontawesome.com/> |
 | `react-icons/fa6` | Font Awesome 6 | CC BY 4.0 | `FaBrush`, `FaWandMagicSparkles` | <https://fontawesome.com/> |
 | `react-icons/gi` | Game Icons | CC BY 3.0 | `GiMagicBroom` | <https://game-icons.net/> |
+| `react-icons/lu` | Lucide | ISC | `LuClipboardList` | <https://lucide.dev/> |
 | `react-icons/pi` | Phosphor Icons | MIT | `PiFlagCheckeredFill`, `PiPencilSlash` | <https://github.com/phosphor-icons/core> |
 | `react-icons/tb` | Tabler Icons | MIT | `TbNumbers` | <https://github.com/tabler/tabler-icons> |
 | `react-icons/fc` | Flat Color Icons | MIT | `FcOk` | <https://github.com/icons8/flat-color-icons> |

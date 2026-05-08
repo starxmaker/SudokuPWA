@@ -1441,6 +1441,24 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:1600;padding:16px;overflow:auto}
 .settings-panel{background:var(--card);color:var(--text);padding:16px;border-radius:12px;min-width:280px;max-width:90%;max-height:calc(100vh - 32px);overflow:auto}
 .settings-panel button{min-width:84px}
+.creator-clipboard-help{margin:0 0 12px;color:var(--muted)}
+.creator-clipboard-input{
+  width:100%;
+  min-height:160px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid var(--cell-inner);
+  background:var(--card);
+  color:var(--text);
+  font:inherit;
+  resize:vertical;
+}
+.creator-clipboard-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:14px;
+}
 
 /* Generator selector */
 .generator-select{
