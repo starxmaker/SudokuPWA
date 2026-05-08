@@ -3,8 +3,13 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import Board from './Board'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { emptyCandidateColors, emptyCellColors, saveGame } from '../utils/gameStorage'
+import { emptyCandidateColors, emptyCellColors, encodeGrid, saveGame } from '../utils/gameStorage'
 import { analyzeRequiredTechniques } from '../utils/generators/hodoku'
+import { LocalizationProvider, LANGUAGE_STORAGE_KEY } from '../utils/i18n'
+
+const clipboardMocks = vi.hoisted(() => ({
+  writeClipboardText: vi.fn(),
+}))
 
 // Mock generateGame so Board tests don't run the real (slow) hodoku generator
 vi.mock('../utils/sudoku', async (importOriginal) => {
@@ -33,11 +38,17 @@ vi.mock('../utils/generators/hodoku', () => ({
   analyzeRequiredTechniques: vi.fn(),
 }))
 
+vi.mock('../utils/clipboard', () => ({
+  writeClipboardText: clipboardMocks.writeClipboardText,
+}))
+
 const mockedAnalyzeRequiredTechniques = vi.mocked(analyzeRequiredTechniques)
 
 beforeEach(() => {
+  vi.restoreAllMocks()
   localStorage.clear()
   mockedAnalyzeRequiredTechniques.mockReset()
+  clipboardMocks.writeClipboardText.mockReset()
 })
 
 // A valid, fully-solved sudoku grid (Wikipedia example)
@@ -358,6 +369,9 @@ describe('Board component', () => {
   })
 
   it('shows required techniques in a sidebar and reveals notation on click', async () => {
+    clipboardMocks.writeClipboardText.mockResolvedValue(undefined)
+    const open = vi.fn().mockReturnValue(null)
+    vi.spyOn(window, 'open').mockImplementation(open as typeof window.open)
     mockedAnalyzeRequiredTechniques.mockResolvedValue({
       difficulty: 'Extreme',
       score: 3018,
@@ -370,7 +384,12 @@ describe('Board component', () => {
       ],
     })
 
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en')
+    render(
+      <LocalizationProvider>
+        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
+      </LocalizationProvider>
+    )
     await waitForBoard()
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
@@ -388,11 +407,157 @@ describe('Board component', () => {
     expect(within(sidebar).getByText('2 techniques')).toBeInTheDocument()
     expect(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i })).toHaveAttribute('aria-expanded', 'false')
     expect(within(sidebar).queryByText('r5c5=9')).toBeNull()
+    expect(within(sidebar).queryByRole('button', { name: /open on chatgpt/i })).toBeNull()
 
     await user.click(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i }))
 
     expect(within(sidebar).getByText('r5c5=9')).toBeInTheDocument()
     expect(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i })).toHaveAttribute('aria-expanded', 'true')
+    expect(within(sidebar).queryAllByRole('button', { name: /copy prompt/i })).toHaveLength(1)
+    expect(within(sidebar).queryAllByRole('button', { name: /open on chatgpt/i })).toHaveLength(1)
+
+    await user.click(within(sidebar).getByRole('button', { name: /copy prompt/i }))
+
+    const expectedPrompt = [
+      'Explain how to apply this Sudoku technique to the current puzzle state. Focus on this move only, not the full solve.',
+      '',
+      'Current puzzle state (single-line grid):',
+      encodeGrid(expectedPuzzleState),
+      '',
+      'Technique:',
+      'Hidden Single',
+      '',
+      'Notation:',
+      'r5c5=9',
+      '',
+      'Please explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.',
+    ].join('\n')
+
+    await waitFor(() => expect(clipboardMocks.writeClipboardText).toHaveBeenCalledWith(expectedPrompt))
+    expect(open).not.toHaveBeenCalled()
+
+    clipboardMocks.writeClipboardText.mockClear()
+
+    await user.click(within(sidebar).getByRole('button', { name: /open on chatgpt/i }))
+
+    await waitFor(() => {
+      expect(clipboardMocks.writeClipboardText).toHaveBeenCalledWith(expectedPrompt)
+      expect(open).toHaveBeenCalledWith(
+        `https://chatgpt.com/?prompt=${encodeURIComponent(expectedPrompt)}`,
+        '_blank',
+        'noopener,noreferrer'
+      )
+    })
+    expect(screen.queryByText(/failed to open chatgpt with the hint prompt/i)).toBeNull()
+  })
+
+  it('opens ChatGPT before clipboard copying settles', async () => {
+    let resolveClipboardWrite: (() => void) | null = null
+    clipboardMocks.writeClipboardText.mockImplementation(() => new Promise<void>(resolve => {
+      resolveClipboardWrite = resolve
+    }))
+    const open = vi.fn().mockReturnValue(null)
+    vi.spyOn(window, 'open').mockImplementation(open as typeof window.open)
+    mockedAnalyzeRequiredTechniques.mockResolvedValue({
+      difficulty: 'Extreme',
+      score: 3018,
+      givenUp: false,
+      bruteForced: false,
+      unsolvable: false,
+      steps: [
+        { stepNumber: 1, technique: 'Hidden Single', notation: 'r5c5=9' },
+      ],
+    })
+
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en')
+    render(
+      <LocalizationProvider>
+        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
+      </LocalizationProvider>
+    )
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+
+    const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
+    await user.click(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i }))
+
+    const expectedPrompt = [
+      'Explain how to apply this Sudoku technique to the current puzzle state. Focus on this move only, not the full solve.',
+      '',
+      'Current puzzle state (single-line grid):',
+      encodeGrid(PUZZLE_WITH_7_REMAINING),
+      '',
+      'Technique:',
+      'Hidden Single',
+      '',
+      'Notation:',
+      'r5c5=9',
+      '',
+      'Please explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.',
+    ].join('\n')
+
+    await user.click(within(sidebar).getByRole('button', { name: /open on chatgpt/i }))
+
+    expect(open).toHaveBeenCalledWith(
+      `https://chatgpt.com/?prompt=${encodeURIComponent(expectedPrompt)}`,
+      '_blank',
+      'noopener,noreferrer'
+    )
+    expect(clipboardMocks.writeClipboardText).toHaveBeenCalledWith(expectedPrompt)
+
+    await act(async () => {
+      resolveClipboardWrite?.()
+    })
+  })
+
+  it('reuses cached required techniques until the board changes', async () => {
+    mockedAnalyzeRequiredTechniques.mockResolvedValue({
+      difficulty: 'Extreme',
+      score: 3018,
+      givenUp: false,
+      bruteForced: false,
+      unsolvable: false,
+      steps: [
+        { stepNumber: 1, technique: 'Hidden Single', notation: 'r1c3=4' },
+      ],
+    })
+
+    render(
+      <LocalizationProvider>
+        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
+      </LocalizationProvider>
+    )
+    await waitForBoard()
+    const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
+    const initialPuzzleState = PUZZLE_WITH_7_REMAINING.map(row => [...row])
+    const updatedPuzzleState = PUZZLE_WITH_7_REMAINING.map(row => [...row])
+    updatedPuzzleState[0][2] = 4
+
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+
+    await screen.findByRole('dialog', { name: /required techniques/i })
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(1)
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(initialPuzzleState, expect.any(AbortSignal))
+
+    await user.click(screen.getByRole('button', { name: /close required techniques/i }))
+    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+
+    await screen.findByRole('dialog', { name: /required techniques/i })
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: /close required techniques/i }))
+    await user.click(cells[2])
+    fireEvent.keyDown(window, { key: '4' })
+    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+
+    await screen.findByRole('dialog', { name: /required techniques/i })
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(2)
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(updatedPuzzleState, expect.any(AbortSignal))
   })
 
   it('shows an error when hodoku reports the current board is unsolvable', async () => {
@@ -412,8 +577,39 @@ describe('Board component', () => {
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
 
-    expect(await screen.findByText(/this puzzle is not solvable/i)).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: /required techniques/i })).toBeNull()
+    const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
+    expect(within(sidebar).getByText(/this puzzle is not solvable/i)).toBeInTheDocument()
+  })
+
+  it('shows copy errors inside the required techniques sidebar', async () => {
+    clipboardMocks.writeClipboardText.mockRejectedValue(new Error('copy failed'))
+    mockedAnalyzeRequiredTechniques.mockResolvedValue({
+      difficulty: 'Extreme',
+      score: 3018,
+      givenUp: false,
+      bruteForced: false,
+      unsolvable: false,
+      steps: [
+        { stepNumber: 1, technique: 'Hidden Single', notation: 'r5c5=9' },
+      ],
+    })
+
+    render(
+      <LocalizationProvider>
+        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
+      </LocalizationProvider>
+    )
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+
+    const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
+    await user.click(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i }))
+    await user.click(within(sidebar).getByRole('button', { name: /copy prompt/i }))
+
+    expect(await within(sidebar).findByText(/failed to copy the hint prompt/i)).toBeInTheDocument()
   })
 
   it('shows eraser-mode clear actions instead of numbers or colors', async () => {
