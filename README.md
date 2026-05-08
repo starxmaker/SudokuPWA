@@ -1,6 +1,6 @@
 # Sudoku PWA
 
-Sudoku power web app based on Typescript.
+Sudoku power web app based on Typescript and powered by Hodoku.
 
 This project is free software released under the GNU General Public License, version 3 or any later version. See [`LICENSE`](LICENSE).
 
@@ -10,26 +10,23 @@ You can try it  [here](https://starxmaker.github.io/SudokuPWA/)
 
 - Free and open source
 - Installable (PWA)
-- Completely client side code, no servers used.
+- Completely client side code, no servers needed
 - Can be played on PC/Tablet/Phones
 - Offline support
+- Available on Spanish and English
 - Hodoku sudoku generation with difficulty calibration based on human techniques
+- Hodoku solution next step hints, with the ability to send a prompt to ChatGPT to explain it.
+- Hodoku base difficulties plus Very Easy, Nightmare, and Diabolical.
+- Background puzzle generation
 - Candidates with prefilling support
 - Candidate and digit coloring
-- Undo movements
+- Undo and redo movements
 - Timers
 - Night mode
-- Share and import puzzles
+- Share, import, and create puzzles
 - Haptics support
 - Free drawing
-- Pencil mode for tablets
-- Hodoku score caps and score ranges are now used during generation for finer-grained estimation tiers.
-
-## Limitations
-
-- Only single solution puzzles are supported for the meantime
-- No score or time tracking
-- No hints
+- Stylus mode for tablets
 
 
 ## License and source availability

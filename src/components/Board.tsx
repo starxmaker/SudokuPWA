@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { MdPlayArrow, MdPause, MdUndo, MdRedo, MdHistory, MdDraw, MdOutlineInvertColorsOff, MdLightbulbOutline } from 'react-icons/md'
+import { ImNewTab } from 'react-icons/im'
+import { MdPlayArrow, MdPause, MdUndo, MdRedo, MdHistory, MdDraw, MdOutlineInvertColorsOff, MdLightbulbOutline, MdContentCopy } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
 import { FaBrush, FaWandMagicSparkles } from 'react-icons/fa6'
 import { GiMagicBroom } from 'react-icons/gi'
@@ -27,7 +28,9 @@ import {
   emptyCellColors,
   emptyCandidateColors,
   emptyDrawingStrokes,
+  encodeGrid,
 } from '../utils/gameStorage'
+import { writeClipboardText } from '../utils/clipboard'
 import { useI18n } from '../utils/i18n'
 
 type Props = {
@@ -65,6 +68,11 @@ type BoardHistoryEntry = {
   candidateColors: CandidateColorGrid
   drawingStrokes: DrawingStroke[]
   flaggedColorCell: FlaggedColorCell
+}
+
+type RequiredTechniquesCacheEntry = {
+  puzzle: string
+  analysis: RequiredTechniques
 }
 
 function cloneGrid(g: Grid): Grid {
@@ -289,6 +297,7 @@ export default function Board({
     if (initialProp && initialProp.length === 9) return initialProp
     return []
   })
+  const currentPuzzleState = React.useMemo(() => encodeGrid(internalPuzzle), [internalPuzzle])
 
   /**
    * Original givens only — always prefer storage `initial` over `puzzle` prop.
@@ -396,6 +405,7 @@ export default function Board({
   const lowerPadTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const drawingPointerIdRef = React.useRef<number | null>(null)
   const requiredTechniquesAbortRef = React.useRef<AbortController | null>(null)
+  const requiredTechniquesCacheRef = React.useRef<RequiredTechniquesCacheEntry | null>(null)
   const boardRef = React.useRef<HTMLDivElement | null>(null)
   const toolTrayRef = React.useRef<HTMLDivElement | null>(null)
   const [boardPixelWidth, setBoardPixelWidth] = useState<number | null>(null)
@@ -1096,29 +1106,97 @@ export default function Board({
     )
   }
 
+  function buildTechniquePrompt(step: RequiredTechniques['steps'][number]) {
+    return t('board.requiredTechniquesPromptTemplate', {
+      puzzle: currentPuzzleState,
+      technique: step.technique,
+      notation: step.notation,
+    })
+  }
+
+  async function copyTechniquePromptText(prompt: string, triggerHaptic = true) {
+    if (triggerHaptic) onTriggerHaptic?.()
+    setRequiredTechniquesError(null)
+
+    try {
+      await writeClipboardText(prompt)
+      return true
+    } catch {
+      setRequiredTechniquesError(t('board.requiredTechniquesCopyFailed'))
+      return false
+    }
+  }
+
+  async function copyTechniquePrompt(step: RequiredTechniques['steps'][number]) {
+    const prompt = buildTechniquePrompt(step)
+    const copied = await copyTechniquePromptText(prompt)
+    return copied ? prompt : null
+  }
+
+  async function openTechniquePromptOnChatGpt(step: RequiredTechniques['steps'][number]) {
+    onTriggerHaptic?.()
+    setRequiredTechniquesError(null)
+    const prompt = buildTechniquePrompt(step)
+    const chatGptUrl = `https://chatgpt.com/?prompt=${encodeURIComponent(prompt)}`
+    try {
+      window.open(chatGptUrl, '_blank', 'noopener,noreferrer')
+    } catch {
+      setRequiredTechniquesError(t('board.requiredTechniquesOpenChatGptFailed'))
+      return
+    }
+
+    await copyTechniquePromptText(prompt, false)
+  }
+
   async function showRequiredTechniques() {
     closeCandidateOverlay()
     requiredTechniquesAbortRef.current?.abort()
+    requiredTechniquesAbortRef.current = null
+    const puzzleState = currentPuzzleState
+    const cachedAnalysis = requiredTechniquesCacheRef.current?.puzzle === puzzleState
+      ? requiredTechniquesCacheRef.current.analysis
+      : null
+
+    setRequiredTechniquesError(null)
+    setExpandedTechniqueSteps([])
+
+    if (cachedAnalysis) {
+      setRequiredTechniquesLoading(false)
+      if (cachedAnalysis.unsolvable) {
+        setRequiredTechniquesOpen(true)
+        setRequiredTechniquesResult(null)
+        setRequiredTechniquesError(t('board.requiredTechniquesUnsolvable'))
+        return false
+      }
+
+      setRequiredTechniquesOpen(true)
+      setRequiredTechniquesResult(cachedAnalysis)
+      return true
+    }
+
     const controller = new AbortController()
     requiredTechniquesAbortRef.current = controller
     setRequiredTechniquesOpen(true)
     setRequiredTechniquesLoading(true)
     setRequiredTechniquesResult(null)
-    setRequiredTechniquesError(null)
-    setExpandedTechniqueSteps([])
 
     try {
       const analysis = await analyzeRequiredTechniques(internalPuzzle, controller.signal)
       if (controller.signal.aborted) return false
 
       if (analysis === null) {
-        setRequiredTechniquesOpen(false)
+        setRequiredTechniquesResult(null)
         setRequiredTechniquesError(t('board.requiredTechniquesFailed'))
         return false
       }
 
+      requiredTechniquesCacheRef.current = {
+        puzzle: puzzleState,
+        analysis,
+      }
+
       if (analysis.unsolvable) {
-        setRequiredTechniquesOpen(false)
+        setRequiredTechniquesResult(null)
         setRequiredTechniquesError(t('board.requiredTechniquesUnsolvable'))
         return false
       }
@@ -1127,7 +1205,7 @@ export default function Board({
       return true
     } catch {
       if (controller.signal.aborted) return false
-      setRequiredTechniquesOpen(false)
+      setRequiredTechniquesResult(null)
       setRequiredTechniquesError(t('board.requiredTechniquesFailed'))
       return false
     } finally {
@@ -2563,11 +2641,6 @@ export default function Board({
               </div>
             )}
           </div>
-          {requiredTechniquesError && (
-            <p className="creator-error board-technique-error" role="status">
-              {requiredTechniquesError}
-            </p>
-          )}
           {historyToolMode ? (
             <div className="input-pad-switcher input-pad-switcher--history-actions">
               <div
@@ -2753,6 +2826,11 @@ export default function Board({
               </button>
             </div>
             <div className="board-techniques-sidebar">
+              {requiredTechniquesError && (
+                <p className="creator-error board-techniques-sidebar__error" role="status">
+                  {requiredTechniquesError}
+                </p>
+              )}
               {requiredTechniquesLoading ? (
                 <p className="board-techniques-sidebar__summary">{t('board.requiredTechniquesLoading')}</p>
               ) : requiredTechniquesResult ? (
@@ -2764,8 +2842,9 @@ export default function Board({
                     <p className="board-techniques-sidebar__empty">{t('board.requiredTechniquesEmpty')}</p>
                   ) : (
                     <ol className="board-techniques-sidebar__list">
-                      {requiredTechniquesResult.steps.map(step => {
+                      {requiredTechniquesResult.steps.map((step, index) => {
                         const expanded = expandedTechniqueSteps.includes(step.stepNumber)
+                        const showCopyPrompt = expanded && index === 0
                         return (
                           <li key={`${step.stepNumber}-${step.technique}`} className="board-techniques-step">
                             <button
@@ -2777,8 +2856,32 @@ export default function Board({
                               <span className="board-techniques-step__number">{step.stepNumber}.</span>
                               <span className="board-techniques-step__technique">{step.technique}</span>
                             </button>
-                            {expanded && step.notation.length > 0 && (
-                              <p className="board-techniques-step__notation">{step.notation}</p>
+                            {expanded && (step.notation.length > 0 || index === 0) && (
+                              <div className="board-techniques-step__details">
+                                {step.notation.length > 0 && (
+                                  <p className="board-techniques-step__notation">{step.notation}</p>
+                                )}
+                                {showCopyPrompt && (
+                                  <div className="board-techniques-step__actions">
+                                    <button
+                                      type="button"
+                                      className="board-techniques-step__action-button"
+                                      onClick={() => void copyTechniquePrompt(step)}
+                                    >
+                                      <MdContentCopy size={16} aria-hidden="true" />
+                                      <span>{t('board.copyPrompt')}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="board-techniques-step__action-button board-techniques-step__action-button--open"
+                                      onClick={() => void openTechniquePromptOnChatGpt(step)}
+                                    >
+                                      <ImNewTab size={14} aria-hidden="true" />
+                                      <span>{t('board.openOnChatGpt')}</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </li>
                         )
