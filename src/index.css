@@ -651,12 +651,14 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .brush-toggle--active,
 .drawing-toggle--active,
 .candidates-toggle--active,
+.history-toggle--active,
 .flag-toggle--active,
 .eraser-toggle--active,
 .num-pad-toolbar .num-key.notes-toggle.notes-toggle--active,
 .num-pad-toolbar .num-key.brush-toggle.brush-toggle--active,
 .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active,
 .num-pad-toolbar .num-key.candidates-toggle.candidates-toggle--active,
+.num-pad-toolbar .num-key.clear.history-toggle--active,
 .num-pad-toolbar .num-key.clear.flag-toggle--active,
 .num-pad-toolbar .num-key.clear.eraser-toggle--active,
 .num-pad-toolbar .num-key.clear.brush-mode-toggle--active{
@@ -668,6 +670,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .num-pad-toolbar .num-key.brush-toggle.brush-toggle--active:disabled,
 .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active:disabled,
 .num-pad-toolbar .num-key.candidates-toggle.candidates-toggle--active:disabled,
+.num-pad-toolbar .num-key.clear.history-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.flag-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.eraser-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.brush-mode-toggle--active:disabled{
@@ -684,6 +687,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .dark .num-pad-toolbar .num-key.brush-toggle.brush-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.candidates-toggle.candidates-toggle--active:disabled,
+.dark .num-pad-toolbar .num-key.clear.history-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.flag-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.eraser-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.brush-mode-toggle--active:disabled{
@@ -772,6 +776,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   animation:input-pad-fade-out 0.22s cubic-bezier(0.55, 0, 0.55, 0.2) both;
 }
 .eraser-action-pad,
+.history-action-pad,
 .candidate-action-pad{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1233,6 +1238,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
     margin-top:8px;
   }
   .controls-panel .eraser-action-pad,
+  .controls-panel .history-action-pad,
   .controls-panel .candidate-action-pad{
     max-width:none;
     margin-top:0;
@@ -1319,6 +1325,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
     align-content:stretch;
   }
   .controls-panel .eraser-action-pad,
+  .controls-panel .history-action-pad,
   .controls-panel .candidate-action-pad{
     width:max-content;
     max-width:100%;

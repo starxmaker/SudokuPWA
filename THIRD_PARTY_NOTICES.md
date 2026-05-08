@@ -34,7 +34,7 @@ The app uses `react-icons@5.6.0` as an MIT-licensed wrapper that exposes icon se
 
 | Import path | Upstream icon family | License | Used icons in this app | Source |
 | --- | --- | --- | --- | --- |
-| `react-icons/md` | Material Design Icons | Apache-2.0 | `MdPlayArrow`, `MdPause`, `MdUndo`, `MdOutlineInvertColorsOff`,`MdDrawer` | <https://github.com/google/material-design-icons> |
+| `react-icons/md` | Material Design Icons | Apache-2.0 | `MdPlayArrow`, `MdPause`, `MdUndo`, `MdRedo`, `MdHistory`, `MdOutlineInvertColorsOff`, `MdDrawer` | <https://github.com/google/material-design-icons> |
 | `react-icons/fa` | Font Awesome 5 | CC BY 4.0 | `FaEraser`, `FaGithub` | <https://fontawesome.com/> |
 | `react-icons/fa6` | Font Awesome 6 | CC BY 4.0 | `FaBrush`, `FaWandMagicSparkles` | <https://fontawesome.com/> |
 | `react-icons/gi` | Game Icons | CC BY 3.0 | `GiMagicBroom` | <https://game-icons.net/> |

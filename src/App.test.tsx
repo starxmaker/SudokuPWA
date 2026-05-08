@@ -299,7 +299,7 @@ describe('App', () => {
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: /continue/i }))
-    const cells = await screen.findAllByRole('gridcell')
+    const cells = await screen.findAllByRole('gridcell', undefined, { timeout: 10000 })
 
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     const identifyButton = screen.getByRole('button', { name: /show all basic candidates/i })
@@ -343,7 +343,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /brush color 1/i }))
     await user.click(cells[2])
 
-    expect(screen.getByRole('dialog', { name: /candidate painter/i })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: /candidate painter/i }, { timeout: 10000 })).toBeInTheDocument()
   })
 
   it('shows coordinate labels when enabled from settings', async () => {

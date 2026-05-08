@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { MdPlayArrow, MdPause, MdUndo, MdDraw, MdOutlineInvertColorsOff } from 'react-icons/md'
+import { MdPlayArrow, MdPause, MdUndo, MdRedo, MdHistory, MdDraw, MdOutlineInvertColorsOff } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
 import { FaBrush, FaWandMagicSparkles } from 'react-icons/fa6'
 import { GiMagicBroom } from 'react-icons/gi'
@@ -54,6 +54,15 @@ type Props = {
   onIdentifyCandidatesAvailabilityChange?: (available: boolean) => void
   paintingScope?: 'digit' | 'candidate'
   puzzleMetadata?: PuzzleMetadata | null
+}
+
+type BoardHistoryEntry = {
+  puzzle: Grid
+  notes: number[][][]
+  cellColors: CellColorGrid
+  candidateColors: CandidateColorGrid
+  drawingStrokes: DrawingStroke[]
+  flaggedColorCell: FlaggedColorCell
 }
 
 function cloneGrid(g: Grid): Grid {
@@ -137,7 +146,7 @@ function makeHistoryEntry(
   candidateColors: CandidateColorGrid,
   drawingStrokes: DrawingStroke[],
   flaggedColorCell: FlaggedColorCell,
-) {
+): BoardHistoryEntry {
   return {
     puzzle: cloneGrid(puzzle),
     notes: cloneNotesGrid(notes),
@@ -337,14 +346,8 @@ export default function Board({
   const [drawingDraft, setDrawingDraft] = useState<DrawingStroke | null>(null)
   const drawingDraftRef = React.useRef(drawingDraft)
   drawingDraftRef.current = drawingDraft
-  const [history, setHistory] = useState<{
-    puzzle: Grid
-    notes: number[][][]
-    cellColors: CellColorGrid
-    candidateColors: CandidateColorGrid
-    drawingStrokes: DrawingStroke[]
-    flaggedColorCell: FlaggedColorCell
-  }[]>([])
+  const [history, setHistory] = useState<BoardHistoryEntry[]>([])
+  const [redoHistory, setRedoHistory] = useState<BoardHistoryEntry[]>([])
   // Guards against touch ghost-click: onPointerDown applies immediately, and onClick skips re-applying.
   // For the last remaining digit, the button disables before click arrives, so haptic is deferred to pointerup.
   const touchFiredRef = React.useRef<
@@ -359,6 +362,7 @@ export default function Board({
   const [brushMode, setBrushMode] = useState(false)
   const [drawingMode, setDrawingMode] = useState(false)
   const [candidateToolMode, setCandidateToolMode] = useState(false)
+  const [historyToolMode, setHistoryToolMode] = useState(false)
   const [activeBrushColor, setActiveBrushColor] = useState<BrushColorId>(() => {
     const savedColors = savedBrushPrefs?.activeColors
       ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
@@ -578,11 +582,13 @@ export default function Board({
     setDrawingDraft(null)
     setCandidateSelectedDigit(null)
     setHistory([])
+    setRedoHistory([])
     setElapsed(0)
     clearElapsed()
     setPaused(false)
     setManualPause(false)
     setWon(false)
+    setHistoryToolMode(false)
     setBrushMode(false)
     setDrawingMode(false)
     setCandidateToolMode(false)
@@ -621,11 +627,13 @@ export default function Board({
     setDrawingDraft(null)
     setCandidateSelectedDigit(null)
     setHistory([])
+    setRedoHistory([])
     setElapsed(0)
     clearElapsed()
     setPaused(false)
     setManualPause(false)
     setWon(false)
+    setHistoryToolMode(false)
     setBrushMode(false)
     setDrawingMode(false)
     setCandidateToolMode(false)
@@ -711,7 +719,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCellColors(nextCellColors)
     setFlaggedColorCell(nextFlaggedColorCell)
@@ -745,7 +753,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCandidateColors(nextCandidateColors)
     setFlaggedColorCell(nextFlaggedColorCell)
@@ -912,12 +920,49 @@ export default function Board({
     }, TOOL_TRAY_FADE_MS)
   }
 
+  function pushHistoryEntry(entry: BoardHistoryEntry) {
+    setHistory(prev => [...prev.slice(-50), entry])
+    setRedoHistory([])
+  }
+
+  function getCurrentHistoryEntry() {
+    return makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+      drawingStrokesRef.current,
+      flaggedColorCellRef.current,
+    )
+  }
+
+  function restoreHistoryEntry(entry: BoardHistoryEntry) {
+    const restoredPuzzle = cloneGrid(entry.puzzle)
+    const restoredNotes = cloneNotesGrid(entry.notes)
+    const restoredCellColors = cloneCellColorsGrid(entry.cellColors)
+    const restoredCandidateColors = cloneCandidateColorsGrid(entry.candidateColors)
+    const restoredDrawingStrokes = cloneDrawingStrokesGrid(entry.drawingStrokes)
+    const restoredFlaggedColorCell = cloneFlaggedColorCell(entry.flaggedColorCell)
+    closeCandidateOverlay()
+    setInternalPuzzle(restoredPuzzle)
+    if (setPuzzleProp) setPuzzleProp(restoredPuzzle)
+    setNotes(restoredNotes)
+    setCellColors(restoredCellColors)
+    setCandidateColors(restoredCandidateColors)
+    drawingPointerIdRef.current = null
+    setDrawingDraft(null)
+    setDrawingStrokes(restoredDrawingStrokes)
+    flaggedColorCellRef.current = restoredFlaggedColorCell
+    setFlaggedColorCell(restoredFlaggedColorCell)
+  }
+
   function toggleNotesTools() {
     const next = !notesMode
     closeCandidateOverlay()
     setNotesMode(next)
     setEraserMode(false)
     setCandidateToolMode(false)
+    setHistoryToolMode(false)
     if (next) {
       setBrushMode(false)
       setDrawingMode(false)
@@ -930,6 +975,7 @@ export default function Board({
     setBrushMode(next)
     setEraserMode(false)
     setCandidateToolMode(false)
+    setHistoryToolMode(false)
     if (next) {
       closeCandidateOverlay()
       setNotesMode(false)
@@ -947,6 +993,7 @@ export default function Board({
     setDrawingMode(next)
     setEraserMode(false)
     setCandidateToolMode(false)
+    setHistoryToolMode(false)
     if (next) {
       setNotesMode(false)
       setBrushMode(false)
@@ -961,6 +1008,21 @@ export default function Board({
     closeCandidateOverlay()
     setCandidateToolMode(next)
     setEraserMode(false)
+    setHistoryToolMode(false)
+    if (next) {
+      setNotesMode(false)
+      setBrushMode(false)
+      setDrawingMode(false)
+      switchLowerPad('numbers', 'backward')
+    }
+  }
+
+  function toggleHistoryTools() {
+    const next = !historyToolMode
+    closeCandidateOverlay()
+    setHistoryToolMode(next)
+    setEraserMode(false)
+    setCandidateToolMode(false)
     if (next) {
       setNotesMode(false)
       setBrushMode(false)
@@ -1015,7 +1077,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCellColors(nextCellColors)
     setCandidateColors(nextCandidateColors)
@@ -1072,7 +1134,7 @@ export default function Board({
       firstColorFlagEnabled,
     )
 
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setNotes(prev => {
       const next = prev.map(row => row.map(cell => [...cell]))
       next[r][c] = next[r][c].filter(candidate => candidate !== d)
@@ -1138,7 +1200,7 @@ export default function Board({
         null,
         firstColorFlagEnabled,
       )
-      setHistory(h => [...h.slice(-50), historyEntry])
+      pushHistoryEntry(historyEntry)
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         const cell = next[r][c]
@@ -1203,7 +1265,7 @@ export default function Board({
         null,
         firstColorFlagEnabled,
       )
-      setHistory(h => [...h.slice(-50), historyEntry])
+      pushHistoryEntry(historyEntry)
       flaggedColorCellRef.current = nextFlaggedColorCell
       setNotes(nextNotes)
       setCandidateColors(nextCandidateColors)
@@ -1241,7 +1303,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setNotes(prev => {
       const next = prev.map(row => row.map(cell => [...cell]))
       next[r][c] = []
@@ -1286,7 +1348,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setNotes(prev => {
       const next = cloneNotesGrid(prev)
       next[r][c] = candidates
@@ -1339,7 +1401,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setNotes(nextNotes)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCandidateColors(nextCandidateColors)
@@ -1414,7 +1476,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCandidateSelectedDigit(null)
     setNotes(nextNotes)
@@ -1449,7 +1511,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = null
     setCellColors(emptyCellColors())
     setCandidateColors(emptyCandidateColors())
@@ -1467,7 +1529,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     drawingPointerIdRef.current = null
     setDrawingDraft(null)
     setDrawingStrokes(emptyDrawingStrokes())
@@ -1529,7 +1591,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setDrawingStrokes(prev => [...prev, ...cloneDrawingStrokesGrid([stroke])])
     if (haptic) onTriggerHaptic?.()
   }
@@ -1545,23 +1607,20 @@ export default function Board({
   function undo() {
     const entry = history[history.length - 1]
     if (!entry) return false
-    const restoredPuzzle = cloneGrid(entry.puzzle)
-    const restoredNotes = cloneNotesGrid(entry.notes)
-    const restoredCellColors = cloneCellColorsGrid(entry.cellColors)
-    const restoredCandidateColors = cloneCandidateColorsGrid(entry.candidateColors)
-    const restoredDrawingStrokes = cloneDrawingStrokesGrid(entry.drawingStrokes)
-    const restoredFlaggedColorCell = cloneFlaggedColorCell(entry.flaggedColorCell)
-    setInternalPuzzle(restoredPuzzle)
-    if (setPuzzleProp) setPuzzleProp(restoredPuzzle)
-    setNotes(restoredNotes)
-    setCellColors(restoredCellColors)
-    setCandidateColors(restoredCandidateColors)
-    drawingPointerIdRef.current = null
-    setDrawingDraft(null)
-    setDrawingStrokes(restoredDrawingStrokes)
-    flaggedColorCellRef.current = restoredFlaggedColorCell
-    setFlaggedColorCell(restoredFlaggedColorCell)
+    const currentEntry = getCurrentHistoryEntry()
+    restoreHistoryEntry(entry)
     setHistory(prev => prev.slice(0, -1))
+    setRedoHistory(prev => [...prev.slice(-50), currentEntry])
+    return true
+  }
+
+  function redo() {
+    const entry = redoHistory[redoHistory.length - 1]
+    if (!entry) return false
+    const currentEntry = getCurrentHistoryEntry()
+    restoreHistoryEntry(entry)
+    setRedoHistory(prev => prev.slice(0, -1))
+    setHistory(prev => [...prev.slice(-50), currentEntry])
     return true
   }
 
@@ -1608,6 +1667,7 @@ export default function Board({
   const toolTrayOverlayView = toolTrayTransition?.from ?? null
   const lowerPadOverlayView = lowerPadTransition?.from ?? null
   const undoDisabled = history.length === 0 || paused || won
+  const redoDisabled = redoHistory.length === 0 || paused || won
   const activeFlaggedColorCell =
     firstColorFlagEnabled &&
     flaggedColorCell !== null &&
@@ -1669,7 +1729,7 @@ export default function Board({
     return 'input-pad__panel--fade-out'
   }
 
-  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'candidates' | 'undo') {
+  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'candidates' | 'history') {
     const classes = ['tool-tray__main-button']
     const fadingTarget = stagedToolTarget !== null && button === stagedToolTarget
     if (isToolTrayOpening && isToolTrayFadingOut) {
@@ -1718,10 +1778,10 @@ export default function Board({
     }
   }
 
-  function renderToolTrayButtonIcon(target: 'undo' | 'eraser' | ToolTrayAnimatedTarget) {
+  function renderToolTrayButtonIcon(target: 'history' | 'eraser' | ToolTrayAnimatedTarget) {
     switch (target) {
-      case 'undo':
-        return <MdUndo size={24} />
+      case 'history':
+        return <MdHistory size={22} />
       case 'eraser':
         return <FaEraser size={22} />
       case 'notes':
@@ -1878,6 +1938,39 @@ export default function Board({
             <PiPencilSlash size={20} />
           </span>
           <span className="eraser-action-button__label">{t('board.cleanDrawings')}</span>
+        </button>
+      </>
+    )
+  }
+
+  function renderHistoryActionPad(tabIndex?: number) {
+    return (
+      <>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.undo')}
+          disabled={undoDisabled}
+          onClick={(event) => handleMomentaryButtonClick(event, undo, true)}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <MdUndo size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.undo')}</span>
+        </button>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.redo')}
+          disabled={redoDisabled}
+          onClick={(event) => handleMomentaryButtonClick(event, redo, true)}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <MdRedo size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.redo')}</span>
         </button>
       </>
     )
@@ -2163,7 +2256,7 @@ export default function Board({
             <div className="tool-tray__measure" aria-hidden="true">
               <div className="num-pad-toolbar tool-tray__panel">
                 <button type="button" className="num-key clear" tabIndex={-1}>
-                  {renderToolTrayButtonIcon('undo')}
+                  {renderToolTrayButtonIcon('history')}
                 </button>
                 <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
                   {renderToolTrayButtonIcon('eraser')}
@@ -2270,13 +2363,14 @@ export default function Board({
               aria-hidden={visibleToolTray !== 'main'}
             >
               <button
-                className={`num-key clear ${mainToolButtonClass('undo')}`}
+                className={`num-key clear${historyToolMode ? ' history-toggle--active' : ''} ${mainToolButtonClass('history')}`}
                 type="button"
-                aria-label={t('board.undo')}
-                disabled={undoDisabled}
-                onClick={(event) => handleMomentaryButtonClick(event, undo)}
+                aria-label={t('board.toggleHistoryTools')}
+                aria-pressed={historyToolMode}
+                disabled={paused || won}
+                onClick={(event) => handleModeButtonClick(event, toggleHistoryTools)}
               >
-                {renderToolTrayButtonIcon('undo')}
+                {renderToolTrayButtonIcon('history')}
               </button>
               <button
                 className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''} ${mainToolButtonClass('clear')}`}
@@ -2285,6 +2379,7 @@ export default function Board({
                 aria-pressed={eraserMode}
                 disabled={paused || won}
                 onClick={(event) => handleModeButtonClick(event, () => {
+                  setHistoryToolMode(false)
                   setCandidateToolMode(false)
                   setEraserMode(prev => !prev)
                 })}
@@ -2341,8 +2436,8 @@ export default function Board({
                 role="presentation"
                 aria-hidden="true"
               >
-                <button type="button" className="num-key clear" tabIndex={-1}>
-                  {renderToolTrayButtonIcon('undo')}
+                <button type="button" className={`num-key clear${historyToolMode ? ' history-toggle--active' : ''}`} tabIndex={-1}>
+                  {renderToolTrayButtonIcon('history')}
                 </button>
                 <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
                   {renderToolTrayButtonIcon('eraser')}
@@ -2362,7 +2457,17 @@ export default function Board({
               </div>
             )}
           </div>
-          {eraserMode ? (
+          {historyToolMode ? (
+            <div className="input-pad-switcher input-pad-switcher--history-actions">
+              <div
+                className="history-action-pad"
+                role="toolbar"
+                aria-label={t('board.historyActions')}
+              >
+                {renderHistoryActionPad()}
+              </div>
+            </div>
+          ) : eraserMode ? (
             <div className="input-pad-switcher input-pad-switcher--eraser-actions">
               <div
                 className="eraser-action-pad"
