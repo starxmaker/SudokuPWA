@@ -1,6 +1,6 @@
 # Sudoku PWA
 
-Sudoku power web app based on Typescript.
+Sudoku power web app based on Typescript and powered by Hodoku.
 
 This project is free software released under the GNU General Public License, version 3 or any later version. See [`LICENSE`](LICENSE).
 
@@ -10,7 +10,7 @@ You can try it  [here](https://starxmaker.github.io/SudokuPWA/)
 
 - Free and open source
 - Installable (PWA)
-- Completely client side code, no servers used.
+- Completely client side code, no servers needed
 - Can be played on PC/Tablet/Phones
 - Offline support
 - Available on Spanish and English
