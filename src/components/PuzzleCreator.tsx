@@ -2,8 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { MdUndo } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
 import { FcOk } from 'react-icons/fc'
+import { LuClipboardList } from 'react-icons/lu'
 import { type Grid, validateCreatedPuzzle } from '../utils/sudoku'
 import { type VerifiedPuzzle, verifyPuzzle } from '../utils/generators/hodoku'
+import { decodeGrid } from '../utils/gameStorage'
+import { readClipboardText } from '../utils/clipboard'
 import PencilOverlay from './PencilOverlay'
 import { useI18n } from '../utils/i18n'
 
@@ -20,9 +23,29 @@ type Props = {
 const EMPTY_GRID: Grid = Array.from({ length: 9 }, () => Array(9).fill(0))
 const COORDINATE_ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
 const COORDINATE_COLUMN_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
+const CLIPBOARD_PUZZLE_PATTERN = /[0-9.-]{81,}/g
 
 function cloneGrid(grid: Grid): Grid {
   return grid.map(row => [...row])
+}
+
+function gridsEqual(a: Grid, b: Grid): boolean {
+  return a.every((row, r) => row.every((value, c) => value === b[r][c]))
+}
+
+function extractGridFromClipboardText(text: string): Grid | null {
+  const matches = text.match(CLIPBOARD_PUZZLE_PATTERN)
+  if (matches === null) return null
+
+  for (const match of matches) {
+    for (let start = 0; start <= match.length - 81; start++) {
+      const normalized = match.slice(start, start + 81).replace(/[0-]/g, '.')
+      const grid = decodeGrid(normalized)
+      if (grid !== null) return grid
+    }
+  }
+
+  return null
 }
 
 export default function PuzzleCreator({
@@ -41,12 +64,15 @@ export default function PuzzleCreator({
   const [eraserMode, setEraserMode] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
+  const [pasteFallbackOpen, setPasteFallbackOpen] = useState(false)
+  const [pasteFallbackText, setPasteFallbackText] = useState('')
   const [pencilOverlayCell, setPencilOverlayCell] = useState<{
     r: number
     c: number
     rect: { top: number; left: number; width: number; height: number }
     initialPointer?: { clientX: number; clientY: number; pointerId: number }
   } | null>(null)
+  const pasteFallbackInputRef = React.useRef<HTMLTextAreaElement | null>(null)
 
   const clueCount = grid.flat().filter(value => value !== 0).length
 
@@ -98,6 +124,59 @@ export default function PuzzleCreator({
     setPencilOverlayCell(null)
     setError(null)
     if (haptic) onTriggerHaptic?.()
+  }
+
+  function openPasteFallback() {
+    setPasteFallbackText('')
+    setPasteFallbackOpen(true)
+    setError(null)
+  }
+
+  function closePasteFallback() {
+    setPasteFallbackOpen(false)
+    setPasteFallbackText('')
+    setError(null)
+  }
+
+  function applyImportedGrid(importedGrid: Grid) {
+    if (!gridsEqual(grid, importedGrid)) {
+      pushHistory()
+      setGrid(cloneGrid(importedGrid))
+    }
+
+    setPasteFallbackOpen(false)
+    setPasteFallbackText('')
+    setSelected(null)
+    setError(null)
+    if (haptic) onTriggerHaptic?.()
+  }
+
+  function importGridText(text: string | null) {
+    const importedGrid = text === null ? null : extractGridFromClipboardText(text)
+    if (importedGrid === null) {
+      setError(t('creator.clipboard.noPuzzle'))
+      if (haptic) onTriggerErrorHaptic?.()
+      return
+    }
+
+    applyImportedGrid(importedGrid)
+  }
+
+  async function handleImportFromClipboard() {
+    if (isVerifying) return
+
+    setPencilOverlayCell(null)
+
+    try {
+      const clipboardText = await readClipboardText()
+      if (clipboardText === null) {
+        openPasteFallback()
+        return
+      }
+      importGridText(clipboardText)
+    } catch {
+      openPasteFallback()
+    }
   }
 
   async function handleConfirm() {
@@ -182,6 +261,14 @@ export default function PuzzleCreator({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [clueCount, grid, haptic, isVerifying, onTriggerHaptic, selected])
+
+  useEffect(() => {
+    if (!pasteFallbackOpen) return
+    const frame = window.requestAnimationFrame(() => {
+      pasteFallbackInputRef.current?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [pasteFallbackOpen])
 
   const selectedDigit = selected !== null ? grid[selected.r][selected.c] : 0
   const cells = [] as React.ReactNode[]
@@ -268,7 +355,7 @@ export default function PuzzleCreator({
             <span className="difficulty-label">{t('creator.title')}</span>
             <span className="creator-status-text">{isVerifying ? t('creator.verifying') : t('creator.clues', { count: clueCount })}</span>
           </div>
-          {error && <p className="creator-error" role="alert">{error}</p>}
+          {error && !pasteFallbackOpen && <p className="creator-error" role="alert">{error}</p>}
           <div className="board-wrapper" style={pencilMode ? ({ '--board-safe-space': '140px' } as React.CSSProperties) : undefined}>
             <div className={`board-shell${coordinateLabels ? ' board-shell--with-coordinates' : ''}`}>
               {coordinateLabels && <div className="board-coordinate-corner" aria-hidden="true" />}
@@ -302,6 +389,15 @@ export default function PuzzleCreator({
               onClick={handleUndo}
             >
               <MdUndo size={24} />
+            </button>
+            <button
+              className="num-key clear"
+              type="button"
+              aria-label={t('creator.importClipboard')}
+              disabled={isVerifying}
+              onClick={() => { void handleImportFromClipboard() }}
+            >
+              <LuClipboardList size={22} />
             </button>
             <button
               className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`}
@@ -353,6 +449,40 @@ export default function PuzzleCreator({
           }}
           onClose={() => setPencilOverlayCell(null)}
         />
+      )}
+      {pasteFallbackOpen && (
+        <div
+          className="settings-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('creator.clipboard.pasteDialog')}
+          onClick={closePasteFallback}
+        >
+          <div className="settings-panel" onClick={event => event.stopPropagation()}>
+            <h2>{t('creator.clipboard.pasteTitle')}</h2>
+            <p className="creator-clipboard-help">{t('creator.clipboard.pasteDescription')}</p>
+            {error && <p className="creator-error" role="alert">{error}</p>}
+            <textarea
+              ref={pasteFallbackInputRef}
+              className="creator-clipboard-input"
+              aria-label={t('creator.clipboard.pasteLabel')}
+              value={pasteFallbackText}
+              onChange={event => {
+                setPasteFallbackText(event.target.value)
+                if (error !== null) setError(null)
+              }}
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <div className="creator-clipboard-actions">
+              <button type="button" onClick={closePasteFallback}>{t('newGame.cancel')}</button>
+              <button type="button" onClick={() => importGridText(pasteFallbackText)}>
+                {t('creator.clipboard.pasteAction')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

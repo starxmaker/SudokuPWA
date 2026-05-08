@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react'
-import { MdPlayArrow, MdPause, MdUndo, MdDraw, MdOutlineInvertColorsOff } from 'react-icons/md'
+import { createPortal } from 'react-dom'
+import { MdPlayArrow, MdPause, MdUndo, MdRedo, MdHistory, MdDraw, MdOutlineInvertColorsOff, MdLightbulbOutline } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
 import { FaBrush, FaWandMagicSparkles } from 'react-icons/fa6'
 import { GiMagicBroom } from 'react-icons/gi'
 import { PiFlagCheckeredFill, PiPencilSlash } from 'react-icons/pi'
 import { TbNumbers } from 'react-icons/tb'
 import { generateGame, Grid } from '../utils/sudoku'
+import { analyzeRequiredTechniques, type RequiredTechniques } from '../utils/generators/hodoku'
 import PencilOverlay from './PencilOverlay'
 import {
   type CandidateColorGrid,
@@ -54,6 +56,15 @@ type Props = {
   onIdentifyCandidatesAvailabilityChange?: (available: boolean) => void
   paintingScope?: 'digit' | 'candidate'
   puzzleMetadata?: PuzzleMetadata | null
+}
+
+type BoardHistoryEntry = {
+  puzzle: Grid
+  notes: number[][][]
+  cellColors: CellColorGrid
+  candidateColors: CandidateColorGrid
+  drawingStrokes: DrawingStroke[]
+  flaggedColorCell: FlaggedColorCell
 }
 
 function cloneGrid(g: Grid): Grid {
@@ -137,7 +148,7 @@ function makeHistoryEntry(
   candidateColors: CandidateColorGrid,
   drawingStrokes: DrawingStroke[],
   flaggedColorCell: FlaggedColorCell,
-) {
+): BoardHistoryEntry {
   return {
     puzzle: cloneGrid(puzzle),
     notes: cloneNotesGrid(notes),
@@ -337,14 +348,8 @@ export default function Board({
   const [drawingDraft, setDrawingDraft] = useState<DrawingStroke | null>(null)
   const drawingDraftRef = React.useRef(drawingDraft)
   drawingDraftRef.current = drawingDraft
-  const [history, setHistory] = useState<{
-    puzzle: Grid
-    notes: number[][][]
-    cellColors: CellColorGrid
-    candidateColors: CandidateColorGrid
-    drawingStrokes: DrawingStroke[]
-    flaggedColorCell: FlaggedColorCell
-  }[]>([])
+  const [history, setHistory] = useState<BoardHistoryEntry[]>([])
+  const [redoHistory, setRedoHistory] = useState<BoardHistoryEntry[]>([])
   // Guards against touch ghost-click: onPointerDown applies immediately, and onClick skips re-applying.
   // For the last remaining digit, the button disables before click arrives, so haptic is deferred to pointerup.
   const touchFiredRef = React.useRef<
@@ -356,9 +361,15 @@ export default function Board({
   const [won, setWon] = useState(false)
   const [finalTime, setFinalTime] = useState(0)
   const [shareCopied, setShareCopied] = useState(false)
+  const [requiredTechniquesOpen, setRequiredTechniquesOpen] = useState(false)
+  const [requiredTechniquesLoading, setRequiredTechniquesLoading] = useState(false)
+  const [requiredTechniquesResult, setRequiredTechniquesResult] = useState<RequiredTechniques | null>(null)
+  const [requiredTechniquesError, setRequiredTechniquesError] = useState<string | null>(null)
+  const [expandedTechniqueSteps, setExpandedTechniqueSteps] = useState<number[]>([])
   const [brushMode, setBrushMode] = useState(false)
   const [drawingMode, setDrawingMode] = useState(false)
   const [candidateToolMode, setCandidateToolMode] = useState(false)
+  const [historyToolMode, setHistoryToolMode] = useState(false)
   const [activeBrushColor, setActiveBrushColor] = useState<BrushColorId>(() => {
     const savedColors = savedBrushPrefs?.activeColors
       ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
@@ -384,6 +395,7 @@ export default function Board({
   const [lowerPadTransition, setLowerPadTransition] = useState<LowerPadTransition | null>(null)
   const lowerPadTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const drawingPointerIdRef = React.useRef<number | null>(null)
+  const requiredTechniquesAbortRef = React.useRef<AbortController | null>(null)
   const boardRef = React.useRef<HTMLDivElement | null>(null)
   const toolTrayRef = React.useRef<HTMLDivElement | null>(null)
   const [boardPixelWidth, setBoardPixelWidth] = useState<number | null>(null)
@@ -465,6 +477,7 @@ export default function Board({
   }, [activeBrushColor, activeDrawingColor, activePaintingScope])
 
   useEffect(() => () => {
+    requiredTechniquesAbortRef.current?.abort()
     if (toolTrayTimerRef.current !== null) {
       window.clearTimeout(toolTrayTimerRef.current)
     }
@@ -475,6 +488,19 @@ export default function Board({
       window.clearTimeout(lowerPadTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!requiredTechniquesOpen) return
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setRequiredTechniquesOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [requiredTechniquesOpen])
 
   // Win detection
   useEffect(() => {
@@ -564,6 +590,7 @@ export default function Board({
   }
 
   async function newGame(){
+    resetRequiredTechniquesState()
     const { puzzle: p, solution: s } = await generateGame()
     const initial = cloneGrid(p)
     setInitialGrid(initial)
@@ -578,11 +605,13 @@ export default function Board({
     setDrawingDraft(null)
     setCandidateSelectedDigit(null)
     setHistory([])
+    setRedoHistory([])
     setElapsed(0)
     clearElapsed()
     setPaused(false)
     setManualPause(false)
     setWon(false)
+    setHistoryToolMode(false)
     setBrushMode(false)
     setDrawingMode(false)
     setCandidateToolMode(false)
@@ -611,6 +640,7 @@ export default function Board({
 
   function handleRetry() {
     if (!initialGrid) return
+    resetRequiredTechniquesState()
     setInternalPuzzle(cloneGrid(initialGrid))
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setCellColors(emptyCellColors())
@@ -621,11 +651,13 @@ export default function Board({
     setDrawingDraft(null)
     setCandidateSelectedDigit(null)
     setHistory([])
+    setRedoHistory([])
     setElapsed(0)
     clearElapsed()
     setPaused(false)
     setManualPause(false)
     setWon(false)
+    setHistoryToolMode(false)
     setBrushMode(false)
     setDrawingMode(false)
     setCandidateToolMode(false)
@@ -711,7 +743,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCellColors(nextCellColors)
     setFlaggedColorCell(nextFlaggedColorCell)
@@ -745,7 +777,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCandidateColors(nextCandidateColors)
     setFlaggedColorCell(nextFlaggedColorCell)
@@ -912,12 +944,49 @@ export default function Board({
     }, TOOL_TRAY_FADE_MS)
   }
 
+  function pushHistoryEntry(entry: BoardHistoryEntry) {
+    setHistory(prev => [...prev.slice(-50), entry])
+    setRedoHistory([])
+  }
+
+  function getCurrentHistoryEntry() {
+    return makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+      drawingStrokesRef.current,
+      flaggedColorCellRef.current,
+    )
+  }
+
+  function restoreHistoryEntry(entry: BoardHistoryEntry) {
+    const restoredPuzzle = cloneGrid(entry.puzzle)
+    const restoredNotes = cloneNotesGrid(entry.notes)
+    const restoredCellColors = cloneCellColorsGrid(entry.cellColors)
+    const restoredCandidateColors = cloneCandidateColorsGrid(entry.candidateColors)
+    const restoredDrawingStrokes = cloneDrawingStrokesGrid(entry.drawingStrokes)
+    const restoredFlaggedColorCell = cloneFlaggedColorCell(entry.flaggedColorCell)
+    closeCandidateOverlay()
+    setInternalPuzzle(restoredPuzzle)
+    if (setPuzzleProp) setPuzzleProp(restoredPuzzle)
+    setNotes(restoredNotes)
+    setCellColors(restoredCellColors)
+    setCandidateColors(restoredCandidateColors)
+    drawingPointerIdRef.current = null
+    setDrawingDraft(null)
+    setDrawingStrokes(restoredDrawingStrokes)
+    flaggedColorCellRef.current = restoredFlaggedColorCell
+    setFlaggedColorCell(restoredFlaggedColorCell)
+  }
+
   function toggleNotesTools() {
     const next = !notesMode
     closeCandidateOverlay()
     setNotesMode(next)
     setEraserMode(false)
     setCandidateToolMode(false)
+    setHistoryToolMode(false)
     if (next) {
       setBrushMode(false)
       setDrawingMode(false)
@@ -930,6 +999,7 @@ export default function Board({
     setBrushMode(next)
     setEraserMode(false)
     setCandidateToolMode(false)
+    setHistoryToolMode(false)
     if (next) {
       closeCandidateOverlay()
       setNotesMode(false)
@@ -947,6 +1017,7 @@ export default function Board({
     setDrawingMode(next)
     setEraserMode(false)
     setCandidateToolMode(false)
+    setHistoryToolMode(false)
     if (next) {
       setNotesMode(false)
       setBrushMode(false)
@@ -961,6 +1032,21 @@ export default function Board({
     closeCandidateOverlay()
     setCandidateToolMode(next)
     setEraserMode(false)
+    setHistoryToolMode(false)
+    if (next) {
+      setNotesMode(false)
+      setBrushMode(false)
+      setDrawingMode(false)
+      switchLowerPad('numbers', 'backward')
+    }
+  }
+
+  function toggleHistoryTools() {
+    const next = !historyToolMode
+    closeCandidateOverlay()
+    setHistoryToolMode(next)
+    setEraserMode(false)
+    setCandidateToolMode(false)
     if (next) {
       setNotesMode(false)
       setBrushMode(false)
@@ -986,6 +1072,70 @@ export default function Board({
     action()
     event.currentTarget.blur()
     if (haptic) onTriggerHaptic?.()
+  }
+
+  function closeRequiredTechniquesSidebar() {
+    setRequiredTechniquesOpen(false)
+  }
+
+  function resetRequiredTechniquesState() {
+    requiredTechniquesAbortRef.current?.abort()
+    requiredTechniquesAbortRef.current = null
+    setRequiredTechniquesOpen(false)
+    setRequiredTechniquesLoading(false)
+    setRequiredTechniquesResult(null)
+    setRequiredTechniquesError(null)
+    setExpandedTechniqueSteps([])
+  }
+
+  function toggleTechniqueStep(stepNumber: number) {
+    setExpandedTechniqueSteps(prev =>
+      prev.includes(stepNumber)
+        ? prev.filter(currentStepNumber => currentStepNumber !== stepNumber)
+        : [...prev, stepNumber]
+    )
+  }
+
+  async function showRequiredTechniques() {
+    closeCandidateOverlay()
+    requiredTechniquesAbortRef.current?.abort()
+    const controller = new AbortController()
+    requiredTechniquesAbortRef.current = controller
+    setRequiredTechniquesOpen(true)
+    setRequiredTechniquesLoading(true)
+    setRequiredTechniquesResult(null)
+    setRequiredTechniquesError(null)
+    setExpandedTechniqueSteps([])
+
+    try {
+      const analysis = await analyzeRequiredTechniques(internalPuzzle, controller.signal)
+      if (controller.signal.aborted) return false
+
+      if (analysis === null) {
+        setRequiredTechniquesOpen(false)
+        setRequiredTechniquesError(t('board.requiredTechniquesFailed'))
+        return false
+      }
+
+      if (analysis.unsolvable) {
+        setRequiredTechniquesOpen(false)
+        setRequiredTechniquesError(t('board.requiredTechniquesUnsolvable'))
+        return false
+      }
+
+      setRequiredTechniquesResult(analysis)
+      return true
+    } catch {
+      if (controller.signal.aborted) return false
+      setRequiredTechniquesOpen(false)
+      setRequiredTechniquesError(t('board.requiredTechniquesFailed'))
+      return false
+    } finally {
+      if (requiredTechniquesAbortRef.current === controller) {
+        requiredTechniquesAbortRef.current = null
+        setRequiredTechniquesLoading(false)
+      }
+    }
   }
 
   function clearSelectedBrushColors() {
@@ -1015,7 +1165,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCellColors(nextCellColors)
     setCandidateColors(nextCandidateColors)
@@ -1072,7 +1222,7 @@ export default function Board({
       firstColorFlagEnabled,
     )
 
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setNotes(prev => {
       const next = prev.map(row => row.map(cell => [...cell]))
       next[r][c] = next[r][c].filter(candidate => candidate !== d)
@@ -1138,7 +1288,7 @@ export default function Board({
         null,
         firstColorFlagEnabled,
       )
-      setHistory(h => [...h.slice(-50), historyEntry])
+      pushHistoryEntry(historyEntry)
       setNotes(prev => {
         const next = prev.map(row => row.map(cell => [...cell]))
         const cell = next[r][c]
@@ -1203,7 +1353,7 @@ export default function Board({
         null,
         firstColorFlagEnabled,
       )
-      setHistory(h => [...h.slice(-50), historyEntry])
+      pushHistoryEntry(historyEntry)
       flaggedColorCellRef.current = nextFlaggedColorCell
       setNotes(nextNotes)
       setCandidateColors(nextCandidateColors)
@@ -1241,7 +1391,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setNotes(prev => {
       const next = prev.map(row => row.map(cell => [...cell]))
       next[r][c] = []
@@ -1286,7 +1436,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setNotes(prev => {
       const next = cloneNotesGrid(prev)
       next[r][c] = candidates
@@ -1339,7 +1489,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setNotes(nextNotes)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCandidateColors(nextCandidateColors)
@@ -1414,7 +1564,7 @@ export default function Board({
       null,
       firstColorFlagEnabled,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = nextFlaggedColorCell
     setCandidateSelectedDigit(null)
     setNotes(nextNotes)
@@ -1449,7 +1599,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     flaggedColorCellRef.current = null
     setCellColors(emptyCellColors())
     setCandidateColors(emptyCandidateColors())
@@ -1467,7 +1617,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     drawingPointerIdRef.current = null
     setDrawingDraft(null)
     setDrawingStrokes(emptyDrawingStrokes())
@@ -1529,7 +1679,7 @@ export default function Board({
       drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
-    setHistory(h => [...h.slice(-50), historyEntry])
+    pushHistoryEntry(historyEntry)
     setDrawingStrokes(prev => [...prev, ...cloneDrawingStrokesGrid([stroke])])
     if (haptic) onTriggerHaptic?.()
   }
@@ -1545,23 +1695,20 @@ export default function Board({
   function undo() {
     const entry = history[history.length - 1]
     if (!entry) return false
-    const restoredPuzzle = cloneGrid(entry.puzzle)
-    const restoredNotes = cloneNotesGrid(entry.notes)
-    const restoredCellColors = cloneCellColorsGrid(entry.cellColors)
-    const restoredCandidateColors = cloneCandidateColorsGrid(entry.candidateColors)
-    const restoredDrawingStrokes = cloneDrawingStrokesGrid(entry.drawingStrokes)
-    const restoredFlaggedColorCell = cloneFlaggedColorCell(entry.flaggedColorCell)
-    setInternalPuzzle(restoredPuzzle)
-    if (setPuzzleProp) setPuzzleProp(restoredPuzzle)
-    setNotes(restoredNotes)
-    setCellColors(restoredCellColors)
-    setCandidateColors(restoredCandidateColors)
-    drawingPointerIdRef.current = null
-    setDrawingDraft(null)
-    setDrawingStrokes(restoredDrawingStrokes)
-    flaggedColorCellRef.current = restoredFlaggedColorCell
-    setFlaggedColorCell(restoredFlaggedColorCell)
+    const currentEntry = getCurrentHistoryEntry()
+    restoreHistoryEntry(entry)
     setHistory(prev => prev.slice(0, -1))
+    setRedoHistory(prev => [...prev.slice(-50), currentEntry])
+    return true
+  }
+
+  function redo() {
+    const entry = redoHistory[redoHistory.length - 1]
+    if (!entry) return false
+    const currentEntry = getCurrentHistoryEntry()
+    restoreHistoryEntry(entry)
+    setRedoHistory(prev => prev.slice(0, -1))
+    setHistory(prev => [...prev.slice(-50), currentEntry])
     return true
   }
 
@@ -1608,6 +1755,7 @@ export default function Board({
   const toolTrayOverlayView = toolTrayTransition?.from ?? null
   const lowerPadOverlayView = lowerPadTransition?.from ?? null
   const undoDisabled = history.length === 0 || paused || won
+  const redoDisabled = redoHistory.length === 0 || paused || won
   const activeFlaggedColorCell =
     firstColorFlagEnabled &&
     flaggedColorCell !== null &&
@@ -1669,7 +1817,7 @@ export default function Board({
     return 'input-pad__panel--fade-out'
   }
 
-  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'candidates' | 'undo') {
+  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'candidates' | 'history') {
     const classes = ['tool-tray__main-button']
     const fadingTarget = stagedToolTarget !== null && button === stagedToolTarget
     if (isToolTrayOpening && isToolTrayFadingOut) {
@@ -1718,10 +1866,10 @@ export default function Board({
     }
   }
 
-  function renderToolTrayButtonIcon(target: 'undo' | 'eraser' | ToolTrayAnimatedTarget) {
+  function renderToolTrayButtonIcon(target: 'history' | 'eraser' | ToolTrayAnimatedTarget) {
     switch (target) {
-      case 'undo':
-        return <MdUndo size={24} />
+      case 'history':
+        return <MdHistory size={22} />
       case 'eraser':
         return <FaEraser size={22} />
       case 'notes':
@@ -1883,6 +2031,39 @@ export default function Board({
     )
   }
 
+  function renderHistoryActionPad(tabIndex?: number) {
+    return (
+      <>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.undo')}
+          disabled={undoDisabled}
+          onClick={(event) => handleMomentaryButtonClick(event, undo, true)}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <MdUndo size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.undo')}</span>
+        </button>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.redo')}
+          disabled={redoDisabled}
+          onClick={(event) => handleMomentaryButtonClick(event, redo, true)}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <MdRedo size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.redo')}</span>
+        </button>
+      </>
+    )
+  }
+
   function renderCandidateActionPad(tabIndex?: number) {
     return (
       <>
@@ -1911,6 +2092,24 @@ export default function Board({
             <FaWandMagicSparkles size={20} />
           </span>
           <span className="eraser-action-button__label">{t('board.singleCandidateToDigit')}</span>
+        </button>
+        <button
+          type="button"
+          className="eraser-action-button"
+          aria-label={t('board.seeRequiredTechniques')}
+          aria-busy={requiredTechniquesLoading}
+          disabled={paused || won || requiredTechniquesLoading}
+          onClick={async (event) => {
+            event.currentTarget.blur()
+            if (haptic) onTriggerHaptic?.()
+            await showRequiredTechniques()
+          }}
+          tabIndex={tabIndex}
+        >
+          <span className="eraser-action-button__icon" aria-hidden="true">
+            <MdLightbulbOutline size={20} />
+          </span>
+          <span className="eraser-action-button__label">{t('board.seeRequiredTechniques')}</span>
         </button>
       </>
     )
@@ -2163,7 +2362,7 @@ export default function Board({
             <div className="tool-tray__measure" aria-hidden="true">
               <div className="num-pad-toolbar tool-tray__panel">
                 <button type="button" className="num-key clear" tabIndex={-1}>
-                  {renderToolTrayButtonIcon('undo')}
+                  {renderToolTrayButtonIcon('history')}
                 </button>
                 <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
                   {renderToolTrayButtonIcon('eraser')}
@@ -2270,13 +2469,14 @@ export default function Board({
               aria-hidden={visibleToolTray !== 'main'}
             >
               <button
-                className={`num-key clear ${mainToolButtonClass('undo')}`}
+                className={`num-key clear${historyToolMode ? ' history-toggle--active' : ''} ${mainToolButtonClass('history')}`}
                 type="button"
-                aria-label={t('board.undo')}
-                disabled={undoDisabled}
-                onClick={(event) => handleMomentaryButtonClick(event, undo)}
+                aria-label={t('board.toggleHistoryTools')}
+                aria-pressed={historyToolMode}
+                disabled={paused || won}
+                onClick={(event) => handleModeButtonClick(event, toggleHistoryTools)}
               >
-                {renderToolTrayButtonIcon('undo')}
+                {renderToolTrayButtonIcon('history')}
               </button>
               <button
                 className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''} ${mainToolButtonClass('clear')}`}
@@ -2285,6 +2485,7 @@ export default function Board({
                 aria-pressed={eraserMode}
                 disabled={paused || won}
                 onClick={(event) => handleModeButtonClick(event, () => {
+                  setHistoryToolMode(false)
                   setCandidateToolMode(false)
                   setEraserMode(prev => !prev)
                 })}
@@ -2341,8 +2542,8 @@ export default function Board({
                 role="presentation"
                 aria-hidden="true"
               >
-                <button type="button" className="num-key clear" tabIndex={-1}>
-                  {renderToolTrayButtonIcon('undo')}
+                <button type="button" className={`num-key clear${historyToolMode ? ' history-toggle--active' : ''}`} tabIndex={-1}>
+                  {renderToolTrayButtonIcon('history')}
                 </button>
                 <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
                   {renderToolTrayButtonIcon('eraser')}
@@ -2362,7 +2563,22 @@ export default function Board({
               </div>
             )}
           </div>
-          {eraserMode ? (
+          {requiredTechniquesError && (
+            <p className="creator-error board-technique-error" role="status">
+              {requiredTechniquesError}
+            </p>
+          )}
+          {historyToolMode ? (
+            <div className="input-pad-switcher input-pad-switcher--history-actions">
+              <div
+                className="history-action-pad"
+                role="toolbar"
+                aria-label={t('board.historyActions')}
+              >
+                {renderHistoryActionPad()}
+              </div>
+            </div>
+          ) : eraserMode ? (
             <div className="input-pad-switcher input-pad-switcher--eraser-actions">
               <div
                 className="eraser-action-pad"
@@ -2375,7 +2591,7 @@ export default function Board({
           ) : candidateToolMode ? (
             <div className="input-pad-switcher input-pad-switcher--candidate-actions">
               <div
-                className="candidate-action-pad"
+                className="candidate-action-pad candidate-action-pad--single-row"
                 role="toolbar"
                 aria-label={t('board.candidateActions')}
               >
@@ -2507,6 +2723,74 @@ export default function Board({
             })}
           </div>
         </>
+      )}
+      {requiredTechniquesOpen && createPortal(
+        <>
+          <div
+            className="sidebar-backdrop open"
+            data-testid="required-techniques-backdrop"
+            onClick={closeRequiredTechniquesSidebar}
+            aria-hidden="true"
+          />
+          <aside
+            className="sidebar sidebar--techniques open"
+            role="dialog"
+            aria-label={t('board.requiredTechniquesSidebar')}
+            aria-modal="true"
+          >
+            <div className="sidebar-header sidebar-header--title">
+              <h2 className="sidebar-title">{t('board.requiredTechniquesTitle')}</h2>
+              <button
+                type="button"
+                className="sidebar-close"
+                aria-label={t('board.closeRequiredTechniques')}
+                onClick={closeRequiredTechniquesSidebar}
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="2" y1="2" x2="16" y2="16"/>
+                  <line x1="16" y1="2" x2="2" y2="16"/>
+                </svg>
+              </button>
+            </div>
+            <div className="board-techniques-sidebar">
+              {requiredTechniquesLoading ? (
+                <p className="board-techniques-sidebar__summary">{t('board.requiredTechniquesLoading')}</p>
+              ) : requiredTechniquesResult ? (
+                <>
+                  <p className="board-techniques-sidebar__summary">
+                    {t('board.requiredTechniquesCount', { count: requiredTechniquesResult.steps.length })}
+                  </p>
+                  {requiredTechniquesResult.steps.length === 0 ? (
+                    <p className="board-techniques-sidebar__empty">{t('board.requiredTechniquesEmpty')}</p>
+                  ) : (
+                    <ol className="board-techniques-sidebar__list">
+                      {requiredTechniquesResult.steps.map(step => {
+                        const expanded = expandedTechniqueSteps.includes(step.stepNumber)
+                        return (
+                          <li key={`${step.stepNumber}-${step.technique}`} className="board-techniques-step">
+                            <button
+                              type="button"
+                              className="board-techniques-step__button"
+                              aria-expanded={expanded}
+                              onClick={() => toggleTechniqueStep(step.stepNumber)}
+                            >
+                              <span className="board-techniques-step__number">{step.stepNumber}.</span>
+                              <span className="board-techniques-step__technique">{step.technique}</span>
+                            </button>
+                            {expanded && step.notation.length > 0 && (
+                              <p className="board-techniques-step__notation">{step.notation}</p>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ol>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </aside>
+        </>,
+        document.body
       )}
       {won && (
         <div className="victory-overlay">
