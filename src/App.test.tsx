@@ -257,10 +257,10 @@ describe('App', () => {
     expect(await screen.findByRole('button', { name: /^new game$/i })).toBeEnabled()
   })
 
-  it('opens the created puzzle creator when Create new game is clicked', async () => {
+  it('opens the created puzzle creator when Create game is clicked', async () => {
     render(<App />)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /create new game/i }))
+    await user.click(screen.getByRole('button', { name: /create game/i }))
     expect(screen.getByRole('grid', { name: /created puzzle grid/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /confirm created puzzle/i })).toBeInTheDocument()
   })

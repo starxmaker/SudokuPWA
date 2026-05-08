@@ -69,7 +69,7 @@ describe('Home', () => {
     render(<Home {...base} />)
     expect(screen.getByRole('heading', { name: /welcome/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^new game$/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /create new game/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create game/i })).toBeInTheDocument()
   })
 
   it('does not show Continue button when no saved game', () => {
@@ -118,10 +118,10 @@ describe('Home', () => {
     expect(button).toBeDisabled()
   })
 
-  it('calls onCreated when Create new game clicked', async () => {
+  it('calls onCreated when Create game clicked', async () => {
     const onCreated = vi.fn()
     render(<Home {...base} onCreated={onCreated} />)
-    await userEvent.click(screen.getByRole('button', { name: /create new game/i }))
+    await userEvent.click(screen.getByRole('button', { name: /create game/i }))
     expect(onCreated).toHaveBeenCalledOnce()
   })
 
