@@ -37,23 +37,23 @@ type SavedV9 = {
 
 const PUZZLE_SOURCES: PuzzleSource[] = ['generated', 'preloaded', 'imported', 'created']
 
-function cloneGrid(g: Grid): Grid {
+export function cloneGrid(g: Grid): Grid {
   return g.map(row => [...row])
 }
 
-function cloneNotes(n: number[][][]): number[][][] {
+export function cloneNotes(n: number[][][]): number[][][] {
   return n.map(row => row.map(cell => [...cell]))
 }
 
-function cloneCellColors(colors: CellColorGrid): CellColorGrid {
+export function cloneCellColors(colors: CellColorGrid): CellColorGrid {
   return colors.map(row => row.map(cell => [...cell]))
 }
 
-function cloneCandidateColors(colors: CandidateColorGrid): CandidateColorGrid {
+export function cloneCandidateColors(colors: CandidateColorGrid): CandidateColorGrid {
   return colors.map(row => row.map(cell => cell.map(candidate => [...candidate])))
 }
 
-function cloneFlaggedColorCell(cell: FlaggedColorCell): FlaggedColorCell {
+export function cloneFlaggedColorCell(cell: FlaggedColorCell): FlaggedColorCell {
   return cell === null ? null : { ...cell }
 }
 

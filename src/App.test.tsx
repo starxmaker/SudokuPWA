@@ -1,7 +1,8 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
+import { renderWithProvider as render } from './testUtils'
 import { saveGame, saveElapsed, saveCompleted, ELAPSED_KEY, COMPLETED_KEY, encodeGrid } from './utils/gameStorage'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 

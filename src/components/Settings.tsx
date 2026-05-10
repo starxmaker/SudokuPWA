@@ -1,55 +1,31 @@
 import React from 'react'
 import type { AppLanguageSetting } from '../utils/i18n'
 import { useI18n } from '../utils/i18n'
+import { useAppSelector, useAppDispatch } from '../store/hooks'
+import {
+  setTheme, setAutoCheck, setAutoRemove, setHaptic,
+  setPencilMode, setCoordinateLabels, setFirstColorFlag,
+  setPaintingScope,
+} from '../store/settingsSlice'
 
 type Props = {
   open: boolean
   onClose: () => void
   onReset: () => void
-  theme: 'light'|'dark'
-  setTheme: (t: 'light'|'dark') => void
-  autoCheck: boolean
-  setAutoCheck: (v: boolean) => void
-  autoRemove: boolean
-  setAutoRemove: (v: boolean) => void
-  haptic: boolean
-  setHaptic: (v: boolean) => void
-  pencilMode: boolean
-  setPencilMode: (v: boolean) => void
-  coordinateLabels: boolean
-  setCoordinateLabels: (v: boolean) => void
-  paintingScope: 'digit' | 'candidate'
-  setPaintingScope: (v: 'digit' | 'candidate') => void
-  firstColorFlag: boolean
-  setFirstColorFlag: (v: boolean) => void
-  languageSetting: AppLanguageSetting
-  setLanguageSetting: (language: AppLanguageSetting) => void
 }
 
-export default function Settings({
-  open,
-  onClose,
-  onReset,
-  theme,
-  setTheme,
-  autoCheck,
-  setAutoCheck,
-  autoRemove,
-  setAutoRemove,
-  haptic,
-  setHaptic,
-  pencilMode,
-  setPencilMode,
-  coordinateLabels,
-  setCoordinateLabels,
-  paintingScope,
-  setPaintingScope,
-  firstColorFlag,
-  setFirstColorFlag,
-  languageSetting,
-  setLanguageSetting,
-}: Props){
-  const { t } = useI18n()
+export default function Settings({ open, onClose, onReset }: Props){
+  const dispatch = useAppDispatch()
+  const { t, languageSetting, setLanguageSetting } = useI18n()
+
+  const theme = useAppSelector(s => s.settings.theme)
+  const autoCheck = useAppSelector(s => s.settings.autoCheck)
+  const autoRemove = useAppSelector(s => s.settings.autoRemove)
+  const haptic = useAppSelector(s => s.settings.haptic)
+  const pencilMode = useAppSelector(s => s.settings.pencilMode)
+  const coordinateLabels = useAppSelector(s => s.settings.coordinateLabels)
+  const firstColorFlag = useAppSelector(s => s.settings.firstColorFlag)
+  const paintingScope = useAppSelector(s => s.settings.paintingScope)
 
   React.useEffect(()=>{
     function onKey(e: KeyboardEvent){ if(e.key === 'Escape') onClose() }
@@ -70,7 +46,7 @@ export default function Settings({
               role="switch"
               aria-checked={theme === 'dark'}
               checked={theme === 'dark'}
-              onChange={(e)=> setTheme(e.target.checked ? 'dark' : 'light')}
+              onChange={(e)=> dispatch(setTheme(e.target.checked ? 'dark' : 'light'))}
             />
             <span className="switch" />
           </label>
@@ -97,7 +73,7 @@ export default function Settings({
             <button
               type="button"
               aria-pressed={paintingScope === 'digit'}
-              onClick={() => setPaintingScope('digit')}
+              onClick={() => dispatch(setPaintingScope('digit'))}
               style={{
                 borderRadius:12,
                 padding:'10px 14px',
@@ -112,7 +88,7 @@ export default function Settings({
             <button
               type="button"
               aria-pressed={paintingScope === 'candidate'}
-              onClick={() => setPaintingScope('candidate')}
+              onClick={() => dispatch(setPaintingScope('candidate'))}
               style={{
                 borderRadius:12,
                 padding:'10px 14px',
@@ -137,7 +113,7 @@ export default function Settings({
               role="switch"
               aria-checked={autoCheck}
               checked={autoCheck}
-              onChange={(e)=> setAutoCheck(e.target.checked)}
+              onChange={(e)=> dispatch(setAutoCheck(e.target.checked))}
             />
             <span className="switch" />
           </label>
@@ -153,7 +129,7 @@ export default function Settings({
               role="switch"
               aria-checked={autoRemove}
               checked={autoRemove}
-              onChange={(e)=> setAutoRemove(e.target.checked)}
+              onChange={(e)=> dispatch(setAutoRemove(e.target.checked))}
             />
             <span className="switch" />
           </label>
@@ -169,7 +145,7 @@ export default function Settings({
               role="switch"
               aria-checked={haptic}
               checked={haptic}
-              onChange={(e)=> setHaptic(e.target.checked)}
+              onChange={(e)=> dispatch(setHaptic(e.target.checked))}
             />
             <span className="switch" />
           </label>
@@ -185,7 +161,7 @@ export default function Settings({
               role="switch"
               aria-checked={pencilMode}
               checked={pencilMode}
-              onChange={(e)=> setPencilMode(e.target.checked)}
+              onChange={(e)=> dispatch(setPencilMode(e.target.checked))}
             />
             <span className="switch" />
           </label>
@@ -201,7 +177,7 @@ export default function Settings({
               role="switch"
               aria-checked={coordinateLabels}
               checked={coordinateLabels}
-              onChange={(e)=> setCoordinateLabels(e.target.checked)}
+              onChange={(e)=> dispatch(setCoordinateLabels(e.target.checked))}
             />
             <span className="switch" />
           </label>
@@ -217,7 +193,7 @@ export default function Settings({
               role="switch"
               aria-checked={firstColorFlag}
               checked={firstColorFlag}
-              onChange={(e)=> setFirstColorFlag(e.target.checked)}
+              onChange={(e)=> dispatch(setFirstColorFlag(e.target.checked))}
             />
             <span className="switch" />
           </label>
