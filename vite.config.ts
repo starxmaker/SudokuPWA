@@ -1,11 +1,15 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json'
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
   const react = (await import('@vitejs/plugin-react')).default
+
+  const base = env.VITE_BASE_PATH || '/SudokuPWA/'
+
   return {
-    base: '/SudokuPWA/',
+    base,
     plugins: [
       react(),
       VitePWA({
@@ -16,8 +20,8 @@ export default defineConfig(async () => {
         manifest: {
           name: 'Sudoku PWA',
           short_name: 'Sudoku',
-          start_url: '/SudokuPWA/',
-          scope: '/SudokuPWA/',
+          start_url: base,
+          scope: base,
           display: 'standalone',
           background_color: '#ffffff',
           theme_color: '#0b6cff',
@@ -37,7 +41,10 @@ export default defineConfig(async () => {
     optimizeDeps: {
       exclude: ['hodoku-core-js'],
     },
-    define: { __APP_VERSION__: JSON.stringify(pkg.version), __REPO_URL__: JSON.stringify(pkg.homepage) },
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+      __REPO_URL__: JSON.stringify(pkg.homepage)
+    },
     server: { port: 5173 }
   }
 })
