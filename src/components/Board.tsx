@@ -54,6 +54,7 @@ import ToolActionsPad from './board/ToolActionsPad'
 import VictoryOverlay from './board/VictoryOverlay'
 import CandidateOverlayComp from './board/CandidateOverlay'
 import TechniquesSidebar, { type TechniquesSidebarHandle } from './board/TechniquesSidebar'
+import PauseOverlay from './board/PauseOverlay'
 
 type Props = {
   puzzle?: Grid | null
@@ -191,7 +192,7 @@ export default function Board({
   const [manualPause, setManualPause] = useState(false)
   const [won, setWon] = useState(false)
   const [finalTime, setFinalTime] = useState(0)
-  const [shareCopied, setShareCopied] = useState(false)
+  // shareCopied → VictoryOverlay component
   const [brushMode, setBrushMode] = useState(false)
   const [drawingMode, setDrawingMode] = useState(false)
   const [candidateToolMode, setCandidateToolMode] = useState(false)
@@ -1813,11 +1814,7 @@ export default function Board({
 
   return (
     <div className="game-layout">
-      {!onBack && (
-        <div style={{alignSelf:'flex-end'}}>
-          <button type="button" onClick={newGame}>{t('board.new')}</button>
-        </div>
-      )}
+      {!onBack && <div style={{alignSelf:'flex-end'}}><button type="button" onClick={newGame}>{t('board.new')}</button></div>}
         <div className="game-main">
         <div className="board-area">
           <div className="board-column">
@@ -1892,18 +1889,7 @@ export default function Board({
                     )
                   )}
                 </svg>
-                {paused && !won && (
-                  <div className="board-pause-overlay">
-                    <button
-                      type="button"
-                      className="board-pause-btn"
-                      aria-label={t('board.resume')}
-                      onClick={() => { setManualPause(false); setPaused(false) }}
-                    >
-                      <MdPlayArrow size={38} />
-                    </button>
-                  </div>
-                )}
+                <PauseOverlay paused={paused} won={won} onResume={() => { setManualPause(false); setPaused(false) }} t={t} />
               </div>
             </div>
           </div>
@@ -2207,89 +2193,9 @@ export default function Board({
           )}
         </div>
       </div>
-      {candidateOverlay && (
-        <>
-          <button
-            type="button"
-            className="brush-candidate-backdrop"
-            aria-label={candidateOverlay.mode === 'erase' ? t('board.closeCandidateEraser') : t('board.closeCandidatePainter')}
-            onClick={closeCandidateOverlay}
-          />
-          <div
-            className="brush-candidate-overlay"
-            role="dialog"
-            aria-label={candidateOverlay.mode === 'erase' ? t('board.candidateEraser') : t('board.candidatePainter')}
-            style={{
-              top: `${candidateOverlay.top}px`,
-              left: `${candidateOverlay.left}px`,
-              width: `${candidateOverlay.size}px`,
-              height: `${candidateOverlay.size}px`,
-            }}
-          >
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => {
-              const hasCandidate = overlayCellNotes.includes(d)
-              const colorIds = candidateColors[candidateOverlay.r][candidateOverlay.c][d - 1]
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  className={`brush-candidate-button${hasCandidate ? '' : ' brush-candidate-button--empty'}`}
-                  aria-label={hasCandidate
-                    ? (candidateOverlay.mode === 'erase'
-                      ? t('board.eraseCandidate', { digit: d })
-                      : t('board.paintCandidate', { digit: d }))
-                    : t('board.candidateUnavailable', { digit: d })}
-                  disabled={!hasCandidate || (candidateOverlay.mode === 'paint' && overlayHasCellColor)}
-                  onPointerMove={() => {
-                    if (hasCandidate && (candidateOverlay.mode === 'erase' || !overlayHasCellColor)) setCandidateOverlayPreviewDigit(d)
-                  }}
-                  onPointerDown={() => {
-                    if (hasCandidate && (candidateOverlay.mode === 'erase' || !overlayHasCellColor)) setCandidateOverlayPreviewDigit(d)
-                  }}
-                  onClick={() => {
-                    const changed = candidateOverlay.mode === 'erase'
-                      ? removeCandidateAt(candidateOverlay.r, candidateOverlay.c, d)
-                      : applyCandidateBrushColorAt(candidateOverlay.r, candidateOverlay.c, d)
-                    if (changed) {
-                      if (candidateOverlay.mode === 'erase') {
-                        closeCandidateOverlay()
-                      } else {
-                        setCandidateSelectedDigit(d)
-                        closeCandidateOverlay(true)
-                      }
-                      if (haptic) onTriggerHaptic?.()
-                    }
-                  }}
-                  style={colorIds.length > 0
-                    ? ({ '--annotation-color': buildBrushFill(colorIds) } as React.CSSProperties)
-                    : undefined}
-                >
-                  {hasCandidate ? d : ''}
-                </button>
-              )
-            })}
-          </div>
-        </>
-      )}
+      {candidateOverlay && <CandidateOverlayComp overlay={candidateOverlay} cellNotes={overlayCellNotes} candidateColors={candidateColors} overlayHasCellColor={overlayHasCellColor} previewDigit={candidateOverlayPreviewDigit} onClose={closeCandidateOverlay} onSetPreviewDigit={setCandidateOverlayPreviewDigit} onSelectDigit={setCandidateSelectedDigit} onRemoveCandidate={removeCandidateAt} onApplyCandidateBrushColor={applyCandidateBrushColorAt} haptic={haptic} onTriggerHaptic={onTriggerHaptic} t={t} />}
       <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} currentPuzzleState={currentPuzzleState} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
-      {won && (
-        <div className="victory-overlay">
-          <div className="victory-card">
-            <div className="victory-icon" aria-hidden>🎉</div>
-            <h2 className="victory-title">{t('board.puzzleComplete')}</h2>
-            <p className="victory-time">{formatTime(finalTime)}</p>
-            <div className="victory-actions">
-              <button type="button" onClick={handleRetry}>{t('board.retry')}</button>
-              {onShare && <button type="button" className={shareCopied ? 'copied' : ''} onClick={() => {
-                onShare()
-                setShareCopied(true)
-                setTimeout(() => setShareCopied(false), 2200)
-              }}>{shareCopied ? t('board.urlCopied') : t('topBar.share')}</button>}
-              <button type="button" onClick={onNew ?? (() => newGame())}>{t('home.newGame')}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <VictoryOverlay won={won} finalTime={finalTime} formatTime={formatTime} onRetry={handleRetry} onShare={onShare} onNew={onNew} onNewGame={newGame} t={t} />
       {pencilOverlayCell !== null && (
         <PencilOverlay
           cellRect={pencilOverlayCell.rect}

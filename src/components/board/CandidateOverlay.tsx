@@ -11,7 +11,7 @@ type Props = {
   candidateColors: CandidateColorGrid
   overlayHasCellColor: boolean
   previewDigit: number | null
-  onClose: () => void
+  onClose: (preserveSelectedDigit?: boolean) => void
   onSetPreviewDigit: (d: number | null) => void
   onSelectDigit: (d: number) => void
   onRemoveCandidate: (r: number, c: number, d: number) => boolean
@@ -75,7 +75,7 @@ export default function CandidateOverlay({
                     onClose()
                   } else {
                     onSelectDigit(d)
-                    onClose()
+                    onClose(true)
                   }
                   if (haptic) onTriggerHaptic?.()
                 }
