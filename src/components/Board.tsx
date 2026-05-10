@@ -48,6 +48,11 @@ import {
   formatTime, hasCellBrushColorsAt, hasAnyBrushColorsOnBoard,
   resolveFlaggedColorCell, emptyCandidateColorCell,
 } from './board/boardUtils'
+import NumberPad from './board/NumberPad'
+import ColorPad from './board/ColorPad'
+import ToolActionsPad from './board/ToolActionsPad'
+import VictoryOverlay from './board/VictoryOverlay'
+import CandidateOverlayComp from './board/CandidateOverlay'
 
 type Props = {
   puzzle?: Grid | null
@@ -1791,228 +1796,20 @@ export default function Board({
     setCandidateSelectedDigit(prev => (prev === d ? null : d))
   }
 
-  function renderNumberPad(tabIndex?: number, interactionDisabled = false) {
-    return (
-      <>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
-          <button
-            key={d}
-            type="button"
-            className={`num-key${remaining[d] === 0 ? ' num-key--done' : ''}${candidateEntryMode ? ' num-key--notes' : ''}${interactionDisabled ? ' num-key--reference' : ''}`}
-            disabled={paused || won || (!interactionDisabled && remaining[d] === 0)}
-            aria-pressed={interactionDisabled ? candidateSelectedDigit === d : undefined}
-            onPointerDown={(e) => {
-              if (interactionDisabled) return
-              if (e.pointerType === 'touch') {
-                const shouldHandleHapticOnPointerUp = remaining[d] === 1
-                if (shouldHandleHapticOnPointerUp && typeof e.currentTarget.setPointerCapture === 'function') {
-                  e.currentTarget.setPointerCapture(e.pointerId)
-                }
-                const isError = applyDigit(d)
-                touchFiredRef.current = shouldHandleHapticOnPointerUp
-                  ? (isError ? 'pending-error' : 'pending-ok')
-                  : (isError ? 'error' : 'ok')
-              }
-            }}
-            onPointerUp={(e) => {
-              if (interactionDisabled || e.pointerType !== 'touch') return
-              const result = touchFiredRef.current
-              if (result !== 'pending-ok' && result !== 'pending-error') return
-              touchFiredRef.current = result === 'pending-error' ? 'handled-error' : 'handled-ok'
-              if (haptic) {
-                if (result === 'pending-error') onTriggerErrorHaptic?.()
-                else onTriggerHaptic?.()
-              }
-              if (typeof e.currentTarget.hasPointerCapture === 'function' && e.currentTarget.hasPointerCapture(e.pointerId)) {
-                e.currentTarget.releasePointerCapture(e.pointerId)
-              }
-              window.setTimeout(() => {
-                if (touchFiredRef.current === 'handled-ok' || touchFiredRef.current === 'handled-error') {
-                  touchFiredRef.current = null
-                }
-              }, 0)
-            }}
-            onClick={() => {
-              if (interactionDisabled) {
-                toggleReferenceDigitHighlight(d)
-                if (haptic) onTriggerHaptic?.()
-                return
-              }
-              if (touchFiredRef.current !== null) {
-                const result = touchFiredRef.current
-                touchFiredRef.current = null
-                if (haptic && (result === 'ok' || result === 'error')) {
-                  if (result === 'error') onTriggerErrorHaptic?.()
-                  else onTriggerHaptic?.()
-                }
-                return
-              }
-              const isError = applyDigit(d)
-              if (haptic) {
-                if (isError) onTriggerErrorHaptic?.()
-                else onTriggerHaptic?.()
-              }
-            }}
-            aria-label={t('board.remainingDigits', { digit: d, count: remaining[d] })}
-            data-digit={d}
-            tabIndex={tabIndex}
-          >
-            <span className="num-key__digit">{remaining[d] === 0 ? '\u00a0' : d}</span>
-            <span className="num-key__remaining">{remaining[d] > 0 ? remaining[d] : '\u00a0'}</span>
-          </button>
-        ))}
-      </>
-    )
-  }
+  // renderNumberPad → component
 
-  function renderColorPad(tabIndex?: number) {
-    const activePaletteColor = drawingMode ? activeDrawingColor : activeBrushColor
-    return (
-      <>
-        {BRUSH_COLORS.map((color, index) => (
-          <button
-            key={color.id}
-            type="button"
-            className={`brush-color-button${activePaletteColor === color.id ? ' brush-color-button--active' : ''}`}
-            aria-label={t('board.brushColor', { index: index + 1 })}
-            aria-pressed={activePaletteColor === color.id}
-            disabled={paused || won}
-            onClick={() => applyBrushColor(color.id)}
-            style={{ '--annotation-color': color.fill, '--swatch-color': color.swatch } as React.CSSProperties}
-            tabIndex={tabIndex}
-          />
-        ))}
-        <button
-          type="button"
-          className="brush-color-button brush-color-button--clear"
-          aria-label={t('board.brushColorRemover')}
-          aria-pressed={false}
-          disabled={paused || won || !selectedHasAnyColors}
-          onClick={(event) => handleMomentaryButtonClick(event, clearSelectedBrushColors, true)}
-          tabIndex={tabIndex}
-        >
-          <span className="brush-color-button__clear-mark" aria-hidden="true">×</span>
-        </button>
-      </>
-    )
-  }
 
-  function renderEraserActionPad(tabIndex?: number) {
-    return (
-      <>
-        <button
-          type="button"
-          className="eraser-action-button"
-          aria-label={t('board.cleanColors')}
-          disabled={paused || won || !hasAnyColors}
-          onClick={(event) => handleMomentaryButtonClick(event, clearAllColors, true)}
-          tabIndex={tabIndex}
-        >
-          <span className="eraser-action-button__icon" aria-hidden="true">
-            <MdOutlineInvertColorsOff size={20} />
-          </span>
-          <span className="eraser-action-button__label">{t('board.cleanColors')}</span>
-        </button>
-        <button
-          type="button"
-          className="eraser-action-button"
-          aria-label={t('board.cleanDrawings')}
-          disabled={paused || won || !hasAnyDrawings}
-          onClick={(event) => handleMomentaryButtonClick(event, clearAllDrawings, true)}
-          tabIndex={tabIndex}
-        >
-          <span className="eraser-action-button__icon" aria-hidden="true">
-            <PiPencilSlash size={20} />
-          </span>
-          <span className="eraser-action-button__label">{t('board.cleanDrawings')}</span>
-        </button>
-      </>
-    )
-  }
+  // renderColorPad → component
 
-  function renderHistoryActionPad(tabIndex?: number) {
-    return (
-      <>
-        <button
-          type="button"
-          className="eraser-action-button"
-          aria-label={t('board.undo')}
-          disabled={undoDisabled}
-          onClick={(event) => handleMomentaryButtonClick(event, undo, true)}
-          tabIndex={tabIndex}
-        >
-          <span className="eraser-action-button__icon" aria-hidden="true">
-            <MdUndo size={20} />
-          </span>
-          <span className="eraser-action-button__label">{t('board.undo')}</span>
-        </button>
-        <button
-          type="button"
-          className="eraser-action-button"
-          aria-label={t('board.redo')}
-          disabled={redoDisabled}
-          onClick={(event) => handleMomentaryButtonClick(event, redo, true)}
-          tabIndex={tabIndex}
-        >
-          <span className="eraser-action-button__icon" aria-hidden="true">
-            <MdRedo size={20} />
-          </span>
-          <span className="eraser-action-button__label">{t('board.redo')}</span>
-        </button>
-      </>
-    )
-  }
 
-  function renderCandidateActionPad(tabIndex?: number) {
-    return (
-      <>
-        <button
-          type="button"
-          className="eraser-action-button"
-          aria-label={t('board.showAllBasicCandidates')}
-          disabled={paused || won || !hasAnyFillableCell}
-          onClick={(event) => handleMomentaryButtonClick(event, fillAllCandidates, true)}
-          tabIndex={tabIndex}
-        >
-          <span className="eraser-action-button__icon" aria-hidden="true">
-            <FaWandMagicSparkles size={20} />
-          </span>
-          <span className="eraser-action-button__label">{t('board.showAllBasicCandidates')}</span>
-        </button>
-        <button
-          type="button"
-          className="eraser-action-button"
-          aria-label={t('board.singleCandidateToDigit')}
-          disabled={paused || won || !notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))}
-          onClick={(event) => handleMomentaryButtonClick(event, applySingleCandidatesToDigits, true)}
-          tabIndex={tabIndex}
-        >
-          <span className="eraser-action-button__icon" aria-hidden="true">
-            <FaWandMagicSparkles size={20} />
-          </span>
-          <span className="eraser-action-button__label">{t('board.singleCandidateToDigit')}</span>
-        </button>
-        <button
-          type="button"
-          className="eraser-action-button"
-          aria-label={t('board.seeRequiredTechniques')}
-          aria-busy={requiredTechniquesLoading}
-          disabled={paused || won || requiredTechniquesLoading}
-          onClick={async (event) => {
-            event.currentTarget.blur()
-            if (haptic) onTriggerHaptic?.()
-            await showRequiredTechniques()
-          }}
-          tabIndex={tabIndex}
-        >
-          <span className="eraser-action-button__icon" aria-hidden="true">
-            <MdLightbulbOutline size={20} />
-          </span>
-          <span className="eraser-action-button__label">{t('board.seeRequiredTechniques')}</span>
-        </button>
-      </>
-    )
-  }
+  // renderEraserActionPad → component
+
+
+  // renderHistoryActionPad → component
+
+
+  // renderCandidateActionPad → component
+
 
   // flatten to grid items for responsive sizing
   const cells = [] as React.ReactNode[]
@@ -2469,7 +2266,7 @@ export default function Board({
                 role="toolbar"
                 aria-label={t('board.historyActions')}
               >
-                {renderHistoryActionPad()}
+                {<ToolActionsPad mode="history" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={requiredTechniquesLoading} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={showRequiredTechniques} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
               </div>
             </div>
           ) : eraserMode ? (
@@ -2479,7 +2276,7 @@ export default function Board({
                 role="toolbar"
                 aria-label={t('board.eraserActions')}
               >
-                {renderEraserActionPad()}
+                {<ToolActionsPad mode="eraser" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={requiredTechniquesLoading} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={showRequiredTechniques} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
               </div>
             </div>
           ) : candidateToolMode ? (
@@ -2489,7 +2286,7 @@ export default function Board({
                 role="toolbar"
                 aria-label={t('board.candidateActions')}
               >
-                {renderCandidateActionPad()}
+                {<ToolActionsPad mode="candidate" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={requiredTechniquesLoading} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={showRequiredTechniques} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
               </div>
             </div>
           ) : pencilMode ? (
@@ -2500,7 +2297,7 @@ export default function Board({
                   role="toolbar"
                   aria-label={t('board.brushColors')}
                 >
-                  {renderColorPad()}
+                  {<ColorPad drawingMode={drawingMode} activeBrushColor={activeBrushColor} activeDrawingColor={activeDrawingColor} paused={paused} won={won} selectedHasAnyColors={selectedHasAnyColors} applyBrushColor={applyBrushColor} clearSelectedBrushColors={clearSelectedBrushColors} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
                 </div>
               </div>
             ) : (
@@ -2510,7 +2307,7 @@ export default function Board({
                   role="toolbar"
                   aria-label={t('board.numberEntry')}
                 >
-                  {renderNumberPad(undefined, true)}
+                  {<NumberPad remaining={remaining} notesMode={notesMode} paused={paused} won={won} candidateSelectedDigit={candidateSelectedDigit} applyDigit={applyDigit} toggleReferenceDigitHighlight={toggleReferenceDigitHighlight} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onTriggerErrorHaptic={onTriggerErrorHaptic} touchFiredRef={touchFiredRef} interactionDisabled t={t} />}
                 </div>
               </div>
             )
@@ -2522,7 +2319,7 @@ export default function Board({
                 aria-label={t('board.numberEntry')}
                 aria-hidden={visibleLowerPad !== 'numbers'}
               >
-                {renderNumberPad()}
+                {<NumberPad remaining={remaining} notesMode={notesMode} paused={paused} won={won} candidateSelectedDigit={candidateSelectedDigit} applyDigit={applyDigit} toggleReferenceDigitHighlight={toggleReferenceDigitHighlight} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onTriggerErrorHaptic={onTriggerErrorHaptic} touchFiredRef={touchFiredRef} t={t} />}
               </div>
               {lowerPadOverlayView === 'numbers' && (
                 <div
@@ -2530,7 +2327,7 @@ export default function Board({
                   role="presentation"
                   aria-hidden="true"
                 >
-                  {renderNumberPad(-1)}
+                  {<NumberPad remaining={remaining} notesMode={notesMode} paused={paused} won={won} candidateSelectedDigit={candidateSelectedDigit} applyDigit={applyDigit} toggleReferenceDigitHighlight={toggleReferenceDigitHighlight} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onTriggerErrorHaptic={onTriggerErrorHaptic} touchFiredRef={touchFiredRef} tabIndex={-1} t={t} />}
                 </div>
               )}
               <div
@@ -2539,7 +2336,7 @@ export default function Board({
                 aria-label={t('board.brushColors')}
                 aria-hidden={visibleLowerPad !== 'colors'}
               >
-                {renderColorPad()}
+                {<ColorPad drawingMode={drawingMode} activeBrushColor={activeBrushColor} activeDrawingColor={activeDrawingColor} paused={paused} won={won} selectedHasAnyColors={selectedHasAnyColors} applyBrushColor={applyBrushColor} clearSelectedBrushColors={clearSelectedBrushColors} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
               </div>
               {lowerPadOverlayView === 'colors' && (
                 <div
@@ -2547,7 +2344,7 @@ export default function Board({
                   role="presentation"
                   aria-hidden="true"
                 >
-                  {renderColorPad(-1)}
+                  {<ColorPad drawingMode={drawingMode} activeBrushColor={activeBrushColor} activeDrawingColor={activeDrawingColor} paused={paused} won={won} selectedHasAnyColors={selectedHasAnyColors} applyBrushColor={applyBrushColor} clearSelectedBrushColors={clearSelectedBrushColors} onMomentaryButtonClick={handleMomentaryButtonClick} tabIndex={-1} t={t} />}
                 </div>
               )}
             </div>
