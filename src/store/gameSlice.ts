@@ -59,7 +59,7 @@ function emptyNotes(): number[][][] {
 }
 
 function makeEntry(
-  current: Grid,
+  current: Grid | null,
   notes: number[][][],
   cellColors: CellColorGrid,
   candidateColors: CandidateColorGrid,
@@ -67,7 +67,7 @@ function makeEntry(
   flaggedColorCell: FlaggedColorCell,
 ): BoardHistoryEntry {
   return {
-    puzzle: cloneGrid(current),
+    puzzle: current ? cloneGrid(current) : [],
     notes: cloneNotes(notes),
     cellColors: cloneCellColors(cellColors),
     candidateColors: cloneCandidateColors(candidateColors),

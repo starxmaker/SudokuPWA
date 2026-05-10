@@ -6,9 +6,9 @@ import Settings from './components/Settings'
 import NewGameModal from './components/NewGameModal'
 import PuzzleInfoModal from './components/PuzzleInfoModal'
 import PuzzleCreator from './components/PuzzleCreator'
-import { Grid } from './utils/sudoku'
-import { loadSaved, saveGame, encodeGrid, decodeGrid, type PuzzleMetadata, type PuzzleSource } from './utils/gameStorage'
+import { loadSaved, loadCompleted, encodeGrid } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
+import type { Grid } from './utils/sudoku'
 import { getPuzzleQueueAvailability, resetPuzzleQueueDaemon, startPuzzleQueueDaemon, subscribePuzzleQueueAvailability, takeQueuedGame } from './utils/appPuzzleQueue'
 import type { PuzzleQueueAvailability } from './utils/puzzleQueue'
 import { DIFFICULTY_LABELS, GameDifficulty } from './utils/difficulties'
@@ -16,6 +16,13 @@ import { type VerifiedPuzzle, verifyPuzzle } from './utils/generators/hodoku'
 import { getPreloadedPuzzleAvailability, takePreloadedPuzzle } from './utils/preloadedPuzzles'
 import { useI18n } from './utils/i18n'
 import { useAppSelector, useAppDispatch } from './store/hooks'
+import {
+  parseUrlGame, clearPendingImportedPuzzle, markAutoOpenImportedGame,
+  shouldAutoOpenImportedGame, clearAutoOpenImportedGame,
+  createImportedPuzzleMetadata, createGeneratedPuzzleMetadata, createCreatedPuzzleMetadata,
+  cloneGrid,
+} from './utils/importedPuzzle'
+import { getEffectiveAvailability } from './utils/puzzleMetadata'
 import {
   setTheme, setAutoCheck, setAutoRemove, setHaptic, setPencilMode,
   setCoordinateLabels, setFirstColorFlag, setPaintingScope,
@@ -26,147 +33,6 @@ import {
   setNewGameOpen, showToast, setImportVerificationPending, setHomeError,
 } from './store/uiSlice'
 import { startNewGame, setCurrent, markWon } from './store/gameSlice'
-
-type PuzzleRatingSummary = {
-  difficulty: GameDifficulty | null
-  score: number | null
-}
-
-/** Parse ?p= once, synchronously. Imported puzzle verification runs later via Hodoku. */
-type ParsedUrl =
-  | { type: 'game'; initial: Grid }
-  | { type: 'error'; reason: 'invalidPuzzleLink' }
-  | { type: 'none' }
-
-const PENDING_IMPORTED_PUZZLE_KEY = 'pending-imported-puzzle'
-const AUTO_OPEN_IMPORTED_GAME_KEY = 'auto-open-imported-game'
-
-function currentLocationUrl() {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`
-}
-
-function storePendingImportedPuzzle(encodedPuzzle: string) {
-  try {
-    sessionStorage.setItem(PENDING_IMPORTED_PUZZLE_KEY, encodedPuzzle)
-  } catch {}
-  try {
-    const nextState = typeof window.history.state === 'object' && window.history.state !== null
-      ? { ...window.history.state, pendingImportedPuzzle: encodedPuzzle }
-      : { pendingImportedPuzzle: encodedPuzzle }
-    window.history.replaceState(nextState, '', currentLocationUrl())
-  } catch {}
-}
-
-function readPendingImportedPuzzle(): string | null {
-  try {
-    const historyState = window.history.state as { pendingImportedPuzzle?: unknown } | null
-    if (typeof historyState?.pendingImportedPuzzle === 'string' && historyState.pendingImportedPuzzle.length > 0) {
-      return historyState.pendingImportedPuzzle
-    }
-  } catch {}
-  try {
-    return sessionStorage.getItem(PENDING_IMPORTED_PUZZLE_KEY)
-  } catch {
-    return null
-  }
-}
-
-function clearPendingImportedPuzzle() {
-  try {
-    sessionStorage.removeItem(PENDING_IMPORTED_PUZZLE_KEY)
-  } catch {}
-  try {
-    const historyState = window.history.state as { pendingImportedPuzzle?: unknown } | null
-    if (typeof historyState?.pendingImportedPuzzle === 'string') {
-      const { pendingImportedPuzzle: _ignored, ...nextState } = historyState
-      window.history.replaceState(Object.keys(nextState).length > 0 ? nextState : null, '', currentLocationUrl())
-    }
-  } catch {}
-}
-
-function markAutoOpenImportedGame() {
-  try {
-    sessionStorage.setItem(AUTO_OPEN_IMPORTED_GAME_KEY, '1')
-  } catch {}
-}
-
-function shouldAutoOpenImportedGame() {
-  try {
-    return sessionStorage.getItem(AUTO_OPEN_IMPORTED_GAME_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-function clearAutoOpenImportedGame() {
-  try {
-    sessionStorage.removeItem(AUTO_OPEN_IMPORTED_GAME_KEY)
-  } catch {}
-}
-
-function parseUrlGame(): ParsedUrl {
-  try {
-    const params = new URLSearchParams(window.location.search)
-    const directPuzzle = params.get('p')
-    const encodedPuzzle = directPuzzle ?? readPendingImportedPuzzle()
-    if (!encodedPuzzle) return { type: 'none' }
-      const initial = decodeGrid(encodedPuzzle)
-      if (!initial) {
-        clearPendingImportedPuzzle()
-        return { type: 'error', reason: 'invalidPuzzleLink' }
-      }
-    if (directPuzzle) {
-      storePendingImportedPuzzle(encodedPuzzle)
-    }
-    return { type: 'game', initial }
-  } catch {
-    return { type: 'error', reason: 'invalidPuzzleLink' }
-  }
-}
-
-function cloneGrid(g: Grid): Grid { return g.map(r => [...r]) }
-
-function createImportedPuzzleMetadata(rating?: PuzzleRatingSummary | null): PuzzleMetadata {
-  const difficulty =  rating?.difficulty
-  return {
-    source: 'imported',
-    difficultyLabel: difficulty ? DIFFICULTY_LABELS[difficulty] : null,
-    score: rating?.score ?? null,
-  }
-}
-
-function createGeneratedPuzzleMetadata(
-  source: Extract<PuzzleSource, 'generated' | 'preloaded'>,
-  difficultyId: GameDifficulty,
-  score: number | null,
-): PuzzleMetadata {
-  return {
-    source,
-    difficultyLabel: DIFFICULTY_LABELS[difficultyId],
-    score,
-  }
-}
-
-function createCreatedPuzzleMetadata(rating?: PuzzleRatingSummary | null): PuzzleMetadata {
-  const difficulty = rating?.difficulty
-  return {
-    source: 'created',
-    difficultyLabel: difficulty ? DIFFICULTY_LABELS[difficulty] : null,
-    score: rating?.score ?? null,
-  }
-}
-
-function getEffectiveAvailability(
-  queueAvailability: PuzzleQueueAvailability,
-  preloadedAvailability: PuzzleQueueAvailability,
-): PuzzleQueueAvailability {
-  return Object.fromEntries(
-    (Object.keys(DIFFICULTY_LABELS) as GameDifficulty[]).map(difficulty => [
-      difficulty,
-      queueAvailability[difficulty] > 0 ? queueAvailability[difficulty] : preloadedAvailability[difficulty],
-    ]),
-  ) as PuzzleQueueAvailability
-}
 
 export default function App(){
   const dispatch = useAppDispatch()
@@ -220,6 +86,8 @@ export default function App(){
     return parseUrlGame()
   })
   const savedGame = loadSaved()
+  const isCompleted = gameCompleted || loadCompleted()
+  const hasSaved = (!!gameCurrent && !isCompleted) || (!!savedGame?.current && !isCompleted)
   const autoOpenImportedGame = urlGame.type !== 'game'
     && shouldAutoOpenImportedGame()
     && savedGame?.puzzleMetadata?.source === 'imported'
@@ -367,9 +235,13 @@ export default function App(){
   }
 
   function handleContinue(){
+    const saved = loadSaved()
     clearAutoOpenImportedGame()
     dispatch(setHomeError(null))
     dispatch(setCreatorMode(false))
+    if (saved?.puzzleMetadata?.difficultyLabel) {
+      dispatch(setDifficulty(saved.puzzleMetadata.difficultyLabel))
+    }
     dispatch(setShowHome(false))
   }
 
@@ -394,7 +266,7 @@ export default function App(){
       />
       <div className="app">
         {showHome ? (
-          <Home hasSaved={!!gameCurrent && !gameCompleted} onNew={handleNew} onContinue={handleContinue} onCreated={handleCreated} error={homeError} hasAvailablePuzzle={hasAvailablePuzzle} />
+          <Home hasSaved={hasSaved} onNew={handleNew} onContinue={handleContinue} onCreated={handleCreated} error={homeError} hasAvailablePuzzle={hasAvailablePuzzle} />
         ) : creatorMode ? (
           <PuzzleCreator
             onStart={startCreatedPuzzle}
