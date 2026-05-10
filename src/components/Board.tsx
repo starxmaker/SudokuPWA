@@ -53,6 +53,7 @@ import ColorPad from './board/ColorPad'
 import ToolActionsPad from './board/ToolActionsPad'
 import VictoryOverlay from './board/VictoryOverlay'
 import CandidateOverlayComp from './board/CandidateOverlay'
+import TechniquesSidebar, { type TechniquesSidebarHandle } from './board/TechniquesSidebar'
 
 type Props = {
   puzzle?: Grid | null
@@ -80,11 +81,6 @@ type Props = {
   onIdentifyCandidatesAvailabilityChange?: (available: boolean) => void
   paintingScope?: 'digit' | 'candidate'
   puzzleMetadata?: PuzzleMetadata | null
-}
-
-type RequiredTechniquesCacheEntry = {
-  puzzle: string
-  analysis: RequiredTechniques
 }
 
 
@@ -196,11 +192,6 @@ export default function Board({
   const [won, setWon] = useState(false)
   const [finalTime, setFinalTime] = useState(0)
   const [shareCopied, setShareCopied] = useState(false)
-  const [requiredTechniquesOpen, setRequiredTechniquesOpen] = useState(false)
-  const [requiredTechniquesLoading, setRequiredTechniquesLoading] = useState(false)
-  const [requiredTechniquesResult, setRequiredTechniquesResult] = useState<RequiredTechniques | null>(null)
-  const [requiredTechniquesError, setRequiredTechniquesError] = useState<string | null>(null)
-  const [expandedTechniqueSteps, setExpandedTechniqueSteps] = useState<number[]>([])
   const [brushMode, setBrushMode] = useState(false)
   const [drawingMode, setDrawingMode] = useState(false)
   const [candidateToolMode, setCandidateToolMode] = useState(false)
@@ -230,9 +221,8 @@ export default function Board({
   const [lowerPadTransition, setLowerPadTransition] = useState<LowerPadTransition | null>(null)
   const lowerPadTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const drawingPointerIdRef = React.useRef<number | null>(null)
-  const requiredTechniquesAbortRef = React.useRef<AbortController | null>(null)
-  const requiredTechniquesCacheRef = React.useRef<RequiredTechniquesCacheEntry | null>(null)
   const boardRef = React.useRef<HTMLDivElement | null>(null)
+  const techniquesRef = React.useRef<TechniquesSidebarHandle>(null)
   const toolTrayRef = React.useRef<HTMLDivElement | null>(null)
   const [boardPixelWidth, setBoardPixelWidth] = useState<number | null>(null)
   const mainNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
@@ -313,7 +303,7 @@ export default function Board({
   }, [activeBrushColor, activeDrawingColor, activePaintingScope])
 
   useEffect(() => () => {
-    requiredTechniquesAbortRef.current?.abort()
+    techniquesRef.current?.reset()
     if (toolTrayTimerRef.current !== null) {
       window.clearTimeout(toolTrayTimerRef.current)
     }
@@ -325,18 +315,6 @@ export default function Board({
     }
   }, [])
 
-  useEffect(() => {
-    if (!requiredTechniquesOpen) return
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setRequiredTechniquesOpen(false)
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [requiredTechniquesOpen])
 
   // Win detection
   useEffect(() => {
@@ -426,7 +404,7 @@ export default function Board({
   }
 
   async function newGame(){
-    resetRequiredTechniquesState()
+    techniquesRef.current?.reset()
     const { puzzle: p, solution: s } = await generateGame()
     const initial = cloneGrid(p)
     setInitialGrid(initial)
@@ -476,7 +454,7 @@ export default function Board({
 
   function handleRetry() {
     if (!initialGrid) return
-    resetRequiredTechniquesState()
+    techniquesRef.current?.reset()
     setInternalPuzzle(cloneGrid(initialGrid))
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setCellColors(emptyCellColors())
@@ -910,137 +888,15 @@ export default function Board({
     if (haptic) onTriggerHaptic?.()
   }
 
-  function closeRequiredTechniquesSidebar() {
-    setRequiredTechniquesOpen(false)
-  }
 
-  function resetRequiredTechniquesState() {
-    requiredTechniquesAbortRef.current?.abort()
-    requiredTechniquesAbortRef.current = null
-    setRequiredTechniquesOpen(false)
-    setRequiredTechniquesLoading(false)
-    setRequiredTechniquesResult(null)
-    setRequiredTechniquesError(null)
-    setExpandedTechniqueSteps([])
-  }
 
-  function toggleTechniqueStep(stepNumber: number) {
-    setExpandedTechniqueSteps(prev =>
-      prev.includes(stepNumber)
-        ? prev.filter(currentStepNumber => currentStepNumber !== stepNumber)
-        : [...prev, stepNumber]
-    )
-  }
+  // techniques functions → TechniquesSidebar
 
-  function buildTechniquePrompt(step: RequiredTechniques['steps'][number]) {
-    return t('board.requiredTechniquesPromptTemplate', {
-      puzzle: currentPuzzleState,
-      technique: step.technique,
-      notation: step.notation,
-    })
-  }
 
-  async function copyTechniquePromptText(prompt: string, triggerHaptic = true) {
-    if (triggerHaptic) onTriggerHaptic?.()
-    setRequiredTechniquesError(null)
 
-    try {
-      await writeClipboardText(prompt)
-      return true
-    } catch {
-      setRequiredTechniquesError(t('board.requiredTechniquesCopyFailed'))
-      return false
-    }
-  }
+  // techniques functions → TechniquesSidebar
 
-  async function copyTechniquePrompt(step: RequiredTechniques['steps'][number]) {
-    const prompt = buildTechniquePrompt(step)
-    const copied = await copyTechniquePromptText(prompt)
-    return copied ? prompt : null
-  }
-
-  async function openTechniquePromptOnChatGpt(step: RequiredTechniques['steps'][number]) {
-    onTriggerHaptic?.()
-    setRequiredTechniquesError(null)
-    const prompt = buildTechniquePrompt(step)
-    const chatGptUrl = `https://chatgpt.com/?prompt=${encodeURIComponent(prompt)}`
-    try {
-      window.open(chatGptUrl, '_blank', 'noopener,noreferrer')
-    } catch {
-      setRequiredTechniquesError(t('board.requiredTechniquesOpenChatGptFailed'))
-      return
-    }
-
-    await copyTechniquePromptText(prompt, false)
-  }
-
-  async function showRequiredTechniques() {
-    closeCandidateOverlay()
-    requiredTechniquesAbortRef.current?.abort()
-    requiredTechniquesAbortRef.current = null
-    const puzzleState = currentPuzzleState
-    const cachedAnalysis = requiredTechniquesCacheRef.current?.puzzle === puzzleState
-      ? requiredTechniquesCacheRef.current.analysis
-      : null
-
-    setRequiredTechniquesError(null)
-    setExpandedTechniqueSteps([])
-
-    if (cachedAnalysis) {
-      setRequiredTechniquesLoading(false)
-      if (cachedAnalysis.unsolvable) {
-        setRequiredTechniquesOpen(true)
-        setRequiredTechniquesResult(null)
-        setRequiredTechniquesError(t('board.requiredTechniquesUnsolvable'))
-        return false
-      }
-
-      setRequiredTechniquesOpen(true)
-      setRequiredTechniquesResult(cachedAnalysis)
-      return true
-    }
-
-    const controller = new AbortController()
-    requiredTechniquesAbortRef.current = controller
-    setRequiredTechniquesOpen(true)
-    setRequiredTechniquesLoading(true)
-    setRequiredTechniquesResult(null)
-
-    try {
-      const analysis = await analyzeRequiredTechniques(internalPuzzle, controller.signal)
-      if (controller.signal.aborted) return false
-
-      if (analysis === null) {
-        setRequiredTechniquesResult(null)
-        setRequiredTechniquesError(t('board.requiredTechniquesFailed'))
-        return false
-      }
-
-      requiredTechniquesCacheRef.current = {
-        puzzle: puzzleState,
-        analysis,
-      }
-
-      if (analysis.unsolvable) {
-        setRequiredTechniquesResult(null)
-        setRequiredTechniquesError(t('board.requiredTechniquesUnsolvable'))
-        return false
-      }
-
-      setRequiredTechniquesResult(analysis)
-      return true
-    } catch {
-      if (controller.signal.aborted) return false
-      setRequiredTechniquesResult(null)
-      setRequiredTechniquesError(t('board.requiredTechniquesFailed'))
-      return false
-    } finally {
-      if (requiredTechniquesAbortRef.current === controller) {
-        requiredTechniquesAbortRef.current = null
-        setRequiredTechniquesLoading(false)
-      }
-    }
-  }
+  // techniques functions → TechniquesSidebar
 
   function clearSelectedBrushColors() {
     if (!selected) return false
@@ -2266,7 +2122,7 @@ export default function Board({
                 role="toolbar"
                 aria-label={t('board.historyActions')}
               >
-                {<ToolActionsPad mode="history" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={requiredTechniquesLoading} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={showRequiredTechniques} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
+                {<ToolActionsPad mode="history" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={false} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={() => techniquesRef.current?.show() ?? Promise.resolve(false)} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
               </div>
             </div>
           ) : eraserMode ? (
@@ -2276,7 +2132,7 @@ export default function Board({
                 role="toolbar"
                 aria-label={t('board.eraserActions')}
               >
-                {<ToolActionsPad mode="eraser" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={requiredTechniquesLoading} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={showRequiredTechniques} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
+                {<ToolActionsPad mode="eraser" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={false} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={() => techniquesRef.current?.show() ?? Promise.resolve(false)} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
               </div>
             </div>
           ) : candidateToolMode ? (
@@ -2286,7 +2142,7 @@ export default function Board({
                 role="toolbar"
                 aria-label={t('board.candidateActions')}
               >
-                {<ToolActionsPad mode="candidate" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={requiredTechniquesLoading} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={showRequiredTechniques} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
+                {<ToolActionsPad mode="candidate" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={false} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={() => techniquesRef.current?.show() ?? Promise.resolve(false)} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
               </div>
             </div>
           ) : pencilMode ? (
@@ -2415,104 +2271,7 @@ export default function Board({
           </div>
         </>
       )}
-      {requiredTechniquesOpen && createPortal(
-        <>
-          <div
-            className="sidebar-backdrop open"
-            data-testid="required-techniques-backdrop"
-            onClick={closeRequiredTechniquesSidebar}
-            aria-hidden="true"
-          />
-          <aside
-            className="sidebar sidebar--techniques open"
-            role="dialog"
-            aria-label={t('board.requiredTechniquesSidebar')}
-            aria-modal="true"
-          >
-            <div className="sidebar-header sidebar-header--title">
-              <h2 className="sidebar-title">{t('board.requiredTechniquesTitle')}</h2>
-              <button
-                type="button"
-                className="sidebar-close"
-                aria-label={t('board.closeRequiredTechniques')}
-                onClick={closeRequiredTechniquesSidebar}
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="2" y1="2" x2="16" y2="16"/>
-                  <line x1="16" y1="2" x2="2" y2="16"/>
-                </svg>
-              </button>
-            </div>
-            <div className="board-techniques-sidebar">
-              {requiredTechniquesError && (
-                <p className="creator-error board-techniques-sidebar__error" role="status">
-                  {requiredTechniquesError}
-                </p>
-              )}
-              {requiredTechniquesLoading ? (
-                <p className="board-techniques-sidebar__summary">{t('board.requiredTechniquesLoading')}</p>
-              ) : requiredTechniquesResult ? (
-                <>
-                  <p className="board-techniques-sidebar__summary">
-                    {t('board.requiredTechniquesCount', { count: requiredTechniquesResult.steps.length })}
-                  </p>
-                  {requiredTechniquesResult.steps.length === 0 ? (
-                    <p className="board-techniques-sidebar__empty">{t('board.requiredTechniquesEmpty')}</p>
-                  ) : (
-                    <ol className="board-techniques-sidebar__list">
-                      {requiredTechniquesResult.steps.map((step, index) => {
-                        const expanded = expandedTechniqueSteps.includes(step.stepNumber)
-                        const showCopyPrompt = expanded && index === 0
-                        return (
-                          <li key={`${step.stepNumber}-${step.technique}`} className="board-techniques-step">
-                            <button
-                              type="button"
-                              className="board-techniques-step__button"
-                              aria-expanded={expanded}
-                              onClick={() => toggleTechniqueStep(step.stepNumber)}
-                            >
-                              <span className="board-techniques-step__number">{step.stepNumber}.</span>
-                              <span className="board-techniques-step__technique">{step.technique}</span>
-                            </button>
-                            {expanded && (step.notation.length > 0 || index === 0) && (
-                              <div className="board-techniques-step__details">
-                                {step.notation.length > 0 && (
-                                  <p className="board-techniques-step__notation">{step.notation}</p>
-                                )}
-                                {showCopyPrompt && (
-                                  <div className="board-techniques-step__actions">
-                                    <button
-                                      type="button"
-                                      className="board-techniques-step__action-button"
-                                      onClick={() => void copyTechniquePrompt(step)}
-                                    >
-                                      <MdContentCopy size={16} aria-hidden="true" />
-                                      <span>{t('board.copyPrompt')}</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="board-techniques-step__action-button board-techniques-step__action-button--open"
-                                      onClick={() => void openTechniquePromptOnChatGpt(step)}
-                                    >
-                                      <ImNewTab size={14} aria-hidden="true" />
-                                      <span>{t('board.openOnChatGpt')}</span>
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </li>
-                        )
-                      })}
-                    </ol>
-                  )}
-                </>
-              ) : null}
-            </div>
-          </aside>
-        </>,
-        document.body
-      )}
+      <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} currentPuzzleState={currentPuzzleState} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
       {won && (
         <div className="victory-overlay">
           <div className="victory-card">
