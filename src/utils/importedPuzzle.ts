@@ -17,13 +17,17 @@ function currentLocationUrl() {
 export function storePendingImportedPuzzle(encodedPuzzle: string) {
   try {
     sessionStorage.setItem(PENDING_IMPORTED_PUZZLE_KEY, encodedPuzzle)
-  } catch {}
+  } catch {
+    // Ignore unavailable sessionStorage.
+  }
   try {
     const nextState = typeof window.history.state === 'object' && window.history.state !== null
       ? { ...window.history.state, pendingImportedPuzzle: encodedPuzzle }
       : { pendingImportedPuzzle: encodedPuzzle }
     window.history.replaceState(nextState, '', currentLocationUrl())
-  } catch {}
+  } catch {
+    // Ignore unavailable history state.
+  }
 }
 
 export function readPendingImportedPuzzle(): string | null {
@@ -32,7 +36,9 @@ export function readPendingImportedPuzzle(): string | null {
     if (typeof historyState?.pendingImportedPuzzle === 'string' && historyState.pendingImportedPuzzle.length > 0) {
       return historyState.pendingImportedPuzzle
     }
-  } catch {}
+  } catch {
+    // Ignore unavailable history state.
+  }
   try {
     return sessionStorage.getItem(PENDING_IMPORTED_PUZZLE_KEY)
   } catch {
@@ -43,20 +49,27 @@ export function readPendingImportedPuzzle(): string | null {
 export function clearPendingImportedPuzzle() {
   try {
     sessionStorage.removeItem(PENDING_IMPORTED_PUZZLE_KEY)
-  } catch {}
+  } catch {
+    // Ignore unavailable sessionStorage.
+  }
   try {
     const historyState = window.history.state as { pendingImportedPuzzle?: unknown } | null
     if (typeof historyState?.pendingImportedPuzzle === 'string') {
-      const { pendingImportedPuzzle: _ignored, ...nextState } = historyState
+      const nextState = { ...historyState }
+      delete nextState.pendingImportedPuzzle
       window.history.replaceState(Object.keys(nextState).length > 0 ? nextState : null, '', currentLocationUrl())
     }
-  } catch {}
+  } catch {
+    // Ignore unavailable history state.
+  }
 }
 
 export function markAutoOpenImportedGame() {
   try {
     sessionStorage.setItem(AUTO_OPEN_IMPORTED_GAME_KEY, '1')
-  } catch {}
+  } catch {
+    // Ignore unavailable sessionStorage.
+  }
 }
 
 export function shouldAutoOpenImportedGame() {
@@ -70,7 +83,9 @@ export function shouldAutoOpenImportedGame() {
 export function clearAutoOpenImportedGame() {
   try {
     sessionStorage.removeItem(AUTO_OPEN_IMPORTED_GAME_KEY)
-  } catch {}
+  } catch {
+    // Ignore unavailable sessionStorage.
+  }
 }
 
 export function parseUrlGame(): ParsedUrl {
@@ -79,11 +94,11 @@ export function parseUrlGame(): ParsedUrl {
     const directPuzzle = params.get('p')
     const encodedPuzzle = directPuzzle ?? readPendingImportedPuzzle()
     if (!encodedPuzzle) return { type: 'none' }
-      const initial = decodeGrid(encodedPuzzle)
-      if (!initial) {
-        clearPendingImportedPuzzle()
-        return { type: 'error', reason: 'invalidPuzzleLink' }
-      }
+    const initial = decodeGrid(encodedPuzzle)
+    if (!initial) {
+      clearPendingImportedPuzzle()
+      return { type: 'error', reason: 'invalidPuzzleLink' }
+    }
     if (directPuzzle) {
       storePendingImportedPuzzle(encodedPuzzle)
     }

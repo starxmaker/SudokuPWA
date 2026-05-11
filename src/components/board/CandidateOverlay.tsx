@@ -10,7 +10,6 @@ type Props = {
   cellNotes: number[]
   candidateColors: CandidateColorGrid
   overlayHasCellColor: boolean
-  previewDigit: number | null
   onClose: (preserveSelectedDigit?: boolean) => void
   onSetPreviewDigit: (d: number | null) => void
   onSelectDigit: (d: number) => void
@@ -22,7 +21,7 @@ type Props = {
 }
 
 export default function CandidateOverlay({
-  overlay, cellNotes, candidateColors, overlayHasCellColor, previewDigit,
+  overlay, cellNotes, candidateColors, overlayHasCellColor,
   onClose, onSetPreviewDigit, onSelectDigit,
   onRemoveCandidate, onApplyCandidateBrushColor,
   haptic, onTriggerHaptic, t,

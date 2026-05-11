@@ -97,6 +97,7 @@ export function createPuzzleQueueManager({
       const raw = storage.getItem(storageKey)
       queue = raw ? normalizeStoredQueue(JSON.parse(raw)) : createEmptyQueue()
     } catch {
+      // Ignore invalid or unavailable persisted data.
       queue = createEmptyQueue()
     }
   }
@@ -105,7 +106,9 @@ export function createPuzzleQueueManager({
     if (!storage) return
     try {
       storage.setItem(storageKey, JSON.stringify(queue))
-    } catch {}
+    } catch {
+      // Ignore unavailable storage.
+    }
   }
 
   function getAvailability(): PuzzleQueueAvailability {

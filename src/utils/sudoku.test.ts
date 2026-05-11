@@ -52,10 +52,6 @@ function isValidSolution(grid: number[][]): boolean {
   return true
 }
 
-function gridToString(grid: number[][]): string {
-  return grid.flat().map(n => n === 0 ? '.' : String(n)).join('')
-}
-
 describe('sudoku utils', () => {
   it('generateGame returns a valid puzzle and complete solution', async () => {
     const { puzzle, solution } = await generateGame()

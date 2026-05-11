@@ -24,9 +24,7 @@ import {
 } from './utils/importedPuzzle'
 import { getEffectiveAvailability } from './utils/puzzleMetadata'
 import {
-  setTheme, setAutoCheck, setAutoRemove, setHaptic, setPencilMode,
-  setCoordinateLabels, setFirstColorFlag, setPaintingScope,
-  setDifficulty, setBrushPrefs, resetSettings,
+  setDifficulty, resetSettings,
 } from './store/settingsSlice'
 import {
   setShowHome, setCreatorMode, setSettingsOpen, setInfoOpen,
@@ -128,7 +126,8 @@ export default function App(){
           clearAutoOpenImportedGame()
           dispatch(setHomeError(t('app.noValidSolution')))
           dispatch(setShowHome(true))
-          dispatch(startNewGame({ initial: urlGame.initial.map(r => Array(9).fill(0)), current: urlGame.initial.map(r => Array(9).fill(0)), solution: urlGame.initial.map(r => Array(9).fill(0)), puzzleMetadata: null }))
+          const emptyGrid = urlGame.initial.map(row => row.map(() => 0))
+          dispatch(startNewGame({ initial: emptyGrid, current: emptyGrid, solution: emptyGrid, puzzleMetadata: null }))
           return
         }
         const initial = cloneGrid(urlGame.initial)

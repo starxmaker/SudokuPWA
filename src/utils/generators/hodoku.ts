@@ -75,12 +75,12 @@ export async function generate(difficulty : GameDifficulty, onValidNewPuzzle: (p
       return
     }
     const valid = !puzzle.unsolvable && !puzzle.givenUp && !!puzzle.solution
-    let result : SolveRating = {
-        puzzle: puzzle.puzzle,
-        solution: puzzle.solution ?? null,
-        difficulty: getMatchingDifficulty(puzzle.score, puzzle.difficulty),
-        score: puzzle.score ?? null,
-      }
+    const result: SolveRating = {
+      puzzle: puzzle.puzzle,
+      solution: puzzle.solution ?? null,
+      difficulty: getMatchingDifficulty(puzzle.score, puzzle.difficulty),
+      score: puzzle.score ?? null,
+    }
     if (valid) {
       const continueProcessing = onValidNewPuzzle(result)
       if (!continueProcessing) {
@@ -108,12 +108,12 @@ export async function evaluate(
     }
     const solution = rating.solution ?? null
     const validSolution = !rating.givenUp && !rating.unsolvable && !!solution
-    const result : SolveRating = {
-        puzzle: rating.puzzle,
-        solution : validSolution ? solution : null,
-        difficulty: validSolution ? getMatchingDifficulty(rating.score, rating.difficulty) : null,
-        score: validSolution ? rating.score : null,
-      }
+    const result: SolveRating = {
+      puzzle: rating.puzzle,
+      solution: validSolution ? solution : null,
+      difficulty: validSolution ? getMatchingDifficulty(rating.score, rating.difficulty) : null,
+      score: validSolution ? rating.score : null,
+    }
     if (onValidNewPuzzle && validSolution) {
       const continueProcessing = onValidNewPuzzle(result)
       if (!continueProcessing) {
@@ -185,7 +185,7 @@ export async function analyzeRequiredTechniques(
 }
 
 const regex =
-  /^([\.0-9]{81})\s+#(\d+)\s+(Easy|Medium|Hard|Unfair|Extreme)\s+\((\d+)\)$/
+  /^([.0-9]{81})\s+#(\d+)\s+(Easy|Medium|Hard|Unfair|Extreme)\s+\((\d+)\)$/
 
 export const map = (line: string): PuzzleLine | null => {
   const match = line.trim().match(regex)

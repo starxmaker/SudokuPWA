@@ -4,25 +4,27 @@ import userEvent from '@testing-library/user-event'
 import Settings from './Settings'
 import { describe, it, expect, vi } from 'vitest'
 import { renderWithProvider } from '../testUtils'
+import type { SettingsState } from '../store/settingsSlice'
 
 const onClose = vi.fn()
 const onReset = vi.fn()
+const BASE_SETTINGS: SettingsState = {
+  theme: 'light',
+  autoCheck: false,
+  autoRemove: false,
+  haptic: false,
+  pencilMode: false,
+  coordinateLabels: false,
+  firstColorFlag: false,
+  paintingScope: 'digit',
+  difficulty: null,
+  brushPrefs: { activeColors: [], activeDrawingColors: [], candidateMode: false, firstColorFlagEnabled: true },
+}
 
 function renderSettings(open = true) {
   return renderWithProvider(<Settings open={open} onClose={onClose} onReset={onReset} />, {
     preloadedState: {
-      settings: {
-        theme: 'light',
-        autoCheck: false,
-        autoRemove: false,
-        haptic: false,
-        pencilMode: false,
-        coordinateLabels: false,
-        firstColorFlag: false,
-        paintingScope: 'digit',
-        difficulty: null,
-        brushPrefs: { activeColors: [], activeDrawingColors: [], candidateMode: false, firstColorFlagEnabled: true },
-      },
+      settings: BASE_SETTINGS,
     },
   })
 }
@@ -91,7 +93,7 @@ describe('Settings', () => {
 
   it('sets theme to light when dark mode toggled off', async () => {
     const { store } = renderWithProvider(<Settings open onClose={onClose} onReset={onReset} />, {
-      preloadedState: { settings: { theme: 'dark' } as any },
+      preloadedState: { settings: { ...BASE_SETTINGS, theme: 'dark' } },
     })
     await userEvent.click(screen.getByRole('switch', { name: /dark mode/i }))
     expect(store.getState().settings.theme).toBe('light')

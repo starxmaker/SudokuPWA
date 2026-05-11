@@ -3,9 +3,7 @@ import type {
   CellColorGrid,
   CandidateColorGrid,
   DrawingStroke,
-  DrawingStrokes,
   FlaggedColorCell,
-  PuzzleMetadata,
 } from '../utils/gameStorage'
 
 export type BrushColorId = 'rose' | 'orange' | 'amber' | 'lime' | 'emerald' | 'sky' | 'violet' | 'pink'

@@ -3,7 +3,6 @@ import type { RootState } from './index'
 import {
   saveGame,
   saveElapsed,
-  saveCompleted,
   saveBrushPrefs,
 } from '../utils/gameStorage'
 
@@ -30,7 +29,7 @@ const GAME_PERSIST_ACTIONS = new Set([
   'game/eraseCell',
 ])
 
-export const localStorageMiddleware: Middleware<{}, RootState> = store => next => action => {
+export const localStorageMiddleware: Middleware<unknown, RootState> = store => next => action => {
   const result = next(action)
 
   if (typeof action !== 'object' || action === null || !('type' in action)) {
@@ -49,16 +48,16 @@ export const localStorageMiddleware: Middleware<{}, RootState> = store => next =
   }
 
   if (actionType === 'game/startNewGame' || actionType === 'game/handleRetry') {
-    try { localStorage.removeItem('sudoku-pwa-completed') } catch {}
-    try { localStorage.removeItem('sudoku-pwa-elapsed') } catch {}
+    try { localStorage.removeItem('sudoku-pwa-completed') } catch { /* Ignore storage errors. */ }
+    try { localStorage.removeItem('sudoku-pwa-elapsed') } catch { /* Ignore storage errors. */ }
   }
 
   if (actionType === 'game/tickElapsed') {
-    try { localStorage.setItem('sudoku-pwa-elapsed', String(state.game.elapsed)) } catch {}
+    try { localStorage.setItem('sudoku-pwa-elapsed', String(state.game.elapsed)) } catch { /* Ignore storage errors. */ }
   }
 
   if (actionType === 'game/winGame') {
-    try { localStorage.setItem('sudoku-pwa-completed', '1') } catch {}
+    try { localStorage.setItem('sudoku-pwa-completed', '1') } catch { /* Ignore storage errors. */ }
   }
 
   return result
@@ -66,17 +65,17 @@ export const localStorageMiddleware: Middleware<{}, RootState> = store => next =
 
 function persistSettings(state: RootState) {
   const s = state.settings
-  try { localStorage.setItem('theme', s.theme) } catch {}
-  try { localStorage.setItem('autoCheck', s.autoCheck ? 'true' : 'false') } catch {}
-  try { localStorage.setItem('autoRemove', s.autoRemove ? 'true' : 'false') } catch {}
-  try { localStorage.setItem('haptic', s.haptic ? 'true' : 'false') } catch {}
-  try { localStorage.setItem('pencilMode', s.pencilMode ? 'true' : 'false') } catch {}
-  try { localStorage.setItem('coordinateLabels', s.coordinateLabels ? 'true' : 'false') } catch {}
-  try { localStorage.setItem('firstColorFlag', s.firstColorFlag ? 'true' : 'false') } catch {}
+  try { localStorage.setItem('theme', s.theme) } catch { /* Ignore storage errors. */ }
+  try { localStorage.setItem('autoCheck', s.autoCheck ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
+  try { localStorage.setItem('autoRemove', s.autoRemove ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
+  try { localStorage.setItem('haptic', s.haptic ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
+  try { localStorage.setItem('pencilMode', s.pencilMode ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
+  try { localStorage.setItem('coordinateLabels', s.coordinateLabels ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
+  try { localStorage.setItem('firstColorFlag', s.firstColorFlag ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
   if (s.difficulty) {
-    try { localStorage.setItem('difficulty', s.difficulty) } catch {}
+    try { localStorage.setItem('difficulty', s.difficulty) } catch { /* Ignore storage errors. */ }
   } else {
-    try { localStorage.removeItem('difficulty') } catch {}
+    try { localStorage.removeItem('difficulty') } catch { /* Ignore storage errors. */ }
   }
 
   saveBrushPrefs(

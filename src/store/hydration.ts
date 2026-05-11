@@ -81,48 +81,64 @@ function hydrateSettings(): HydratedSettingsState {
   try {
     const saved = localStorage.getItem('theme')
     if (saved === 'dark' || saved === 'light') theme = saved
-  } catch {}
+  } catch {
+    // Ignore unavailable localStorage.
+  }
 
   let autoCheck = true
   try {
     const saved = localStorage.getItem('autoCheck')
     if (saved !== null) autoCheck = saved === 'true'
-  } catch {}
+  } catch {
+    // Ignore unavailable localStorage.
+  }
 
   let autoRemove = true
   try {
     const saved = localStorage.getItem('autoRemove')
     if (saved !== null) autoRemove = saved === 'true'
-  } catch {}
+  } catch {
+    // Ignore unavailable localStorage.
+  }
 
   let haptic = true
   try {
     const saved = localStorage.getItem('haptic')
     if (saved !== null) haptic = saved === 'true'
-  } catch {}
+  } catch {
+    // Ignore unavailable localStorage.
+  }
 
   let pencilMode = false
   try {
     const saved = localStorage.getItem('pencilMode')
     if (saved !== null) pencilMode = saved === 'true'
-  } catch {}
+  } catch {
+    // Ignore unavailable localStorage.
+  }
 
   let coordinateLabels = false
   try {
     const saved = localStorage.getItem('coordinateLabels')
     if (saved !== null) coordinateLabels = saved === 'true'
-  } catch {}
+  } catch {
+    // Ignore unavailable localStorage.
+  }
 
   let firstColorFlag = false
   try {
     const saved = localStorage.getItem('firstColorFlag')
     if (saved !== null) firstColorFlag = saved === 'true'
-  } catch {}
+  } catch {
+    // Ignore unavailable localStorage.
+  }
 
   let difficulty: string | null = null
   try {
     difficulty = localStorage.getItem('difficulty')
-  } catch {}
+  } catch {
+    // Ignore unavailable localStorage.
+  }
 
   const brushPrefs = loadBrushPrefs()
   const paintingScope: 'digit' | 'candidate' = brushPrefs?.candidateMode ? 'candidate' : 'digit'

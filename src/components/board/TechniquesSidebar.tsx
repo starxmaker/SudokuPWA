@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { createPortal } from 'react-dom'
 import { MdContentCopy } from 'react-icons/md'
 import { ImNewTab } from 'react-icons/im'
 import { analyzeRequiredTechniques, type RequiredTechniques } from '../../utils/generators/hodoku'
 import type { Grid } from '../../utils/sudoku'
-import { encodeGrid, encodeGridWithCandidates } from '../../utils/gameStorage'
+import { encodeGridWithCandidates } from '../../utils/gameStorage'
 import { writeClipboardText } from '../../utils/clipboard'
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
@@ -18,7 +18,6 @@ type Props = {
   internalPuzzle: Grid
   notes: number[][][]
   currentPuzzleState: string
-  haptic: boolean
   onTriggerHaptic?: () => void
   onCloseCandidateOverlay: () => void
   t: TFunc
@@ -27,7 +26,7 @@ type Props = {
 type CacheEntry = { puzzle: string; analysis: RequiredTechniques }
 
 const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function TechniquesSidebar(
-  { internalPuzzle, notes, currentPuzzleState, haptic, onTriggerHaptic, onCloseCandidateOverlay, t }, ref
+  { internalPuzzle, notes, currentPuzzleState, onTriggerHaptic, onCloseCandidateOverlay, t }, ref
 ) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -141,7 +140,7 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
         setLoading(false)
       }
     }
-  }, [internalPuzzle, notes, currentPuzzleState, onCloseCandidateOverlay, t])
+  }, [internalPuzzle, notes, onCloseCandidateOverlay, t])
 
   const reset = useCallback(() => {
     abortRef.current?.abort()

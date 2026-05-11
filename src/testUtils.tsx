@@ -15,11 +15,10 @@ type TestRootState = {
 }
 
 export function createTestStore(preloadedState?: Partial<TestRootState>) {
-  const hydrated = hydrateFromLocalStorage() as any
-  const merged: any = { ...preloadedState }
+  const hydrated = hydrateFromLocalStorage()
+  const merged: Partial<TestRootState> = { ...preloadedState }
   // Only hydrate settings from localStorage (game state is too partial)
-  if (!merged.settings) merged.settings = {}
-  merged.settings = { ...hydrated.settings, ...merged.settings }
+  merged.settings = { ...hydrated.settings, ...(merged.settings ?? {}) }
   return configureStore({
     reducer: {
       settings: settingsReducer,

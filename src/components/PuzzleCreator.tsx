@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { MdUndo } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
 import { FcOk } from 'react-icons/fc'
@@ -82,15 +82,15 @@ export default function PuzzleCreator({
 
   const clueCount = grid.flat().filter(value => value !== 0).length
 
-  function pushHistory() {
+  const pushHistory = useCallback(() => {
     setHistory(prev => [...prev.slice(-49), cloneGrid(grid)])
-  }
+  }, [grid])
 
   function selectCell(r: number, c: number) {
     setSelected({ r, c })
   }
 
-  function setCellValue(r: number, c: number, value: number) {
+  const setCellValue = useCallback((r: number, c: number, value: number) => {
     if (grid[r][c] === value) {
       setSelected({ r, c })
       return
@@ -101,9 +101,9 @@ export default function PuzzleCreator({
     setGrid(next)
     setSelected({ r, c })
     setError(null)
-  }
+  }, [grid, pushHistory])
 
-  function clearCell(r: number, c: number) {
+  const clearCell = useCallback((r: number, c: number) => {
     if (grid[r][c] === 0) {
       setSelected({ r, c })
       return
@@ -114,13 +114,13 @@ export default function PuzzleCreator({
     setGrid(next)
     setSelected({ r, c })
     setError(null)
-  }
+  }, [grid, pushHistory])
 
-  function handleDigitInput(digit: number) {
+  const handleDigitInput = useCallback((digit: number) => {
     if (selected === null) return
     setCellValue(selected.r, selected.c, digit)
     if (haptic) onTriggerHaptic?.()
-  }
+  }, [haptic, onTriggerHaptic, selected, setCellValue])
 
   function handleUndo() {
     if (history.length === 0) return
@@ -185,7 +185,7 @@ export default function PuzzleCreator({
     }
   }
 
-  async function handleConfirm() {
+  const handleConfirm = useCallback(async () => {
     if (isVerifying) return
 
     setPencilOverlayCell(null)
@@ -215,7 +215,7 @@ export default function PuzzleCreator({
     } finally {
       setIsVerifying(false)
     }
-  }
+  }, [grid, haptic, isVerifying, onStart, onTriggerErrorHaptic, onTriggerHaptic, t])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -266,7 +266,7 @@ export default function PuzzleCreator({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [clueCount, grid, haptic, isVerifying, onTriggerHaptic, selected])
+  }, [clearCell, clueCount, grid, haptic, handleConfirm, handleDigitInput, isVerifying, onTriggerHaptic, selected])
 
   useEffect(() => {
     if (!pasteFallbackOpen) return

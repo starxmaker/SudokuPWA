@@ -7,7 +7,6 @@ import {
   type DrawingStroke,
   type FlaggedColorCell,
   type PuzzleMetadata,
-  cloneDrawingStrokes,
   loadSaved,
   saveGame,
   saveElapsed,
@@ -29,11 +28,9 @@ import {
   BRUSH_COLORS, BRUSH_SWATCH_MAP, DEFAULT_BRUSH_COLOR,
   toggleColorInSelection,
   type ToolTrayView, type ToolTrayTransition, type LowerPadView,
-  type LowerPadTransition, type ToolTrayAnimatedTarget,
-  type ToolTraySequenceDirection,
-  type ToolTrayMover, type ToolTraySequence, type CandidateOverlayState,
-  TOOL_TRAY_ANIMATION_MS, TOOL_TRAY_FADE_MS, TOOL_TRAY_MOVE_MS,
-  TOOL_TRAY_REVEAL_MS, TOOL_TRAY_STAGE_GAP_MS, ENABLE_STAGED_TOOL_ANIMATION,
+  type LowerPadTransition,
+  type ToolTraySequence, type CandidateOverlayState,
+  TOOL_TRAY_ANIMATION_MS,
   formatTime, hasCellBrushColorsAt, hasAnyBrushColorsOnBoard,
   resolveFlaggedColorCell, emptyCandidateColorCell,
 } from './board/boardUtils'
@@ -177,7 +174,7 @@ export default function Board({
   >(null)
   const [elapsed, setElapsed] = useState(() => loadElapsed())
   const [paused, setPaused] = useState(false)
-  const [manualPause, setManualPause] = useState(false)
+  const [, setManualPause] = useState(false)
   const [won, setWon] = useState(false)
   const [finalTime, setFinalTime] = useState(0)
   // shareCopied → VictoryOverlay component
@@ -227,19 +224,42 @@ export default function Board({
   const measureBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const measureDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
 
+  const closeCandidateOverlay = React.useCallback((preserveSelectedDigit = false) => {
+    setCandidateOverlay(null)
+    setCandidateOverlayPreviewDigit(null)
+    if (!preserveSelectedDigit) {
+      setCandidateSelectedDigit(null)
+    }
+  }, [])
+
+  function disableDrawingMode() {
+    setDrawingDraft(null)
+    drawingPointerIdRef.current = null
+    setDrawingMode(false)
+  }
+
+  const updatePaused = React.useCallback((next: boolean) => {
+    if (next) {
+      closeCandidateOverlay()
+      setDrawingDraft(null)
+      drawingPointerIdRef.current = null
+    }
+    setPaused(next)
+  }, [closeCandidateOverlay])
+
   // Auto-pause when the tab/window loses focus; never auto-resume.
   // Using focusout on document: relatedTarget is non-null for within-page
   // focus transitions, and null when focus leaves the document entirely.
   useEffect(() => {
-    function onBlur() { setPaused(true) }
-    function onVisibility() { if (document.hidden) setPaused(true) }
+    function onBlur() { updatePaused(true) }
+    function onVisibility() { if (document.hidden) updatePaused(true) }
     document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('blur', onBlur)
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('blur', onBlur)
     }
-  }, [])
+  }, [updatePaused])
 
   useEffect(() => {
     if (paused) return
@@ -271,23 +291,6 @@ export default function Board({
   }, [])
 
   useEffect(() => {
-    if (paused) {
-      setCandidateOverlay(null)
-      setCandidateOverlayPreviewDigit(null)
-      setCandidateSelectedDigit(null)
-      setDrawingDraft(null)
-      drawingPointerIdRef.current = null
-    }
-  }, [paused])
-
-  useEffect(() => {
-    if (!drawingMode) {
-      setDrawingDraft(null)
-      drawingPointerIdRef.current = null
-    }
-  }, [drawingMode])
-
-  useEffect(() => {
     saveBrushPrefs([activeBrushColor], activePaintingScope === 'candidate', [activeDrawingColor], false)
   }, [activeBrushColor, activeDrawingColor, activePaintingScope])
 
@@ -305,25 +308,21 @@ export default function Board({
   }, [])
 
 
-  // Win detection
+  /* eslint-disable react-hooks/set-state-in-effect */
+  // Win detection commits the solved state exactly once when the grid matches the solution.
   useEffect(() => {
     if (won) return
     if (!solutionGrid || internalPuzzle.length !== 9) return
     const complete = internalPuzzle.every((row, r) => row.every((n, c) => n === solutionGrid[r][c]))
     if (complete) {
       setWon(true)
-      setPaused(true)
-      setFinalTime(prev => elapsed) // capture current elapsed
+      updatePaused(true)
+      setFinalTime(elapsed)
       saveCompleted()
       onWin?.()
     }
-  }, [internalPuzzle, solutionGrid, won, elapsed])
-
-  // determine whether to use external setter or internal
-  const setPuzzle = (p: Grid) => {
-    if(setPuzzleProp) setPuzzleProp(p)
-    setInternalPuzzle(p)
-  }
+  }, [elapsed, internalPuzzle, onWin, solutionGrid, updatePaused, won])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (internalPuzzle.length !== 9 || !initialGrid) return
@@ -331,27 +330,14 @@ export default function Board({
   }, [internalPuzzle, initialGrid, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell, activePuzzleMetadata])
 
   useEffect(() => {
-    if (solutionProp != null) setSolutionGrid(solutionProp)
-  }, [solutionProp])
-
-  useEffect(() => {
     if (initialProp && initialProp.length === 9) return
     if (internalPuzzle.length > 0) return
     generateGame().then(({ puzzle, solution }) => {
+      setInitialGrid(cloneGrid(puzzle))
       setInternalPuzzle(puzzle)
       setSolutionGrid(solution)
     })
   }, [initialProp]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  /** First time we have a generated grid with no frozen clues (standalone / test), snapshot clues only. */
-  useEffect(() => {
-    if (internalPuzzle.length !== 9) return
-    if (initialGrid !== null) return
-    const frozen = cloneGrid(internalPuzzle)
-    setInitialGrid(frozen)
-    if (setPuzzleProp) setPuzzleProp(internalPuzzle)
-    saveGame(frozen, internalPuzzle, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell, activePuzzleMetadata)
-  }, [internalPuzzle, initialGrid, setPuzzleProp, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell, activePuzzleMetadata])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -411,7 +397,8 @@ export default function Board({
     setRedoHistory([])
     setElapsed(0)
     clearElapsed()
-    setPaused(false)
+    drawingPointerIdRef.current = null
+    updatePaused(false)
     setManualPause(false)
     setWon(false)
     setHistoryToolMode(false)
@@ -457,7 +444,8 @@ export default function Board({
     setRedoHistory([])
     setElapsed(0)
     clearElapsed()
-    setPaused(false)
+    drawingPointerIdRef.current = null
+    updatePaused(false)
     setManualPause(false)
     setWon(false)
     setHistoryToolMode(false)
@@ -599,14 +587,6 @@ export default function Board({
     return true
   }
 
-  function closeCandidateOverlay(preserveSelectedDigit = false) {
-    setCandidateOverlay(null)
-    setCandidateOverlayPreviewDigit(null)
-    if (!preserveSelectedDigit) {
-      setCandidateSelectedDigit(null)
-    }
-  }
-
   function switchLowerPad(next: LowerPadView, direction: LowerPadTransition['direction']) {
     if (visibleLowerPad === next) return
     if (lowerPadTimerRef.current !== null) {
@@ -622,141 +602,6 @@ export default function Board({
       setLowerPadTransition(null)
       lowerPadTimerRef.current = null
     }, TOOL_TRAY_ANIMATION_MS)
-  }
-
-  function clearToolTrayAnimation() {
-    if (toolTrayTimerRef.current !== null) {
-      window.clearTimeout(toolTrayTimerRef.current)
-      toolTrayTimerRef.current = null
-    }
-    if (toolTrayRafRef.current !== null) {
-      window.cancelAnimationFrame(toolTrayRafRef.current)
-      toolTrayRafRef.current = null
-    }
-    setToolTraySequence(null)
-  }
-
-  function getMainToolButton(target: ToolTrayAnimatedTarget) {
-    switch (target) {
-      case 'notes':
-        return mainNotesButtonRef.current
-      case 'brush':
-        return mainBrushButtonRef.current
-      case 'drawing':
-        return mainDrawingButtonRef.current
-    }
-  }
-
-  function getActiveToolButton(target: ToolTrayAnimatedTarget) {
-    switch (target) {
-      case 'notes':
-        return activeNotesButtonRef.current
-      case 'brush':
-        return activeBrushButtonRef.current
-      case 'drawing':
-        return activeDrawingButtonRef.current
-    }
-  }
-
-  function getMeasureMainToolButton(target: ToolTrayAnimatedTarget) {
-    switch (target) {
-      case 'notes':
-        return measureMainNotesButtonRef.current
-      case 'brush':
-        return measureMainBrushButtonRef.current
-      case 'drawing':
-        return measureMainDrawingButtonRef.current
-    }
-  }
-
-  function getMeasureSubtoolButton(target: ToolTrayAnimatedTarget) {
-    switch (target) {
-      case 'notes':
-        return measureNotesButtonRef.current
-      case 'brush':
-        return measureBrushButtonRef.current
-      case 'drawing':
-        return measureDrawingButtonRef.current
-    }
-  }
-
-  function startToolTraySequence(target: ToolTrayAnimatedTarget, direction: ToolTraySequenceDirection) {
-    if (!ENABLE_STAGED_TOOL_ANIMATION) {
-      setVisibleToolTray(direction === 'forward' ? target : 'main')
-      setToolTrayTransition(null)
-      setToolTraySequence(null)
-      return
-    }
-
-    const container = toolTrayRef.current
-    const source = direction === 'forward'
-      ? getMainToolButton(target)
-      : getActiveToolButton(target)
-    const destination = direction === 'forward'
-      ? getMeasureSubtoolButton(target)
-      : getMeasureMainToolButton(target)
-    if (container === null || source === null || destination === null) {
-      setVisibleToolTray(direction === 'forward' ? target : 'main')
-      setToolTrayTransition(null)
-      setToolTraySequence(null)
-      return
-    }
-
-    const containerRect = container.getBoundingClientRect()
-    const sourceRect = source.getBoundingClientRect()
-    const destinationRect = destination.getBoundingClientRect()
-    const mover: ToolTrayMover = {
-      left: sourceRect.left - containerRect.left,
-      top: sourceRect.top - containerRect.top,
-      width: sourceRect.width,
-      height: sourceRect.height,
-      deltaX: destinationRect.left - sourceRect.left,
-      deltaY: destinationRect.top - sourceRect.top,
-    }
-
-    clearToolTrayAnimation()
-    setToolTrayTransition(null)
-    setVisibleToolTray(direction === 'forward' ? 'main' : target)
-    setToolTraySequence({
-      target,
-      direction,
-      phase: 'fade-out',
-      mover,
-      moveActive: false,
-    })
-
-    toolTrayTimerRef.current = window.setTimeout(() => {
-      toolTrayTimerRef.current = window.setTimeout(() => {
-        if (direction === 'forward') {
-          setVisibleToolTray(target)
-        }
-        setToolTraySequence({
-          target,
-          direction,
-          phase: 'move',
-          mover,
-          moveActive: false,
-        })
-        toolTrayRafRef.current = window.requestAnimationFrame(() => {
-          toolTrayRafRef.current = window.requestAnimationFrame(() => {
-            setToolTraySequence(prev => prev ? { ...prev, moveActive: true } : prev)
-            toolTrayRafRef.current = null
-          })
-        })
-        toolTrayTimerRef.current = window.setTimeout(() => {
-          toolTrayTimerRef.current = window.setTimeout(() => {
-            if (direction === 'backward') {
-              setVisibleToolTray('main')
-            }
-            setToolTraySequence(prev => prev ? { ...prev, phase: 'fade-in', moveActive: false } : prev)
-            toolTrayTimerRef.current = window.setTimeout(() => {
-              setToolTraySequence(null)
-              toolTrayTimerRef.current = null
-            }, TOOL_TRAY_REVEAL_MS)
-          }, TOOL_TRAY_STAGE_GAP_MS)
-        }, TOOL_TRAY_MOVE_MS)
-      }, TOOL_TRAY_STAGE_GAP_MS)
-    }, TOOL_TRAY_FADE_MS)
   }
 
   function pushHistoryEntry(entry: BoardHistoryEntry) {
@@ -804,7 +649,7 @@ export default function Board({
     setHistoryToolMode(false)
     if (next) {
       setBrushMode(false)
-      setDrawingMode(false)
+      disableDrawingMode()
       switchLowerPad('numbers', 'backward')
     }
   }
@@ -818,7 +663,7 @@ export default function Board({
     if (next) {
       closeCandidateOverlay()
       setNotesMode(false)
-      setDrawingMode(false)
+      disableDrawingMode()
       switchLowerPad('colors', 'forward')
     } else {
       closeCandidateOverlay()
@@ -829,15 +674,16 @@ export default function Board({
   function toggleDrawingTools() {
     const next = !drawingMode
     closeCandidateOverlay()
-    setDrawingMode(next)
     setEraserMode(false)
     setCandidateToolMode(false)
     setHistoryToolMode(false)
     if (next) {
+      setDrawingMode(true)
       setNotesMode(false)
       setBrushMode(false)
       switchLowerPad('colors', 'forward')
     } else {
+      disableDrawingMode()
       switchLowerPad('numbers', 'backward')
     }
   }
@@ -851,7 +697,7 @@ export default function Board({
     if (next) {
       setNotesMode(false)
       setBrushMode(false)
-      setDrawingMode(false)
+      disableDrawingMode()
       switchLowerPad('numbers', 'backward')
     }
   }
@@ -865,7 +711,7 @@ export default function Board({
     if (next) {
       setNotesMode(false)
       setBrushMode(false)
-      setDrawingMode(false)
+      disableDrawingMode()
       switchLowerPad('numbers', 'backward')
     }
   }
@@ -1178,42 +1024,6 @@ export default function Board({
     const { r, c } = selected
     if (drawingMode) return false
     return clearCellAt(r, c)
-  }
-
-  function fillCandidates() {
-    if (!selected) return false
-    const { r, c } = selected
-    if (isClue(r, c) || internalPuzzle[r][c] !== 0 || notesRef.current[r][c].length > 0) return false
-    const candidates = getSimpleCandidates(r, c)
-    if (candidates.length === 0) return false
-    const historyEntry = makeHistoryEntry(
-      internalPuzzle,
-      notesRef.current,
-      cellColorsRef.current,
-      candidateColorsRef.current,
-      drawingStrokesRef.current,
-      flaggedColorCellRef.current,
-    )
-    const nextCandidateColors = cloneCandidateColorsGrid(candidateColorsRef.current)
-    nextCandidateColors[r][c] = emptyCandidateColorCell()
-    const nextFlaggedColorCell = resolveFlaggedColorCell(
-      flaggedColorCellRef.current,
-      cellColorsRef.current,
-      nextCandidateColors,
-      false,
-      null,
-      firstColorFlagEnabled,
-    )
-    pushHistoryEntry(historyEntry)
-    setNotes(prev => {
-      const next = cloneNotesGrid(prev)
-      next[r][c] = candidates
-      return next
-    })
-    flaggedColorCellRef.current = nextFlaggedColorCell
-    setCandidateColors(nextCandidateColors)
-    setFlaggedColorCell(nextFlaggedColorCell)
-    return true
   }
 
   function fillAllCandidates() {
@@ -1553,11 +1363,11 @@ export default function Board({
         onTogglePause={() => {
           const next = !paused
           setManualPause(next)
-          setPaused(next)
+          updatePaused(next)
         }}
         onResume={() => {
           setManualPause(false)
-          setPaused(false)
+          updatePaused(false)
         }}
         startDrawing={startDrawing}
         moveDrawing={moveDrawing}
@@ -1660,8 +1470,8 @@ export default function Board({
         onModeButtonClick={handleModeButtonClick}
         t={t}
       />
-      {candidateOverlay && <CandidateOverlayComp overlay={candidateOverlay} cellNotes={overlayCellNotes} candidateColors={candidateColors} overlayHasCellColor={overlayHasCellColor} previewDigit={candidateOverlayPreviewDigit} onClose={closeCandidateOverlay} onSetPreviewDigit={setCandidateOverlayPreviewDigit} onSelectDigit={setCandidateSelectedDigit} onRemoveCandidate={removeCandidateAt} onApplyCandidateBrushColor={applyCandidateBrushColorAt} haptic={haptic} onTriggerHaptic={onTriggerHaptic} t={t} />}
-      <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} currentPuzzleState={currentPuzzleState} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
+      {candidateOverlay && <CandidateOverlayComp overlay={candidateOverlay} cellNotes={overlayCellNotes} candidateColors={candidateColors} overlayHasCellColor={overlayHasCellColor} onClose={closeCandidateOverlay} onSetPreviewDigit={setCandidateOverlayPreviewDigit} onSelectDigit={setCandidateSelectedDigit} onRemoveCandidate={removeCandidateAt} onApplyCandidateBrushColor={applyCandidateBrushColorAt} haptic={haptic} onTriggerHaptic={onTriggerHaptic} t={t} />}
+      <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} currentPuzzleState={currentPuzzleState} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
       <VictoryOverlay won={won} finalTime={finalTime} formatTime={formatTime} onRetry={handleRetry} onShare={onShare} onNew={onNew} onNewGame={newGame} t={t} />
       {pencilOverlayCell !== null && (
         <PencilOverlay

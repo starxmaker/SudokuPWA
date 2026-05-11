@@ -24,7 +24,7 @@ type Props = {
   onRedo: () => boolean | void
   onFillAllCandidates: () => boolean | void
   onApplySingleCandidates: () => void
-  onShowRequiredTechniques: () => Promise<any>
+  onShowRequiredTechniques: () => Promise<unknown>
   onMomentaryButtonClick: (event: React.MouseEvent<HTMLButtonElement>, action: () => boolean | void, alwaysHaptic?: boolean) => void
   tabIndex?: number
   t: TFunc

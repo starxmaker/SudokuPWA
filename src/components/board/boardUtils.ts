@@ -1,6 +1,5 @@
 import {
   cloneDrawingStrokes,
-  cloneGrid as cloneGridStorage,
   cloneNotes,
   cloneCellColors as cloneCellColorsStorage,
   cloneCandidateColors as cloneCandidateColorsStorage,
@@ -190,17 +189,19 @@ export type CandidateOverlayState = {
   mode: 'paint' | 'erase'
 }
 
+const IS_TEST_MODE = import.meta.env.MODE === 'test'
+
 export const TOOL_TRAY_ANIMATION_MS = 280
 export const TOOL_TRAY_FADE_MS =
-  typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'test' ? 0 : 240
+  IS_TEST_MODE ? 0 : 240
 export const TOOL_TRAY_MOVE_MS =
-  typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'test' ? 0 : 320
+  IS_TEST_MODE ? 0 : 320
 export const TOOL_TRAY_REVEAL_MS =
-  typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'test' ? 0 : 300
+  IS_TEST_MODE ? 0 : 300
 export const TOOL_TRAY_STAGE_GAP_MS =
-  typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'test' ? 0 : 80
+  IS_TEST_MODE ? 0 : 80
 export const ENABLE_STAGED_TOOL_ANIMATION =
-  typeof import.meta === 'undefined' || (import.meta as any).env?.MODE !== 'test'
+  !IS_TEST_MODE
 
 export function formatTime(s: number): string {
   const h = Math.floor(s / 3600)

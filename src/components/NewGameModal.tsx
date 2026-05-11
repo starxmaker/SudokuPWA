@@ -10,7 +10,9 @@ function loadLastDifficulty(): GameDifficulty {
     const v = localStorage.getItem(LAST_DIFFICULTY_KEY)
     if (v && Object.keys(DIFFICULTY_LABELS).includes(v)) return v as GameDifficulty
     return DEFAULT_DIFFICULTY
-  } catch {}
+  } catch {
+    // Ignore unavailable localStorage.
+  }
   return DEFAULT_DIFFICULTY
 }
 
@@ -34,28 +36,26 @@ export default function NewGameModal({ open, onClose, onStart, availability }: P
   const controllerRef = React.useRef<AbortController | null>(null)
   const cancelledRef = React.useRef(false)
 
-  React.useEffect(() => {
-    if (!open) return
-    if (availability[choice] > 0) return
-    const fallback = findFirstAvailableDifficulty(availability)
-    if (fallback && fallback !== choice) setChoice(fallback)
-  }, [availability, choice, open])
-
   if(!open) return null
+  const selectedChoice = availability[choice] > 0
+    ? choice
+    : findFirstAvailableDifficulty(availability) ?? choice
   const anyDifficultyAvailable = Object.values(availability).some(count => count > 0)
-  const selectedDifficultyAvailable = availability[choice] > 0
+  const selectedDifficultyAvailable = availability[selectedChoice] > 0
 
   async function handleStart(){
     if (!selectedDifficultyAvailable) return
     try {
-      localStorage.setItem(LAST_DIFFICULTY_KEY, choice)
-    } catch {}
+      localStorage.setItem(LAST_DIFFICULTY_KEY, selectedChoice)
+    } catch {
+      // Ignore unavailable localStorage.
+    }
     cancelledRef.current = false
     const controller = new AbortController()
     controllerRef.current = controller
     setGenerating(true)
     try {
-      await onStart(choice, controller.signal)
+      await onStart(selectedChoice, controller.signal)
       if (!cancelledRef.current) onClose()
     } catch {
       // aborted or error — stay open
@@ -82,8 +82,8 @@ export default function NewGameModal({ open, onClose, onStart, availability }: P
         <p>{t('newGame.selectDifficulty')}</p>
         <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
           {Object.keys(DIFFICULTY_LABELS).map(d => d as GameDifficulty).map(d => (
-            <button key={d} onClick={()=>{ if(!generating && availability[d] > 0) setChoice(d) }} aria-pressed={choice===d} disabled={generating || availability[d] === 0}
-              style={{borderRadius:12,padding:'10px 16px',textAlign:'left',background:choice===d?'var(--accent)':'var(--card)',color:choice===d?'#fff':'var(--text)',border:choice===d?'none':'1px solid rgba(128,128,128,0.35)'}}>
+            <button key={d} onClick={()=>{ if(!generating && availability[d] > 0) setChoice(d) }} aria-pressed={selectedChoice===d} disabled={generating || availability[d] === 0}
+              style={{borderRadius:12,padding:'10px 16px',textAlign:'left',background:selectedChoice===d?'var(--accent)':'var(--card)',color:selectedChoice===d?'#fff':'var(--text)',border:selectedChoice===d?'none':'1px solid rgba(128,128,128,0.35)'}}>
               {getDifficultyLabel(d)}
             </button>
           ))}

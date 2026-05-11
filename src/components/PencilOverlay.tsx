@@ -148,7 +148,7 @@ export default function PencilOverlay({ cellRect, onDigit, onClose, initialPoint
     runRecognition()
   }
 
-  function handlePointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
+  function handlePointerCancel() {
     if (!isDrawing.current) return
     isDrawing.current = false
     if (hasStrokes.current) runRecognition()
