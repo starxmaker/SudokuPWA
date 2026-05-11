@@ -419,9 +419,9 @@ describe('Board component', () => {
     await user.click(within(sidebar).getByRole('button', { name: /copy prompt/i }))
 
     const expectedPrompt = [
-      'Explain how to apply this Sudoku technique to the current puzzle state. Focus on this move only, not the full solve.',
+      'Explain how to apply this Sudoku technique to the current puzzle state. Focus only on this step, not the full solve.',
       '',
-      'Current puzzle state (single-line grid):',
+      'Current puzzle state (single-line grid with candidates):',
       encodeGrid(expectedPuzzleState),
       '',
       'Technique:',
@@ -429,6 +429,8 @@ describe('Board component', () => {
       '',
       'Notation:',
       'r5c5=9',
+      '',
+      'In this notation, values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.',
       '',
       'Please explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.',
     ].join('\n')
@@ -485,9 +487,9 @@ describe('Board component', () => {
     await user.click(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i }))
 
     const expectedPrompt = [
-      'Explain how to apply this Sudoku technique to the current puzzle state. Focus on this move only, not the full solve.',
+      'Explain how to apply this Sudoku technique to the current puzzle state. Focus only on this step, not the full solve.',
       '',
-      'Current puzzle state (single-line grid):',
+      'Current puzzle state (single-line grid with candidates):',
       encodeGrid(PUZZLE_WITH_7_REMAINING),
       '',
       'Technique:',
@@ -495,6 +497,8 @@ describe('Board component', () => {
       '',
       'Notation:',
       'r5c5=9',
+      '',
+      'In this notation, values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.',
       '',
       'Please explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.',
     ].join('\n')

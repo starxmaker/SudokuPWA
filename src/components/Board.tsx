@@ -18,7 +18,7 @@ import {
   emptyCellColors,
   emptyCandidateColors,
   emptyDrawingStrokes,
-  encodeGrid,
+  encodeGridWithCandidates,
 } from '../utils/gameStorage'
 import { useI18n } from '../utils/i18n'
 import type { BoardHistoryEntry, BrushColorId } from '../store/gameTypes'
@@ -105,8 +105,6 @@ export default function Board({
     if (initialProp && initialProp.length === 9) return initialProp
     return []
   })
-  const currentPuzzleState = React.useMemo(() => encodeGrid(internalPuzzle), [internalPuzzle])
-
   /**
    * Original givens only — always prefer storage `initial` over `puzzle` prop.
    * The prop is current progress (updates every move); using it as "initial" would mark all digits as clues.
@@ -134,6 +132,10 @@ export default function Board({
     if (saved?.notes) return saved.notes
     return Array.from({length: 9}, () => Array.from({length: 9}, () => []))
   })
+  const currentPuzzleState = React.useMemo(
+    () => encodeGridWithCandidates(internalPuzzle, notes),
+    [internalPuzzle, notes],
+  )
   const notesRef = React.useRef(notes)
   notesRef.current = notes
   const [cellColors, setCellColors] = useState<CellColorGrid>(() => {

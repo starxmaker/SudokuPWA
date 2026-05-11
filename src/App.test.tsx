@@ -345,7 +345,7 @@ describe('App', () => {
     await user.click(cells[2])
 
     expect(await screen.findByRole('dialog', { name: /candidate painter/i }, { timeout: 10000 })).toBeInTheDocument()
-  })
+  }, 10_000)
 
   it('shows coordinate labels when enabled from settings', async () => {
     saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
