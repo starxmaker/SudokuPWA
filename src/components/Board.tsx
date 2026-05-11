@@ -1,14 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { ImNewTab } from 'react-icons/im'
-import { MdPlayArrow, MdPause, MdUndo, MdRedo, MdHistory, MdDraw, MdOutlineInvertColorsOff, MdLightbulbOutline, MdContentCopy } from 'react-icons/md'
-import { FaEraser } from 'react-icons/fa'
-import { FaBrush, FaWandMagicSparkles } from 'react-icons/fa6'
-import { GiMagicBroom } from 'react-icons/gi'
-import { PiFlagCheckeredFill, PiPencilSlash } from 'react-icons/pi'
-import { TbNumbers } from 'react-icons/tb'
 import { generateGame, Grid } from '../utils/sudoku'
-import { analyzeRequiredTechniques, type RequiredTechniques } from '../utils/generators/hodoku'
 import PencilOverlay from './PencilOverlay'
 import {
   type CandidateColorGrid,
@@ -30,31 +21,27 @@ import {
   emptyDrawingStrokes,
   encodeGrid,
 } from '../utils/gameStorage'
-import { writeClipboardText } from '../utils/clipboard'
 import { useI18n } from '../utils/i18n'
 import type { BoardHistoryEntry, BrushColorId } from '../store/gameTypes'
 import {
   cloneGrid, cloneNotesGrid, cloneCellColorsGrid, cloneCandidateColorsGrid,
   cloneDrawingStrokesGrid, cloneFlaggedColorCell, makeHistoryEntry,
-  BRUSH_COLORS, BRUSH_COLOR_MAP, BRUSH_SWATCH_MAP, DEFAULT_BRUSH_COLOR,
-  DRAWING_STROKE_WIDTH, COORDINATE_ROW_LABELS, COORDINATE_COLUMN_LABELS,
+  BRUSH_COLORS, BRUSH_SWATCH_MAP, DEFAULT_BRUSH_COLOR,
   toggleColorInSelection, buildBrushFill,
   type ToolTrayView, type ToolTrayTransition, type LowerPadView,
   type LowerPadTransition, type ToolTrayAnimatedTarget,
-  type ToolTraySequenceDirection, type ToolTraySequencePhase,
+  type ToolTraySequenceDirection,
   type ToolTrayMover, type ToolTraySequence, type CandidateOverlayState,
   TOOL_TRAY_ANIMATION_MS, TOOL_TRAY_FADE_MS, TOOL_TRAY_MOVE_MS,
   TOOL_TRAY_REVEAL_MS, TOOL_TRAY_STAGE_GAP_MS, ENABLE_STAGED_TOOL_ANIMATION,
   formatTime, hasCellBrushColorsAt, hasAnyBrushColorsOnBoard,
   resolveFlaggedColorCell, emptyCandidateColorCell,
 } from './board/boardUtils'
-import NumberPad from './board/NumberPad'
-import ColorPad from './board/ColorPad'
-import ToolActionsPad from './board/ToolActionsPad'
+import BoardControlsPanel from './board/BoardControlsPanel'
+import BoardSurface from './board/BoardSurface'
 import VictoryOverlay from './board/VictoryOverlay'
 import CandidateOverlayComp from './board/CandidateOverlay'
 import TechniquesSidebar, { type TechniquesSidebarHandle } from './board/TechniquesSidebar'
-import PauseOverlay from './board/PauseOverlay'
 
 type Props = {
   puzzle?: Grid | null
@@ -870,6 +857,13 @@ export default function Board({
     }
   }
 
+  function toggleEraserMode() {
+    closeCandidateOverlay()
+    setHistoryToolMode(false)
+    setCandidateToolMode(false)
+    setEraserMode(prev => !prev)
+  }
+
   function handleMomentaryButtonClick(
     event: React.MouseEvent<HTMLButtonElement>,
     action: () => boolean,
@@ -1499,12 +1493,6 @@ export default function Board({
   const selectedDigit =
     selected !== null ? internalPuzzle[selected.r][selected.c] : 0
   const highlightedDigit = candidateOverlayPreviewDigit ?? candidateSelectedDigit ?? selectedDigit
-  const canFillSelectedCandidates =
-    selected !== null &&
-    !isClue(selected.r, selected.c) &&
-    internalPuzzle[selected.r][selected.c] === 0 &&
-    notes[selected.r][selected.c].length === 0
-  const candidateEntryMode = notesMode
   const selectedHasCellColor =
     selected !== null && cellColors[selected.r][selected.c].length > 0
   const selectedHasCandidateColors =
@@ -1513,8 +1501,9 @@ export default function Board({
   const overlayCellNotes = candidateOverlay ? notes[candidateOverlay.r][candidateOverlay.c] : []
   const overlayHasCellColor =
     candidateOverlay !== null && cellColors[candidateOverlay.r][candidateOverlay.c].length > 0
-  const toolTrayOverlayView = toolTrayTransition?.from ?? null
-  const lowerPadOverlayView = lowerPadTransition?.from ?? null
+  const hasSingleCandidates = notes.some((row, r) =>
+    row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1)
+  )
   const undoDisabled = history.length === 0 || paused || won
   const redoDisabled = redoHistory.length === 0 || paused || won
   const activeFlaggedColorCell =
@@ -1523,128 +1512,7 @@ export default function Board({
     hasCellBrushColorsAt(cellColors, candidateColors, flaggedColorCell.r, flaggedColorCell.c)
       ? flaggedColorCell
       : null
-  const stagedToolTarget = toolTraySequence?.target ?? null
-  const stagedToolDirection = toolTraySequence?.direction ?? null
-  const stagedToolPhase = toolTraySequence?.phase ?? null
-  const isToolTrayOpening = stagedToolDirection === 'forward'
-  const isToolTrayClosing = stagedToolDirection === 'backward'
-  const isToolTrayFadingOut = stagedToolPhase === 'fade-out'
-  const isToolTrayMoving = stagedToolPhase === 'move'
-  const isToolTrayFadingIn = stagedToolPhase === 'fade-in'
   const renderedDrawingStrokes = drawingDraft === null ? drawingStrokes : [...drawingStrokes, drawingDraft]
-
-  function toolTrayPanelClass(view: ToolTrayView, layer: 'active' | 'overlay') {
-    if (toolTraySequence !== null) {
-      if (layer === 'overlay') return 'tool-tray__panel--hidden'
-      if (isToolTrayFadingOut) {
-        const outgoingView: ToolTrayView =
-          stagedToolDirection === 'backward' && stagedToolTarget !== null ? stagedToolTarget : 'main'
-        return view === outgoingView ? 'tool-tray__panel--active' : 'tool-tray__panel--hidden'
-      }
-      return visibleToolTray === view ? 'tool-tray__panel--active' : 'tool-tray__panel--hidden'
-    }
-    if (layer === 'active') {
-      if (visibleToolTray !== view) return 'tool-tray__panel--hidden'
-      if (toolTrayTransition?.to === view) {
-        return toolTrayTransition.direction === 'forward'
-          ? 'tool-tray__panel--enter-right'
-          : 'tool-tray__panel--enter-left'
-      }
-      return 'tool-tray__panel--active'
-    }
-
-    if (toolTrayOverlayView !== view || toolTrayTransition === null) {
-      return 'tool-tray__panel--hidden'
-    }
-    return toolTrayTransition.direction === 'forward'
-      ? 'tool-tray__panel--leave-left'
-      : 'tool-tray__panel--leave-right'
-  }
-
-  function lowerPadPanelClass(view: LowerPadView, layer: 'active' | 'overlay') {
-    if (layer === 'active') {
-      if (visibleLowerPad !== view) {
-        return 'input-pad__panel--hidden'
-      }
-      if (lowerPadTransition?.to === view) {
-        return 'input-pad__panel--fade-in'
-      }
-      return 'input-pad__panel--active'
-    }
-
-    if (lowerPadOverlayView !== view || lowerPadTransition === null) {
-      return 'input-pad__panel--hidden'
-    }
-    return 'input-pad__panel--fade-out'
-  }
-
-  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'candidates' | 'history') {
-    const classes = ['tool-tray__main-button']
-    const fadingTarget = stagedToolTarget !== null && button === stagedToolTarget
-    if (isToolTrayOpening && isToolTrayFadingOut) {
-      if (fadingTarget) classes.push('tool-tray__main-button--selected')
-      else classes.push('tool-tray__main-button--fading')
-    }
-    if (isToolTrayOpening && (isToolTrayMoving || isToolTrayFadingIn) && fadingTarget) {
-      classes.push('tool-tray__main-button--hidden')
-    }
-    return classes.join(' ')
-  }
-
-  function mainToolPanelClass() {
-    if (isToolTrayClosing && isToolTrayFadingIn) {
-      return 'tool-tray__panel--main-fade-in'
-    }
-    return ''
-  }
-
-  function isToolTargetClosing(target: ToolTrayAnimatedTarget) {
-    return isToolTrayClosing && stagedToolTarget === target
-  }
-
-  function subtoolContentClass(target: ToolTrayAnimatedTarget) {
-    const classes = ['tool-tray__content', `tool-tray__content--${target}`]
-    if (isToolTrayClosing && isToolTrayFadingOut && stagedToolTarget === target) {
-      classes.push('tool-tray__content--fade-out')
-    }
-    if (isToolTrayMoving && stagedToolTarget === target) {
-      classes.push('tool-tray__content--hidden')
-    }
-    if (isToolTrayOpening && isToolTrayFadingIn && stagedToolTarget === target) {
-      classes.push('tool-tray__content--fade-in')
-    }
-    return classes.join(' ')
-  }
-
-  function toolToggleClass(target: ToolTrayAnimatedTarget) {
-    switch (target) {
-      case 'notes':
-        return 'notes-toggle'
-      case 'brush':
-        return 'brush-toggle'
-      case 'drawing':
-        return 'drawing-toggle'
-    }
-  }
-
-  function renderToolTrayButtonIcon(target: 'history' | 'eraser' | ToolTrayAnimatedTarget) {
-    switch (target) {
-      case 'history':
-        return <MdHistory size={22} />
-      case 'eraser':
-        return <FaEraser size={22} />
-      case 'notes':
-        return <TbNumbers size={20} />
-      case 'brush':
-        return <FaBrush size={20} />
-      case 'drawing':
-        return <MdDraw size={22} />
-    }
-  }
-
-  function buildDrawingPolyline(points: readonly [number, number][]) {
-    return points.map(([x, y]) => `${x},${y}`).join(' ')
-  }
 
   function toggleReferenceDigitHighlight(d: number) {
     setCandidateOverlay(null)
@@ -1652,21 +1520,6 @@ export default function Board({
     setSelected(null)
     setCandidateSelectedDigit(prev => (prev === d ? null : d))
   }
-
-  // renderNumberPad → component
-
-
-  // renderColorPad → component
-
-
-  // renderEraserActionPad → component
-
-
-  // renderHistoryActionPad → component
-
-
-  // renderCandidateActionPad → component
-
 
   // flatten to grid items for responsive sizing
   const cells = [] as React.ReactNode[]
@@ -1815,384 +1668,97 @@ export default function Board({
   return (
     <div className="game-layout">
       {!onBack && <div style={{alignSelf:'flex-end'}}><button type="button" onClick={newGame}>{t('board.new')}</button></div>}
-        <div className="game-main">
-        <div className="board-area">
-          <div className="board-column">
-            <div className="timer-row" style={boardPixelWidth !== null ? { width: `${boardPixelWidth}px` } : undefined}>
-              <span className="difficulty-label">{displayedDifficulty}</span>
-              <div className="timer-group">
-                <span className="timer-display">
-                  {formatTime(elapsed)}
-                </span>
-                <button
-                  type="button"
-                  className="timer-pause"
-                  aria-label={paused ? t('board.resume') : t('board.pause')}
-                  onClick={() => {
-                    const next = !paused
-                    setManualPause(next)
-                    setPaused(next)
-                  }}
-                >
-                  {paused ? <MdPlayArrow size={22} /> : <MdPause size={22} />}
-                </button>
-              </div>
-            </div>
-            <div className="board-wrapper" style={pencilMode ? ({ '--board-safe-space': '140px' } as React.CSSProperties) : undefined}>
-              <div className={`board-shell${coordinateLabels ? ' board-shell--with-coordinates' : ''}`}>
-              {coordinateLabels && <div className="board-coordinate-corner" aria-hidden="true" />}
-              {coordinateLabels && (
-                <div className="board-coordinate-columns" aria-hidden="true" data-testid="board-coordinate-columns">
-                  {COORDINATE_COLUMN_LABELS.map(label => (
-                    <span key={label} className="board-coordinate-label">{label}</span>
-                  ))}
-                </div>
-              )}
-              {coordinateLabels && (
-                <div className="board-coordinate-rows" aria-hidden="true" data-testid="board-coordinate-rows">
-                  {COORDINATE_ROW_LABELS.map(label => (
-                    <span key={label} className="board-coordinate-label">{label}</span>
-                  ))}
-                </div>
-              )}
-              <div ref={boardRef} className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label={t('board.gridLabel')}>
-                {cells}
-                <svg
-                  className={`board-drawing-layer${drawingMode && !paused && !won ? ' board-drawing-layer--interactive' : ''}`}
-                  aria-label={t('board.freeDrawingCanvas')}
-                  viewBox="0 0 1 1"
-                  preserveAspectRatio="none"
-                  onPointerDown={startDrawing}
-                  onPointerMove={moveDrawing}
-                  onPointerUp={stopDrawing}
-                  onPointerCancel={cancelDrawing}
-                >
-                  {renderedDrawingStrokes.map((stroke, index) =>
-                    stroke.points.length === 1 ? (
-                      <circle
-                        key={`drawing-stroke-${index}`}
-                        className="board-drawing-layer__stroke"
-                        cx={stroke.points[0][0]}
-                        cy={stroke.points[0][1]}
-                        r={DRAWING_STROKE_WIDTH / 2}
-                        fill={stroke.color}
-                      />
-                    ) : (
-                      <polyline
-                        key={`drawing-stroke-${index}`}
-                        className="board-drawing-layer__stroke"
-                        points={buildDrawingPolyline(stroke.points)}
-                        fill="none"
-                        stroke={stroke.color}
-                        strokeWidth={DRAWING_STROKE_WIDTH}
-                      />
-                    )
-                  )}
-                </svg>
-                <PauseOverlay paused={paused} won={won} onResume={() => { setManualPause(false); setPaused(false) }} t={t} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-        <div className="controls-panel">
-          <div ref={toolTrayRef} className={`tool-tray tool-tray--${visibleToolTray}`} aria-live="polite">
-            <div className="tool-tray__measure" aria-hidden="true">
-              <div className="num-pad-toolbar tool-tray__panel">
-                <button type="button" className="num-key clear" tabIndex={-1}>
-                  {renderToolTrayButtonIcon('history')}
-                </button>
-                <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
-                  {renderToolTrayButtonIcon('eraser')}
-                </button>
-                <button
-                  ref={measureMainNotesButtonRef}
-                  type="button"
-                  className="num-key notes-toggle"
-                  tabIndex={-1}
-                >
-                  {renderToolTrayButtonIcon('notes')}
-                </button>
-                <button
-                  ref={measureMainBrushButtonRef}
-                  type="button"
-                  className="num-key brush-toggle"
-                  tabIndex={-1}
-                >
-                  {renderToolTrayButtonIcon('brush')}
-                </button>
-                <button
-                  ref={measureMainDrawingButtonRef}
-                  type="button"
-                  className="num-key drawing-toggle"
-                  tabIndex={-1}
-                >
-                  {renderToolTrayButtonIcon('drawing')}
-                </button>
-                <button
-                  type="button"
-                  className="num-key candidates-toggle"
-                  tabIndex={-1}
-                >
-                  <FaWandMagicSparkles size={20} />
-                </button>
-              </div>
-              <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
-                <button
-                  ref={measureNotesButtonRef}
-                  type="button"
-                  className="num-key notes-toggle notes-toggle--active"
-                  tabIndex={-1}
-                >
-                  {renderToolTrayButtonIcon('notes')}
-                </button>
-                <div className="tool-tray__content tool-tray__content--notes">
-                  <button type="button" className="num-key clear" tabIndex={-1}><MdUndo size={24} /></button>
-                </div>
-              </div>
-              <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
-                <button
-                  ref={measureBrushButtonRef}
-                  type="button"
-                  className="num-key brush-toggle brush-toggle--active"
-                  tabIndex={-1}
-                >
-                  {renderToolTrayButtonIcon('brush')}
-                </button>
-                <div className="tool-tray__content tool-tray__content--brush">
-                  <button type="button" className="num-key clear" tabIndex={-1}><MdUndo size={24} /></button>
-                  <button type="button" className="num-key clear" tabIndex={-1}>{renderToolTrayButtonIcon('notes')}</button>
-                  <button type="button" className="num-key clear" tabIndex={-1}><PiFlagCheckeredFill size={18} /></button>
-                  <button type="button" className="num-key clear" tabIndex={-1}><GiMagicBroom size={18} /></button>
-                </div>
-              </div>
-              <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
-                <button
-                  ref={measureDrawingButtonRef}
-                  type="button"
-                  className="num-key drawing-toggle drawing-toggle--active"
-                  tabIndex={-1}
-                >
-                  {renderToolTrayButtonIcon('drawing')}
-                </button>
-                <div className="tool-tray__content tool-tray__content--drawing">
-                  <button type="button" className="num-key clear" tabIndex={-1}><MdUndo size={24} /></button>
-                  <button type="button" className="num-key clear" tabIndex={-1}><GiMagicBroom size={18} /></button>
-                </div>
-              </div>
-            </div>
-            {toolTraySequence !== null && stagedToolPhase === 'move' && (
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-hidden="true"
-                className={`tool-tray__mover num-key ${toolToggleClass(toolTraySequence.target)}${stagedToolDirection === 'forward' ? ' tool-tray__mover--selected' : ''}${toolTraySequence.moveActive ? ' tool-tray__mover--active' : ''}`}
-                style={{
-                  left: `${toolTraySequence.mover.left}px`,
-                  top: `${toolTraySequence.mover.top}px`,
-                  width: `${toolTraySequence.mover.width}px`,
-                  height: `${toolTraySequence.mover.height}px`,
-                  transform: toolTraySequence.moveActive
-                    ? `translate(${toolTraySequence.mover.deltaX}px, ${toolTraySequence.mover.deltaY}px)`
-                    : 'translate(0, 0)',
-                }}
-              >
-                {renderToolTrayButtonIcon(toolTraySequence.target)}
-              </button>
-            )}
-            <div
-              className={`num-pad-toolbar tool-tray__panel ${toolTrayPanelClass('main', 'active')} ${mainToolPanelClass()}`.trim()}
-              role="toolbar"
-              aria-label={t('board.gameTools')}
-              aria-hidden={visibleToolTray !== 'main'}
-            >
-              <button
-                className={`num-key clear${historyToolMode ? ' history-toggle--active' : ''} ${mainToolButtonClass('history')}`}
-                type="button"
-                aria-label={t('board.toggleHistoryTools')}
-                aria-pressed={historyToolMode}
-                disabled={paused || won}
-                onClick={(event) => handleModeButtonClick(event, toggleHistoryTools)}
-              >
-                {renderToolTrayButtonIcon('history')}
-              </button>
-              <button
-                className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''} ${mainToolButtonClass('clear')}`}
-                type="button"
-                aria-label={t('board.eraserMode')}
-                aria-pressed={eraserMode}
-                disabled={paused || won}
-                onClick={(event) => handleModeButtonClick(event, () => {
-                  setHistoryToolMode(false)
-                  setCandidateToolMode(false)
-                  setEraserMode(prev => !prev)
-                })}
-              >
-                {renderToolTrayButtonIcon('eraser')}
-              </button>
-              <button
-                type="button"
-                ref={mainNotesButtonRef}
-                className={`num-key notes-toggle${notesMode ? ' notes-toggle--active' : ''} ${mainToolButtonClass('notes')}`}
-                aria-label={t('board.toggleNotesMode')}
-                aria-pressed={notesMode}
-                disabled={paused || won}
-                onClick={(event) => handleModeButtonClick(event, toggleNotesTools)}
-              >
-                {renderToolTrayButtonIcon('notes')}
-              </button>
-              <button
-                type="button"
-                ref={mainBrushButtonRef}
-                className={`num-key brush-toggle${brushMode ? ' brush-toggle--active' : ''} ${mainToolButtonClass('brush')}`}
-                aria-label={t('board.toggleBrushMode')}
-                aria-pressed={brushMode}
-                disabled={paused || won}
-                onClick={(event) => handleModeButtonClick(event, toggleBrushTools)}
-              >
-                {renderToolTrayButtonIcon('brush')}
-              </button>
-              <button
-                type="button"
-                ref={mainDrawingButtonRef}
-                className={`num-key drawing-toggle${drawingMode ? ' drawing-toggle--active' : ''} ${mainToolButtonClass('drawing')}`}
-                aria-label={t('board.toggleFreeDrawing')}
-                aria-pressed={drawingMode}
-                disabled={paused || won}
-                onClick={(event) => handleModeButtonClick(event, toggleDrawingTools)}
-              >
-                {renderToolTrayButtonIcon('drawing')}
-              </button>
-              <button
-                type="button"
-                className={`num-key candidates-toggle${candidateToolMode ? ' candidates-toggle--active' : ''} ${mainToolButtonClass('candidates')}`}
-                aria-label={t('board.toggleCandidateTools')}
-                aria-pressed={candidateToolMode}
-                disabled={paused || won}
-                onClick={(event) => handleModeButtonClick(event, toggleCandidateTools)}
-              >
-                <FaWandMagicSparkles size={20} />
-              </button>
-            </div>
-            {toolTrayOverlayView === 'main' && (
-              <div
-                className={`num-pad-toolbar tool-tray__panel tool-tray__panel--overlay ${toolTrayPanelClass('main', 'overlay')}`}
-                role="presentation"
-                aria-hidden="true"
-              >
-                <button type="button" className={`num-key clear${historyToolMode ? ' history-toggle--active' : ''}`} tabIndex={-1}>
-                  {renderToolTrayButtonIcon('history')}
-                </button>
-                <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
-                  {renderToolTrayButtonIcon('eraser')}
-                </button>
-                <button type="button" className="num-key notes-toggle" tabIndex={-1}>
-                  {renderToolTrayButtonIcon('notes')}
-                </button>
-                <button type="button" className="num-key brush-toggle" tabIndex={-1}>
-                  {renderToolTrayButtonIcon('brush')}
-                </button>
-                <button type="button" className="num-key drawing-toggle" tabIndex={-1}>
-                  {renderToolTrayButtonIcon('drawing')}
-                </button>
-                <button type="button" className="num-key candidates-toggle" tabIndex={-1}>
-                  <FaWandMagicSparkles size={20} />
-                </button>
-              </div>
-            )}
-          </div>
-          {historyToolMode ? (
-            <div className="input-pad-switcher input-pad-switcher--history-actions">
-              <div
-                className="history-action-pad"
-                role="toolbar"
-                aria-label={t('board.historyActions')}
-              >
-                {<ToolActionsPad mode="history" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={false} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={() => techniquesRef.current?.show() ?? Promise.resolve(false)} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
-              </div>
-            </div>
-          ) : eraserMode ? (
-            <div className="input-pad-switcher input-pad-switcher--eraser-actions">
-              <div
-                className="eraser-action-pad"
-                role="toolbar"
-                aria-label={t('board.eraserActions')}
-              >
-                {<ToolActionsPad mode="eraser" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={false} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={() => techniquesRef.current?.show() ?? Promise.resolve(false)} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
-              </div>
-            </div>
-          ) : candidateToolMode ? (
-            <div className="input-pad-switcher input-pad-switcher--candidate-actions">
-              <div
-                className="candidate-action-pad candidate-action-pad--single-row"
-                role="toolbar"
-                aria-label={t('board.candidateActions')}
-              >
-                {<ToolActionsPad mode="candidate" paused={paused} won={won} hasAnyColors={hasAnyColors} hasAnyDrawings={hasAnyDrawings} undoDisabled={undoDisabled} redoDisabled={redoDisabled} hasAnyFillableCell={hasAnyFillableCell} hasSingleCandidates={notes.some((row, r) => row.some((cell, c) => !isClue(r, c) && internalPuzzle[r][c] === 0 && cell.length === 1))} requiredTechniquesLoading={false} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onClearAllColors={clearAllColors} onClearAllDrawings={clearAllDrawings} onUndo={undo} onRedo={redo} onFillAllCandidates={fillAllCandidates} onApplySingleCandidates={applySingleCandidatesToDigits} onShowRequiredTechniques={() => techniquesRef.current?.show() ?? Promise.resolve(false)} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
-              </div>
-            </div>
-          ) : pencilMode ? (
-            brushMode || drawingMode ? (
-              <div className="input-pad-switcher input-pad-switcher--colors">
-                <div
-                  className="number-pad brush-color-pad"
-                  role="toolbar"
-                  aria-label={t('board.brushColors')}
-                >
-                  {<ColorPad drawingMode={drawingMode} activeBrushColor={activeBrushColor} activeDrawingColor={activeDrawingColor} paused={paused} won={won} selectedHasAnyColors={selectedHasAnyColors} applyBrushColor={applyBrushColor} clearSelectedBrushColors={clearSelectedBrushColors} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
-                </div>
-              </div>
-            ) : (
-              <div className="input-pad-switcher input-pad-switcher--numbers">
-                <div
-                  className="number-pad"
-                  role="toolbar"
-                  aria-label={t('board.numberEntry')}
-                >
-                  {<NumberPad remaining={remaining} notesMode={notesMode} paused={paused} won={won} candidateSelectedDigit={candidateSelectedDigit} applyDigit={applyDigit} toggleReferenceDigitHighlight={toggleReferenceDigitHighlight} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onTriggerErrorHaptic={onTriggerErrorHaptic} touchFiredRef={touchFiredRef} interactionDisabled t={t} />}
-                </div>
-              </div>
-            )
-          ) : (
-            <div className={`input-pad-switcher input-pad-switcher--${visibleLowerPad}`}>
-              <div
-                className={`number-pad input-pad__panel ${lowerPadPanelClass('numbers', 'active')}`}
-                role="toolbar"
-                aria-label={t('board.numberEntry')}
-                aria-hidden={visibleLowerPad !== 'numbers'}
-              >
-                {<NumberPad remaining={remaining} notesMode={notesMode} paused={paused} won={won} candidateSelectedDigit={candidateSelectedDigit} applyDigit={applyDigit} toggleReferenceDigitHighlight={toggleReferenceDigitHighlight} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onTriggerErrorHaptic={onTriggerErrorHaptic} touchFiredRef={touchFiredRef} t={t} />}
-              </div>
-              {lowerPadOverlayView === 'numbers' && (
-                <div
-                  className={`number-pad input-pad__panel input-pad__panel--overlay ${lowerPadPanelClass('numbers', 'overlay')}`}
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  {<NumberPad remaining={remaining} notesMode={notesMode} paused={paused} won={won} candidateSelectedDigit={candidateSelectedDigit} applyDigit={applyDigit} toggleReferenceDigitHighlight={toggleReferenceDigitHighlight} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onTriggerErrorHaptic={onTriggerErrorHaptic} touchFiredRef={touchFiredRef} tabIndex={-1} t={t} />}
-                </div>
-              )}
-              <div
-                className={`number-pad brush-color-pad input-pad__panel ${lowerPadPanelClass('colors', 'active')}`}
-                role="toolbar"
-                aria-label={t('board.brushColors')}
-                aria-hidden={visibleLowerPad !== 'colors'}
-              >
-                {<ColorPad drawingMode={drawingMode} activeBrushColor={activeBrushColor} activeDrawingColor={activeDrawingColor} paused={paused} won={won} selectedHasAnyColors={selectedHasAnyColors} applyBrushColor={applyBrushColor} clearSelectedBrushColors={clearSelectedBrushColors} onMomentaryButtonClick={handleMomentaryButtonClick} t={t} />}
-              </div>
-              {lowerPadOverlayView === 'colors' && (
-                <div
-                  className={`number-pad brush-color-pad input-pad__panel input-pad__panel--overlay ${lowerPadPanelClass('colors', 'overlay')}`}
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  {<ColorPad drawingMode={drawingMode} activeBrushColor={activeBrushColor} activeDrawingColor={activeDrawingColor} paused={paused} won={won} selectedHasAnyColors={selectedHasAnyColors} applyBrushColor={applyBrushColor} clearSelectedBrushColors={clearSelectedBrushColors} onMomentaryButtonClick={handleMomentaryButtonClick} tabIndex={-1} t={t} />}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <BoardSurface
+        displayedDifficulty={displayedDifficulty}
+        boardPixelWidth={boardPixelWidth}
+        elapsed={elapsed}
+        paused={paused}
+        won={won}
+        pencilMode={pencilMode}
+        coordinateLabels={coordinateLabels}
+        boardRef={boardRef}
+        cells={cells}
+        drawingMode={drawingMode}
+        renderedDrawingStrokes={renderedDrawingStrokes}
+        onTogglePause={() => {
+          const next = !paused
+          setManualPause(next)
+          setPaused(next)
+        }}
+        onResume={() => {
+          setManualPause(false)
+          setPaused(false)
+        }}
+        startDrawing={startDrawing}
+        moveDrawing={moveDrawing}
+        stopDrawing={stopDrawing}
+        cancelDrawing={cancelDrawing}
+        t={t}
+      />
+      <BoardControlsPanel
+        paused={paused}
+        won={won}
+        haptic={haptic}
+        onTriggerHaptic={onTriggerHaptic}
+        onTriggerErrorHaptic={onTriggerErrorHaptic}
+        historyToolMode={historyToolMode}
+        eraserMode={eraserMode}
+        notesMode={notesMode}
+        brushMode={brushMode}
+        drawingMode={drawingMode}
+        pencilMode={pencilMode}
+        candidateToolMode={candidateToolMode}
+        visibleToolTray={visibleToolTray}
+        toolTrayTransition={toolTrayTransition}
+        toolTraySequence={toolTraySequence}
+        visibleLowerPad={visibleLowerPad}
+        lowerPadTransition={lowerPadTransition}
+        toolTrayRef={toolTrayRef}
+        mainNotesButtonRef={mainNotesButtonRef}
+        mainBrushButtonRef={mainBrushButtonRef}
+        mainDrawingButtonRef={mainDrawingButtonRef}
+        activeNotesButtonRef={activeNotesButtonRef}
+        activeBrushButtonRef={activeBrushButtonRef}
+        activeDrawingButtonRef={activeDrawingButtonRef}
+        measureMainNotesButtonRef={measureMainNotesButtonRef}
+        measureMainBrushButtonRef={measureMainBrushButtonRef}
+        measureMainDrawingButtonRef={measureMainDrawingButtonRef}
+        measureNotesButtonRef={measureNotesButtonRef}
+        measureBrushButtonRef={measureBrushButtonRef}
+        measureDrawingButtonRef={measureDrawingButtonRef}
+        hasAnyColors={hasAnyColors}
+        hasAnyDrawings={hasAnyDrawings}
+        undoDisabled={undoDisabled}
+        redoDisabled={redoDisabled}
+        hasAnyFillableCell={hasAnyFillableCell}
+        hasSingleCandidates={hasSingleCandidates}
+        remaining={remaining}
+        candidateSelectedDigit={candidateSelectedDigit}
+        selectedHasAnyColors={selectedHasAnyColors}
+        activeBrushColor={activeBrushColor}
+        activeDrawingColor={activeDrawingColor}
+        touchFiredRef={touchFiredRef}
+        applyDigit={applyDigit}
+        toggleReferenceDigitHighlight={toggleReferenceDigitHighlight}
+        applyBrushColor={applyBrushColor}
+        clearSelectedBrushColors={clearSelectedBrushColors}
+        clearAllColors={clearAllColors}
+        clearAllDrawings={clearAllDrawings}
+        undo={undo}
+        redo={redo}
+        fillAllCandidates={fillAllCandidates}
+        applySingleCandidatesToDigits={applySingleCandidatesToDigits}
+        showRequiredTechniques={() => techniquesRef.current?.show() ?? Promise.resolve(false)}
+        toggleHistoryTools={toggleHistoryTools}
+        toggleEraserMode={toggleEraserMode}
+        toggleNotesTools={toggleNotesTools}
+        toggleBrushTools={toggleBrushTools}
+        toggleDrawingTools={toggleDrawingTools}
+        toggleCandidateTools={toggleCandidateTools}
+        onMomentaryButtonClick={handleMomentaryButtonClick}
+        onModeButtonClick={handleModeButtonClick}
+        t={t}
+      />
       {candidateOverlay && <CandidateOverlayComp overlay={candidateOverlay} cellNotes={overlayCellNotes} candidateColors={candidateColors} overlayHasCellColor={overlayHasCellColor} previewDigit={candidateOverlayPreviewDigit} onClose={closeCandidateOverlay} onSetPreviewDigit={setCandidateOverlayPreviewDigit} onSelectDigit={setCandidateSelectedDigit} onRemoveCandidate={removeCandidateAt} onApplyCandidateBrushColor={applyCandidateBrushColorAt} haptic={haptic} onTriggerHaptic={onTriggerHaptic} t={t} />}
       <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} currentPuzzleState={currentPuzzleState} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
       <VictoryOverlay won={won} finalTime={finalTime} formatTime={formatTime} onRetry={handleRetry} onShare={onShare} onNew={onNew} onNewGame={newGame} t={t} />
