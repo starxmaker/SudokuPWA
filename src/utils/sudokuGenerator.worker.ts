@@ -1,8 +1,10 @@
+/// <reference lib="webworker" />
+
 import { decodeGrid } from './gameStorage'
 import { generate } from './generators/hodoku'
 import type { GenerateWorkerRequest, GenerateWorkerResponse } from './generationWorkerProtocol'
 
-const workerScope = self as DedicatedWorkerGlobalScope
+const workerScope = self as unknown as DedicatedWorkerGlobalScope
 let streamController: AbortController | null = null
 
 function stopStream() {

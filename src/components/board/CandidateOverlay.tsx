@@ -33,7 +33,7 @@ export default function CandidateOverlay({
         type="button"
         className="brush-candidate-backdrop"
         aria-label={overlay.mode === 'erase' ? t('board.closeCandidateEraser') : t('board.closeCandidatePainter')}
-        onClick={onClose}
+        onClick={() => onClose()}
       />
       <div
         className="brush-candidate-overlay"

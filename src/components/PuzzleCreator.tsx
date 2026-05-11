@@ -3,7 +3,7 @@ import { MdUndo } from 'react-icons/md'
 import { FaEraser } from 'react-icons/fa'
 import { FcOk } from 'react-icons/fc'
 import { LuClipboardList } from 'react-icons/lu'
-import { type Grid, validateCreatedPuzzle } from '../utils/sudoku'
+import { type CreatedPuzzleValidationMessageKey, type Grid, validateCreatedPuzzle } from '../utils/sudoku'
 import { type VerifiedPuzzle, verifyPuzzle } from '../utils/generators/hodoku'
 import { decodeGrid } from '../utils/gameStorage'
 import { readClipboardText } from '../utils/clipboard'
@@ -24,6 +24,12 @@ const EMPTY_GRID: Grid = Array.from({ length: 9 }, () => Array(9).fill(0))
 const COORDINATE_ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
 const COORDINATE_COLUMN_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 const CLIPBOARD_PUZZLE_PATTERN = /[0-9.-]{81,}/g
+const CREATED_PUZZLE_VALIDATION_MESSAGE_KEYS = {
+  needs17Clues: 'creator.validation.needs17Clues',
+  conflictingGivens: 'creator.validation.conflictingGivens',
+  noSolution: 'creator.validation.noSolution',
+  multipleSolutions: 'creator.validation.multipleSolutions',
+} as const satisfies Record<CreatedPuzzleValidationMessageKey, string>
 
 function cloneGrid(grid: Grid): Grid {
   return grid.map(row => [...row])
@@ -184,8 +190,8 @@ export default function PuzzleCreator({
 
     setPencilOverlayCell(null)
     const result = validateCreatedPuzzle(grid)
-    if (!result.valid) {
-      setError(t(`creator.validation.${result.messageKey}`))
+    if ('messageKey' in result) {
+      setError(t(CREATED_PUZZLE_VALIDATION_MESSAGE_KEYS[result.messageKey]))
       if (haptic) onTriggerErrorHaptic?.()
       return
     }
