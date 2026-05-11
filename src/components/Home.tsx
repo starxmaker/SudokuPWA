@@ -5,6 +5,7 @@ import { useI18n } from '../utils/i18n'
 
 declare const __APP_VERSION__: string
 declare const __REPO_URL__: string
+declare const __BUILD_ID__: string
 
 type PwaInstallElement = HTMLElement & {
   install?: () => void
@@ -53,6 +54,7 @@ export default function Home({ hasSaved, onNew, onContinue, onCreated, error, ha
   const promptEventRef = useRef<BeforeInstallPromptEvent | null>(null)
   const [isInstalledPwa, setIsInstalledPwa] = useState(() => isStandalonePwa())
   const [installReady, setInstallReady] = useState(false)
+  const versionLabel = formatVersionLabel(__APP_VERSION__, __BUILD_ID__)
 
   useEffect(() => {
     let cancelled = false
@@ -161,7 +163,7 @@ export default function Home({ hasSaved, onNew, onContinue, onCreated, error, ha
         >
           <FaGithub size={36} />
         </a>
-        <p className="home-page__version">v{__APP_VERSION__}</p>
+        <p className="home-page__version">{versionLabel}</p>
         {!isInstalledPwa && installReady && (
           <a
             href="#install"
@@ -183,4 +185,9 @@ export default function Home({ hasSaved, onNew, onContinue, onCreated, error, ha
       })}
     </div>
   )
+}
+
+export function formatVersionLabel(appVersion: string, buildId?: string | null) {
+  const normalizedBuildId = buildId?.trim()
+  return normalizedBuildId ? `v${appVersion} (${normalizedBuildId})` : `v${appVersion}`
 }

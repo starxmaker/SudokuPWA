@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import Home from './Home'
+import Home, { formatVersionLabel } from './Home'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 let standaloneMode = false
@@ -128,6 +128,11 @@ describe('Home', () => {
   it('renders version string', () => {
     render(<Home {...base} />)
     expect(screen.getByText(/^v\d/)).toBeInTheDocument()
+  })
+
+  it('formats version with optional build id', () => {
+    expect(formatVersionLabel('0.11.1')).toBe('v0.11.1')
+    expect(formatVersionLabel('0.11.1', 'abc123')).toBe('v0.11.1 (abc123)')
   })
 
   it('renders GitHub link with correct href', () => {

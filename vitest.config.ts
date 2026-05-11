@@ -20,5 +20,6 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __REPO_URL__: JSON.stringify(pkg.homepage),
+    __BUILD_ID__: JSON.stringify(''),
   },
 })
