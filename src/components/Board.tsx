@@ -27,7 +27,7 @@ import {
   cloneGrid, cloneNotesGrid, cloneCellColorsGrid, cloneCandidateColorsGrid,
   cloneDrawingStrokesGrid, cloneFlaggedColorCell, makeHistoryEntry,
   BRUSH_COLORS, BRUSH_SWATCH_MAP, DEFAULT_BRUSH_COLOR,
-  toggleColorInSelection, buildBrushFill,
+  toggleColorInSelection,
   type ToolTrayView, type ToolTrayTransition, type LowerPadView,
   type LowerPadTransition, type ToolTrayAnimatedTarget,
   type ToolTraySequenceDirection,
@@ -38,6 +38,7 @@ import {
   resolveFlaggedColorCell, emptyCandidateColorCell,
 } from './board/boardUtils'
 import BoardControlsPanel from './board/BoardControlsPanel'
+import BoardGrid from './board/BoardGrid'
 import BoardSurface from './board/BoardSurface'
 import VictoryOverlay from './board/VictoryOverlay'
 import CandidateOverlayComp from './board/CandidateOverlay'
@@ -499,6 +500,26 @@ export default function Board({
     setSelected(prev => (prev?.r === r && prev?.c === c ? null : { r, c }))
   }
 
+  function focusCell(r: number, c: number) {
+    setSelected({ r, c })
+  }
+
+  function openPencilOverlayForCell(
+    r: number,
+    c: number,
+    target: HTMLButtonElement,
+    initialPointer: { clientX: number; clientY: number; pointerId: number },
+  ) {
+    setSelected({ r, c })
+    const domRect = target.getBoundingClientRect()
+    setPencilOverlayCell({
+      r,
+      c,
+      rect: { top: domRect.top, left: domRect.left, width: domRect.width, height: domRect.height },
+      initialPointer,
+    })
+  }
+
   function getCandidateOverlayPosition(rect: DOMRect) {
     const maxSize = Math.min(window.innerWidth - 16, window.innerHeight - 16, rect.width * 3)
     const size = Math.max(120, maxSize)
@@ -509,14 +530,6 @@ export default function Board({
       left: Math.max(8, Math.min(window.innerWidth - size - 8, unclampedLeft)),
       top: Math.max(8, Math.min(window.innerHeight - size - 8, unclampedTop)),
     }
-  }
-
-  function getCandidateDigitFromPoint(rect: DOMRect, clientX: number, clientY: number) {
-    const relX = clientX - rect.left
-    const relY = clientY - rect.top
-    const noteCol = Math.min(2, Math.max(0, Math.floor(relX / (rect.width / 3))))
-    const noteRow = Math.min(2, Math.max(0, Math.floor(relY / (rect.height / 3))))
-    return noteRow * 3 + noteCol + 1
   }
 
   function applyCellBrushColorAt(r: number, c: number, colorId: BrushColorId = activeBrushColor) {
@@ -1521,148 +1534,6 @@ export default function Board({
     setCandidateSelectedDigit(prev => (prev === d ? null : d))
   }
 
-  // flatten to grid items for responsive sizing
-  const cells = [] as React.ReactNode[]
-  for (let r = 0; r < internalPuzzle.length; r++) {
-    const row = internalPuzzle[r]
-    for (let c = 0; c < row.length; c++) {
-      const n = row[c]
-      const clue = isClue(r, c)
-      const userEntry = !clue && n !== 0
-      const selectedHere = selected?.r === r && selected?.c === c
-      const sameDigit =
-        highlightedDigit !== 0 &&
-        n === highlightedDigit &&
-        !selectedHere
-      const inCross =
-        selected !== null &&
-        !selectedHere &&
-        !sameDigit &&
-        (r === selected.r || c === selected.c ||
-          (Math.floor(r / 3) === Math.floor(selected.r / 3) && Math.floor(c / 3) === Math.floor(selected.c / 3)))
-      const isError = autoCheck && solutionGrid !== null && userEntry && n !== solutionGrid[r][c]
-      const cellNotes = notes[r][c]
-      const hasNotes = cellNotes.length > 0 && n === 0
-      const cellColorIds = cellColors[r][c]
-      const flaggedHere = activeFlaggedColorCell?.r === r && activeFlaggedColorCell?.c === c
-      const selectedClass = !paused && selectedHere
-        ? (brushMode ? 'selected-brush' : 'selected')
-        : ''
-      cells.push(
-        <button
-          key={`${r}-${c}`}
-          type="button"
-          role="gridcell"
-          tabIndex={0}
-          aria-selected={selectedHere}
-          aria-disabled={clue}
-          className={`cell ${clue ? 'given' : ''} ${!paused && userEntry ? 'user' : ''} ${selectedClass} ${!paused && sameDigit ? 'same-digit' : ''} ${!paused && inCross ? 'cross' : ''} ${!paused && isError ? 'error' : ''}`}
-          onPointerDown={(e) => {
-            if (eraserMode && !clue && !paused && !won) {
-              e.preventDefault()
-              if (pencilMode) {
-                if (internalPuzzle[r][c] !== 0) {
-                  if (haptic) onTriggerHaptic?.()
-                  clearCellAt(r, c)
-                } else {
-                  const currentNotes = notes[r][c]
-                  if (currentNotes.length > 0) {
-                    const opened = openCandidateOverlay(r, c, e.currentTarget, 'erase')
-                    if (opened && haptic) onTriggerHaptic?.()
-                  }
-                }
-              } else {
-                if (internalPuzzle[r][c] === 0 && notesRef.current[r][c].length > 0) {
-                  const opened = openCandidateOverlay(r, c, e.currentTarget, 'erase')
-                  if (opened && haptic) onTriggerHaptic?.()
-                } else {
-                  if (haptic) onTriggerHaptic?.()
-                  clearCellAt(r, c)
-                }
-              }
-              return
-            }
-            if (pencilMode && brushMode && !drawingMode && !paused && !won) {
-              e.preventDefault()
-              closeCandidateOverlay()
-              setSelected({ r, c })
-              const changed = candidateBrushMode
-                ? (() => {
-                    if (internalPuzzle[r][c] !== 0) return false
-                    const digit = getCandidateDigitFromPoint(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY)
-                    if (!notesRef.current[r][c].includes(digit)) return false
-                    const painted = applyCandidateBrushColorAt(r, c, digit)
-                    if (painted) setCandidateSelectedDigit(digit)
-                    return painted
-                  })()
-                : (() => {
-                    setCandidateSelectedDigit(null)
-                    return applyCellBrushColorAt(r, c)
-                  })()
-              if (changed && haptic) onTriggerHaptic?.()
-              return
-            }
-            if (pencilMode && !brushMode && !drawingMode && !paused && !won) {
-              e.preventDefault()
-              if (haptic) onTriggerHaptic?.()
-              if (!clue && internalPuzzle[r][c] === 0) {
-                setSelected({ r, c })
-                const domRect = e.currentTarget.getBoundingClientRect()
-                setPencilOverlayCell({ r, c, rect: { top: domRect.top, left: domRect.left, width: domRect.width, height: domRect.height }, initialPointer: { clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId } })
-              } else {
-                selectCell(r, c)
-              }
-              return
-            }
-          }}
-          onClick={(e) => {
-            if (pencilMode) return
-            if (eraserMode) return
-            if (brushMode) {
-              setCandidateSelectedDigit(null)
-              setSelected({ r, c })
-              const changed = candidateBrushMode
-                ? openCandidateOverlay(r, c, e.currentTarget)
-                : (() => {
-                    closeCandidateOverlay()
-                    return applyCellBrushColorAt(r, c)
-                  })()
-              if (changed && haptic) onTriggerHaptic?.()
-              return
-            }
-            if (haptic) onTriggerHaptic?.()
-            selectCell(r, c)
-          }}
-          >
-          {!paused && flaggedHere && <span className="cell-flag-border" />}
-          {cellColorIds.length > 0 && (
-            <span
-              className="cell-color-layer"
-              style={{ '--annotation-color': buildBrushFill(cellColorIds) } as React.CSSProperties}
-            />
-          )}
-          {hasNotes ? (
-            <div className="cell-notes">
-              {[1,2,3,4,5,6,7,8,9].map(d => (
-                <span
-                  key={d}
-                  className={`cell-note${highlightedDigit !== 0 && cellNotes.includes(d) && d === highlightedDigit ? ' cell-note--highlight' : ''}${cellNotes.includes(d) && candidateColors[r][c][d - 1].length > 0 ? ' cell-note--colored' : ''}`}
-                  style={cellNotes.includes(d) && candidateColors[r][c][d - 1].length > 0
-                    ? ({ '--annotation-color': buildBrushFill(candidateColors[r][c][d - 1]) } as React.CSSProperties)
-                    : undefined}
-                >
-                  {cellNotes.includes(d) ? d : ''}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="cell-value">{n === 0 ? '\u00a0' : n}</span>
-          )}
-        </button>
-      )
-    }
-  }
-
   const displayedDifficulty = localizeDifficultyLabel(difficulty ?? puzzleMetadata?.difficultyLabel) ?? t('board.customDifficulty')
 
   return (
@@ -1677,7 +1548,6 @@ export default function Board({
         pencilMode={pencilMode}
         coordinateLabels={coordinateLabels}
         boardRef={boardRef}
-        cells={cells}
         drawingMode={drawingMode}
         renderedDrawingStrokes={renderedDrawingStrokes}
         onTogglePause={() => {
@@ -1694,7 +1564,38 @@ export default function Board({
         stopDrawing={stopDrawing}
         cancelDrawing={cancelDrawing}
         t={t}
-      />
+      >
+        <BoardGrid
+          internalPuzzle={internalPuzzle}
+          notes={notes}
+          cellColors={cellColors}
+          candidateColors={candidateColors}
+          solutionGrid={solutionGrid}
+          selected={selected}
+          highlightedDigit={highlightedDigit}
+          activeFlaggedColorCell={activeFlaggedColorCell}
+          paused={paused}
+          won={won}
+          autoCheck={autoCheck}
+          brushMode={brushMode}
+          drawingMode={drawingMode}
+          eraserMode={eraserMode}
+          pencilMode={pencilMode}
+          candidateBrushMode={candidateBrushMode}
+          haptic={haptic}
+          isClue={isClue}
+          clearCellAt={clearCellAt}
+          openCandidateOverlay={openCandidateOverlay}
+          applyCandidateBrushColorAt={applyCandidateBrushColorAt}
+          applyCellBrushColorAt={applyCellBrushColorAt}
+          closeCandidateOverlay={() => closeCandidateOverlay()}
+          selectCell={selectCell}
+          focusCell={focusCell}
+          setCandidateSelectedDigit={setCandidateSelectedDigit}
+          openPencilOverlay={openPencilOverlayForCell}
+          onTriggerHaptic={onTriggerHaptic}
+        />
+      </BoardSurface>
       <BoardControlsPanel
         paused={paused}
         won={won}

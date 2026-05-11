@@ -20,7 +20,7 @@ type Props = {
   pencilMode?: boolean
   coordinateLabels?: boolean
   boardRef: React.MutableRefObject<HTMLDivElement | null>
-  cells: React.ReactNode[]
+  children: React.ReactNode
   drawingMode: boolean
   renderedDrawingStrokes: DrawingStroke[]
   onTogglePause: () => void
@@ -45,7 +45,7 @@ export default function BoardSurface({
   pencilMode,
   coordinateLabels,
   boardRef,
-  cells,
+  children,
   drawingMode,
   renderedDrawingStrokes,
   onTogglePause,
@@ -94,7 +94,7 @@ export default function BoardSurface({
                 </div>
               )}
               <div ref={boardRef} className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label={t('board.gridLabel')}>
-                {cells}
+                {children}
                 <svg
                   className={`board-drawing-layer${drawingMode && !paused && !won ? ' board-drawing-layer--interactive' : ''}`}
                   aria-label={t('board.freeDrawingCanvas')}
