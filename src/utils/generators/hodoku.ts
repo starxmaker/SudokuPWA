@@ -8,7 +8,7 @@ import {
 import type { SolveRating } from './types'
 import { GameDifficulty } from '../difficulties'
 import type { Grid } from '../sudoku_types'
-import { decodeGrid, encodeGrid } from '../gameStorage'
+import { decodeGrid, encodeGrid, encodeGridWithCandidates } from '../gameStorage'
 
 type PuzzleLine = {
   puzzleNumber: number
@@ -161,9 +161,10 @@ export async function verifyPuzzle(puzzle: Grid, signal?: AbortSignal): Promise<
 
 export async function analyzeRequiredTechniques(
   puzzle: Grid,
+  notes?: number[][][],
   signal?: AbortSignal,
 ): Promise<RequiredTechniques | null> {
-  const puzzleString = encodeGrid(puzzle)
+  const puzzleString = notes ? encodeGridWithCandidates(puzzle, notes) : encodeGrid(puzzle)
   const rating = await rateSudoku({
     puzzle: puzzleString,
     includePath: true,

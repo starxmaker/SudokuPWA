@@ -453,6 +453,24 @@ export function encodeGrid(grid: Grid): string {
   return grid.flat().map(n => n === 0 ? '.' : String(n)).join('')
 }
 
+/** Encode a 9×9 grid with candidates for empty cells.
+ *  Empty cells with candidates get "{candidates}" (e.g. "{123}"),
+ *  cells with no candidates get ".", filled cells get their digit.
+ *  Example: "53.{123}67..."
+ */
+export function encodeGridWithCandidates(grid: Grid, notes: number[][][]): string {
+  return grid.flat().map((n, i) => {
+    if (n !== 0) return String(n)
+    const r = Math.floor(i / 9)
+    const c = i % 9
+    const cellNotes = notes[r][c]
+    if (cellNotes.length > 0) {
+      return `{${cellNotes.sort().join('')}}`
+    }
+    return '.'
+  }).join('')
+}
+
 /** Decode a string produced by encodeGrid back to a 9×9 Grid, or null if invalid.
  *  Supports both new format (81 chars, dots for 0) and old format (9 rows of digits joined by '-').
  */

@@ -2194,7 +2194,7 @@ export default function Board({
         </div>
       </div>
       {candidateOverlay && <CandidateOverlayComp overlay={candidateOverlay} cellNotes={overlayCellNotes} candidateColors={candidateColors} overlayHasCellColor={overlayHasCellColor} previewDigit={candidateOverlayPreviewDigit} onClose={closeCandidateOverlay} onSetPreviewDigit={setCandidateOverlayPreviewDigit} onSelectDigit={setCandidateSelectedDigit} onRemoveCandidate={removeCandidateAt} onApplyCandidateBrushColor={applyCandidateBrushColorAt} haptic={haptic} onTriggerHaptic={onTriggerHaptic} t={t} />}
-      <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} currentPuzzleState={currentPuzzleState} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
+      <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} currentPuzzleState={currentPuzzleState} haptic={haptic} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
       <VictoryOverlay won={won} finalTime={finalTime} formatTime={formatTime} onRetry={handleRetry} onShare={onShare} onNew={onNew} onNewGame={newGame} t={t} />
       {pencilOverlayCell !== null && (
         <PencilOverlay

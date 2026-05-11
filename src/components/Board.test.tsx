@@ -401,7 +401,7 @@ describe('Board component', () => {
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
 
-    expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledWith(expectedPuzzleState, expect.any(AbortSignal))
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledWith(expectedPuzzleState, expect.any(Array), expect.any(AbortSignal))
 
     const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
     expect(within(sidebar).getByText('2 techniques')).toBeInTheDocument()
@@ -542,7 +542,7 @@ describe('Board component', () => {
 
     await screen.findByRole('dialog', { name: /required techniques/i })
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(1)
-    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(initialPuzzleState, expect.any(AbortSignal))
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(initialPuzzleState, expect.any(Array), expect.any(AbortSignal))
 
     await user.click(screen.getByRole('button', { name: /close required techniques/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
@@ -557,7 +557,7 @@ describe('Board component', () => {
 
     await screen.findByRole('dialog', { name: /required techniques/i })
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(2)
-    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(updatedPuzzleState, expect.any(AbortSignal))
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(updatedPuzzleState, expect.any(Array), expect.any(AbortSignal))
   })
 
   it('shows an error when hodoku reports the current board is unsolvable', async () => {

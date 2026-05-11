@@ -4,7 +4,7 @@ import { MdContentCopy } from 'react-icons/md'
 import { ImNewTab } from 'react-icons/im'
 import { analyzeRequiredTechniques, type RequiredTechniques } from '../../utils/generators/hodoku'
 import type { Grid } from '../../utils/sudoku'
-import { encodeGrid } from '../../utils/gameStorage'
+import { encodeGrid, encodeGridWithCandidates } from '../../utils/gameStorage'
 import { writeClipboardText } from '../../utils/clipboard'
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
@@ -16,6 +16,7 @@ export type TechniquesSidebarHandle = {
 
 type Props = {
   internalPuzzle: Grid
+  notes: number[][][]
   currentPuzzleState: string
   haptic: boolean
   onTriggerHaptic?: () => void
@@ -26,7 +27,7 @@ type Props = {
 type CacheEntry = { puzzle: string; analysis: RequiredTechniques }
 
 const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function TechniquesSidebar(
-  { internalPuzzle, currentPuzzleState, haptic, onTriggerHaptic, onCloseCandidateOverlay, t }, ref
+  { internalPuzzle, notes, currentPuzzleState, haptic, onTriggerHaptic, onCloseCandidateOverlay, t }, ref
 ) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -86,7 +87,7 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
     onCloseCandidateOverlay()
     abortRef.current?.abort()
     abortRef.current = null
-    const puzzleState = currentPuzzleState
+    const puzzleState = encodeGridWithCandidates(internalPuzzle, notes)
     const cachedAnalysis = cacheRef.current?.puzzle === puzzleState
       ? cacheRef.current.analysis
       : null
@@ -114,7 +115,7 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
     setResult(null)
 
     try {
-      const analysis = await analyzeRequiredTechniques(internalPuzzle, controller.signal)
+      const analysis = await analyzeRequiredTechniques(internalPuzzle, notes, controller.signal)
       if (controller.signal.aborted) return false
       if (analysis === null) {
         setResult(null)
@@ -140,7 +141,7 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
         setLoading(false)
       }
     }
-  }, [internalPuzzle, currentPuzzleState, onCloseCandidateOverlay, t])
+  }, [internalPuzzle, notes, currentPuzzleState, onCloseCandidateOverlay, t])
 
   const reset = useCallback(() => {
     abortRef.current?.abort()
