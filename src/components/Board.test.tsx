@@ -2,8 +2,9 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Board from './Board'
+import { formatPromptPuzzleState } from './board/TechniquesSidebar'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { emptyCandidateColors, emptyCellColors, encodeGrid, saveGame } from '../utils/gameStorage'
+import { emptyCandidateColors, emptyCellColors, saveGame } from '../utils/gameStorage'
 import { analyzeRequiredTechniques } from '../utils/generators/hodoku'
 import { LocalizationProvider, LANGUAGE_STORAGE_KEY } from '../utils/i18n'
 
@@ -43,6 +44,7 @@ vi.mock('../utils/clipboard', () => ({
 }))
 
 const mockedAnalyzeRequiredTechniques = vi.mocked(analyzeRequiredTechniques)
+const EMPTY_NOTES = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as number[]))
 
 beforeEach(() => {
   vi.restoreAllMocks()
@@ -395,6 +397,7 @@ describe('Board component', () => {
     const cells = screen.getAllByRole('gridcell')
     const expectedPuzzleState = PUZZLE_WITH_7_REMAINING.map(row => [...row])
     expectedPuzzleState[0][2] = 4
+    const expectedNotes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as number[]))
 
     await user.click(cells[2])
     await user.click(screen.getByRole('button', { name: /^4,/ }))
@@ -421,8 +424,8 @@ describe('Board component', () => {
     const expectedPrompt = [
       'Explain how to apply this Sudoku technique to the current puzzle state. Focus only on this step, not the full solve.',
       '',
-      'Current puzzle state (single-line grid with candidates):',
-      encodeGrid(expectedPuzzleState),
+      'Current puzzle state (cell-by-cell listing):',
+      formatPromptPuzzleState(expectedPuzzleState, expectedNotes),
       '',
       'Technique:',
       'Hidden Single',
@@ -430,7 +433,7 @@ describe('Board component', () => {
       'Notation:',
       'r5c5=9',
       '',
-      'In this notation, values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.',
+      'In this notation, filled cells are shown as rNcM=value, and values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.',
       '',
       'Please explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.',
     ].join('\n')
@@ -489,8 +492,8 @@ describe('Board component', () => {
     const expectedPrompt = [
       'Explain how to apply this Sudoku technique to the current puzzle state. Focus only on this step, not the full solve.',
       '',
-      'Current puzzle state (single-line grid with candidates):',
-      encodeGrid(PUZZLE_WITH_7_REMAINING),
+      'Current puzzle state (cell-by-cell listing):',
+      formatPromptPuzzleState(PUZZLE_WITH_7_REMAINING, EMPTY_NOTES),
       '',
       'Technique:',
       'Hidden Single',
@@ -498,7 +501,7 @@ describe('Board component', () => {
       'Notation:',
       'r5c5=9',
       '',
-      'In this notation, values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.',
+      'In this notation, filled cells are shown as rNcM=value, and values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.',
       '',
       'Please explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.',
     ].join('\n')

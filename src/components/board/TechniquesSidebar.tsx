@@ -17,7 +17,6 @@ export type TechniquesSidebarHandle = {
 type Props = {
   internalPuzzle: Grid
   notes: number[][][]
-  currentPuzzleState: string
   onTriggerHaptic?: () => void
   onCloseCandidateOverlay: () => void
   t: TFunc
@@ -25,8 +24,22 @@ type Props = {
 
 type CacheEntry = { puzzle: string; analysis: RequiredTechniques }
 
+export function formatPromptPuzzleState(grid: Grid, notes: number[][][]): string {
+  return grid.flat().map((value, index) => {
+    const r = Math.floor(index / 9)
+    const c = index % 9
+    if (value !== 0) {
+      return `r${r + 1}c${c + 1}=${value}`
+    }
+
+    const cellNotes = [...notes[r][c]].sort((a, b) => a - b)
+    const candidateValue = cellNotes.length > 0 ? `{${cellNotes.join(',')}}` : '.'
+    return `r${r + 1}c${c + 1}=${candidateValue}`
+  }).join('\n')
+}
+
 const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function TechniquesSidebar(
-  { internalPuzzle, notes, currentPuzzleState, onTriggerHaptic, onCloseCandidateOverlay, t }, ref
+  { internalPuzzle, notes, onTriggerHaptic, onCloseCandidateOverlay, t }, ref
 ) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -44,11 +57,11 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
 
   const buildPrompt = useCallback((step: RequiredTechniques['steps'][number]) => {
     return t('board.requiredTechniquesPromptTemplate', {
-      puzzle: currentPuzzleState,
+      puzzle: formatPromptPuzzleState(internalPuzzle, notes),
       technique: step.technique,
       notation: step.notation,
     })
-  }, [currentPuzzleState, t])
+  }, [internalPuzzle, notes, t])
 
   const copyPromptText = useCallback(async (prompt: string, shouldHaptic = true) => {
     if (shouldHaptic) onTriggerHaptic?.()

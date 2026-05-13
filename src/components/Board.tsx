@@ -18,7 +18,6 @@ import {
   emptyCellColors,
   emptyCandidateColors,
   emptyDrawingStrokes,
-  encodeGridWithCandidates,
 } from '../utils/gameStorage'
 import { useI18n } from '../utils/i18n'
 import type { BoardHistoryEntry, BrushColorId } from '../store/gameTypes'
@@ -132,10 +131,6 @@ export default function Board({
     if (saved?.notes) return saved.notes
     return Array.from({length: 9}, () => Array.from({length: 9}, () => []))
   })
-  const currentPuzzleState = React.useMemo(
-    () => encodeGridWithCandidates(internalPuzzle, notes),
-    [internalPuzzle, notes],
-  )
   const notesRef = React.useRef(notes)
   notesRef.current = notes
   const [cellColors, setCellColors] = useState<CellColorGrid>(() => {
@@ -1473,7 +1468,7 @@ export default function Board({
         t={t}
       />
       {candidateOverlay && <CandidateOverlayComp overlay={candidateOverlay} cellNotes={overlayCellNotes} candidateColors={candidateColors} overlayHasCellColor={overlayHasCellColor} onClose={closeCandidateOverlay} onSetPreviewDigit={setCandidateOverlayPreviewDigit} onSelectDigit={setCandidateSelectedDigit} onRemoveCandidate={removeCandidateAt} onApplyCandidateBrushColor={applyCandidateBrushColorAt} haptic={haptic} onTriggerHaptic={onTriggerHaptic} t={t} />}
-      <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} currentPuzzleState={currentPuzzleState} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
+      <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
       <VictoryOverlay won={won} finalTime={finalTime} formatTime={formatTime} onRetry={handleRetry} onShare={onShare} onNew={onNew} onNewGame={newGame} t={t} />
       {pencilOverlayCell !== null && (
         <PencilOverlay

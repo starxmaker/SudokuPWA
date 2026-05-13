@@ -147,7 +147,7 @@
   "board.openOnChatGpt": "Open on ChatGPT",
   "board.requiredTechniquesCopyFailed": "Failed to copy the hint prompt.",
   "board.requiredTechniquesOpenChatGptFailed": "Failed to open ChatGPT with the hint prompt.",
-  "board.requiredTechniquesPromptTemplate": "Explain how to apply this Sudoku technique to the current puzzle state. Focus only on this step, not the full solve.\n\nCurrent puzzle state (single-line grid with candidates):\n{puzzle}\n\nTechnique:\n{technique}\n\nNotation:\n{notation}\n\nIn this notation, values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.\n\nPlease explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.",
+  "board.requiredTechniquesPromptTemplate": "Explain how to apply this Sudoku technique to the current puzzle state. Focus only on this step, not the full solve.\n\nCurrent puzzle state (cell-by-cell listing):\n{puzzle}\n\nTechnique:\n{technique}\n\nNotation:\n{notation}\n\nIn this notation, filled cells are shown as rNcM=value, and values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.\n\nPlease explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.",
   "board.closeCandidatePainter": "Close candidate painter",
   "board.closeCandidateEraser": "Close candidate eraser",
   "board.candidatePainter": "Candidate painter",
