@@ -208,6 +208,9 @@ export default function Board({
   const techniquesRef = React.useRef<TechniquesSidebarHandle>(null)
   const toolTrayRef = React.useRef<HTMLDivElement | null>(null)
   const [boardPixelWidth, setBoardPixelWidth] = useState<number | null>(null)
+  const [requiredTechniquesLoading, setRequiredTechniquesLoading] = useState(false)
+  const [techniquesOpen, setTechniquesOpen] = useState(false)
+  const [techniquesDockedOpen, setTechniquesDockedOpen] = useState(false)
   const mainNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const mainBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const mainDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
@@ -1302,6 +1305,18 @@ export default function Board({
     onIdentifyCandidatesAvailabilityChange?.(hasAnyFillableCell)
   }, [hasAnyFillableCell, onIdentifyCandidatesAvailabilityChange])
 
+  const showRequiredTechniques = React.useCallback(async () => {
+    setRequiredTechniquesLoading(true)
+    try {
+      if (typeof window !== 'undefined') {
+        await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+      }
+      return await (techniquesRef.current?.show() ?? Promise.resolve(false))
+    } finally {
+      setRequiredTechniquesLoading(false)
+    }
+  }, [])
+
   if(internalPuzzle.length===0) return null
 
   // count how many of each digit (1-9) are correctly placed (or just placed) in the grid
@@ -1344,9 +1359,9 @@ export default function Board({
   const displayedDifficulty = localizeDifficultyLabel(difficulty ?? puzzleMetadata?.difficultyLabel) ?? t('board.customDifficulty')
 
   return (
-    <div className="game-layout">
+    <div className="game-layout game-layout--board">
       {!onBack && <div style={{alignSelf:'flex-end'}}><button type="button" onClick={newGame}>{t('board.new')}</button></div>}
-      <div className="game-main">
+      <div className={`game-main game-main--board${techniquesDockedOpen ? ' game-main--with-techniques-docked' : ''}`}>
         <BoardSurface
           displayedDifficulty={displayedDifficulty}
           boardPixelWidth={boardPixelWidth}
@@ -1441,6 +1456,8 @@ export default function Board({
           redoDisabled={redoDisabled}
           hasAnyFillableCell={hasAnyFillableCell}
           hasSingleCandidates={hasSingleCandidates}
+          requiredTechniquesLoading={requiredTechniquesLoading}
+          requiredTechniquesOpen={techniquesOpen}
           remaining={remaining}
           candidateSelectedDigit={candidateSelectedDigit}
           selectedHasAnyColors={selectedHasAnyColors}
@@ -1457,7 +1474,7 @@ export default function Board({
           redo={redo}
           fillAllCandidates={fillAllCandidates}
           applySingleCandidatesToDigits={applySingleCandidatesToDigits}
-          showRequiredTechniques={() => techniquesRef.current?.show() ?? Promise.resolve(false)}
+          showRequiredTechniques={showRequiredTechniques}
           toggleHistoryTools={toggleHistoryTools}
           toggleEraserMode={toggleEraserMode}
           toggleNotesTools={toggleNotesTools}
@@ -1468,9 +1485,9 @@ export default function Board({
           onModeButtonClick={handleModeButtonClick}
           t={t}
         />
+        <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} onOpenChange={setTechniquesOpen} onDockedOpenChange={setTechniquesDockedOpen} t={t} />
       </div>
       {candidateOverlay && <CandidateOverlayComp overlay={candidateOverlay} cellNotes={overlayCellNotes} candidateColors={candidateColors} overlayHasCellColor={overlayHasCellColor} onClose={closeCandidateOverlay} onSetPreviewDigit={setCandidateOverlayPreviewDigit} onSelectDigit={setCandidateSelectedDigit} onRemoveCandidate={removeCandidateAt} onApplyCandidateBrushColor={applyCandidateBrushColorAt} haptic={haptic} onTriggerHaptic={onTriggerHaptic} t={t} />}
-      <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} t={t} />
       <VictoryOverlay won={won} finalTime={finalTime} formatTime={formatTime} onRetry={handleRetry} onShare={onShare} onNew={onNew} onNewGame={newGame} t={t} />
       {pencilOverlayCell !== null && (
         <PencilOverlay

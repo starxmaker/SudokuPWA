@@ -57,6 +57,8 @@ type Props = {
   redoDisabled: boolean
   hasAnyFillableCell: boolean
   hasSingleCandidates: boolean
+  requiredTechniquesLoading: boolean
+  requiredTechniquesOpen: boolean
   remaining: Record<number, number>
   candidateSelectedDigit: number | null
   selectedHasAnyColors: boolean
@@ -155,6 +157,8 @@ export default function BoardControlsPanel({
   redoDisabled,
   hasAnyFillableCell,
   hasSingleCandidates,
+  requiredTechniquesLoading,
+  requiredTechniquesOpen,
   remaining,
   candidateSelectedDigit,
   selectedHasAnyColors,
@@ -620,7 +624,8 @@ export default function BoardControlsPanel({
               redoDisabled={redoDisabled}
               hasAnyFillableCell={hasAnyFillableCell}
               hasSingleCandidates={hasSingleCandidates}
-              requiredTechniquesLoading={false}
+              requiredTechniquesLoading={requiredTechniquesLoading}
+              requiredTechniquesOpen={requiredTechniquesOpen}
               haptic={haptic ?? false}
               onTriggerHaptic={onTriggerHaptic}
               onClearAllColors={clearAllColors}
@@ -652,7 +657,8 @@ export default function BoardControlsPanel({
               redoDisabled={redoDisabled}
               hasAnyFillableCell={hasAnyFillableCell}
               hasSingleCandidates={hasSingleCandidates}
-              requiredTechniquesLoading={false}
+              requiredTechniquesLoading={requiredTechniquesLoading}
+              requiredTechniquesOpen={requiredTechniquesOpen}
               haptic={haptic ?? false}
               onTriggerHaptic={onTriggerHaptic}
               onClearAllColors={clearAllColors}
@@ -684,7 +690,8 @@ export default function BoardControlsPanel({
               redoDisabled={redoDisabled}
               hasAnyFillableCell={hasAnyFillableCell}
               hasSingleCandidates={hasSingleCandidates}
-              requiredTechniquesLoading={false}
+              requiredTechniquesLoading={requiredTechniquesLoading}
+              requiredTechniquesOpen={requiredTechniquesOpen}
               haptic={haptic ?? false}
               onTriggerHaptic={onTriggerHaptic}
               onClearAllColors={clearAllColors}

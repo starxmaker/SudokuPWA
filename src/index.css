@@ -57,6 +57,25 @@ body{background:var(--bg);color:var(--text)}
   width:min(360px, 100vw);
   padding:8px 12px 16px;
 }
+.sidebar--techniques.sidebar--docked{
+  position:sticky;
+  top:8px;
+  right:auto;
+  align-self:flex-start;
+  height:calc(100dvh - 16px);
+  max-height:calc(100dvh - 16px);
+  width:clamp(280px, 30vw, 360px);
+  flex:0 0 clamp(280px, 30vw, 360px);
+  border:1px solid rgba(0,0,0,0.08);
+  border-radius:16px;
+  transform:none;
+  box-shadow:0 12px 32px rgba(0,0,0,0.12);
+  overflow:hidden;
+}
+.dark .sidebar--techniques.sidebar--docked{
+  border-color:#555;
+  box-shadow:0 12px 32px rgba(0,0,0,0.28);
+}
 .sidebar--techniques .sidebar-header{
   position:sticky;
   top:0;
@@ -319,6 +338,10 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   flex-direction:column;
   align-items:center;
   gap:8px;
+}
+.game-main--board{
+  flex:1 1 auto;
+  min-height:0;
 }
 .board-area{
   width:min(100%, 720px);
@@ -848,6 +871,12 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   display:flex;
   flex-direction:column;
   gap:12px;
+  min-height:0;
+}
+.sidebar--techniques.sidebar--docked .board-techniques-sidebar{
+  flex:1 1 auto;
+  overflow-y:auto;
+  overscroll-behavior:contain;
 }
 .board-techniques-sidebar__error{
   margin:0;
@@ -1398,11 +1427,38 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
     justify-content:center;
     gap:12px;
   }
+  .game-layout--board{
+    overflow:hidden;
+  }
+  .game-main--board{
+    flex:1 1 auto;
+    min-height:0;
+  }
+  .game-main--with-techniques-docked{
+    align-items:flex-start;
+  }
+  .game-main--board.game-main--with-techniques-docked{
+    align-items:stretch;
+  }
   .board-area{
     --board-safe-space: 128px;
     width:min(720px, calc(100dvh - var(--board-safe-space)), calc(100vw - 180px));
     align-items:flex-start;
     gap:8px;
+  }
+  .game-main--board .board-area{
+    min-height:0;
+  }
+  .game-main--with-techniques-docked .board-area{
+    flex:1 1 auto;
+    min-width:0;
+  }
+  .game-main--board .sidebar--techniques.sidebar--docked{
+    position:relative;
+    top:auto;
+    align-self:stretch;
+    height:100%;
+    max-height:100%;
   }
   .board-column{
     align-items:flex-start;
@@ -1670,6 +1726,13 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
   display:inline-block;width:14px;height:14px;
   border:2px solid rgba(255,255,255,0.35);border-top-color:#fff;
   border-radius:50%;animation:spin 0.7s linear infinite;
+}
+.spinner--current{
+  border-color:rgba(11,33,53,0.22);
+  border-top-color:currentColor;
+}
+.dark .spinner--current{
+  border-color:rgba(230,238,248,0.22);
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 

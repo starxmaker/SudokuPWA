@@ -19,6 +19,8 @@ type Props = {
   notes: number[][][]
   onTriggerHaptic?: () => void
   onCloseCandidateOverlay: () => void
+  onOpenChange?: (open: boolean) => void
+  onDockedOpenChange?: (open: boolean) => void
   t: TFunc
 }
 
@@ -39,13 +41,16 @@ export function formatPromptPuzzleState(grid: Grid, notes: number[][][]): string
 }
 
 const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function TechniquesSidebar(
-  { internalPuzzle, notes, onTriggerHaptic, onCloseCandidateOverlay, t }, ref
+  { internalPuzzle, notes, onTriggerHaptic, onCloseCandidateOverlay, onOpenChange, onDockedOpenChange, t }, ref
 ) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<RequiredTechniques | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedSteps, setExpandedSteps] = useState<number[]>([])
+  const [isLandscape, setIsLandscape] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(orientation: landscape)').matches,
+  )
 
   const abortRef = useRef<AbortController | null>(null)
   const cacheRef = useRef<CacheEntry | null>(null)
@@ -122,28 +127,36 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
 
     const controller = new AbortController()
     abortRef.current = controller
-    setOpen(true)
+    setOpen(false)
     setLoading(true)
     setResult(null)
+
+    if (typeof window !== 'undefined') {
+      await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+    }
 
     try {
       const analysis = await analyzeRequiredTechniques(internalPuzzle, notes, controller.signal)
       if (controller.signal.aborted) return false
       if (analysis === null) {
+        setOpen(true)
         setResult(null)
         setError(t('board.requiredTechniquesFailed'))
         return false
       }
       cacheRef.current = { puzzle: puzzleState, analysis }
       if (analysis.unsolvable) {
+        setOpen(true)
         setResult(null)
         setError(t('board.requiredTechniquesUnsolvable'))
         return false
       }
+      setOpen(true)
       setResult(analysis)
       return true
     } catch {
       if (controller.signal.aborted) return false
+      setOpen(true)
       setResult(null)
       setError(t('board.requiredTechniquesFailed'))
       return false
@@ -178,12 +191,33 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
     abortRef.current?.abort()
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const mediaQuery = window.matchMedia('(orientation: landscape)')
+    const updateLandscape = (event?: MediaQueryListEvent) => {
+      setIsLandscape(event?.matches ?? mediaQuery.matches)
+    }
+    updateLandscape()
+    mediaQuery.addEventListener('change', updateLandscape)
+    return () => mediaQuery.removeEventListener('change', updateLandscape)
+  }, [])
+
+  useEffect(() => {
+    onOpenChange?.(open)
+    return () => onOpenChange?.(false)
+  }, [onOpenChange, open])
+
+  useEffect(() => {
+    onDockedOpenChange?.(open && isLandscape)
+    return () => onDockedOpenChange?.(false)
+  }, [isLandscape, onDockedOpenChange, open])
+
   if (!open) return null
 
-  return createPortal(
+  const content = (
     <>
-      <div className="sidebar-backdrop open" data-testid="required-techniques-backdrop" onClick={close} aria-hidden="true" />
-      <aside className="sidebar sidebar--techniques open" role="dialog" aria-label={t('board.requiredTechniquesSidebar')} aria-modal="true">
+      {!isLandscape && <div className="sidebar-backdrop open" data-testid="required-techniques-backdrop" onClick={close} aria-hidden="true" />}
+      <aside className={`sidebar sidebar--techniques open${isLandscape ? ' sidebar--docked' : ''}`} role="dialog" aria-label={t('board.requiredTechniquesSidebar')} aria-modal={!isLandscape}>
         <div className="sidebar-header sidebar-header--title">
           <h2 className="sidebar-title">{t('board.requiredTechniquesTitle')}</h2>
           <button type="button" className="sidebar-close" aria-label={t('board.closeRequiredTechniques')} onClick={close}>
@@ -236,9 +270,10 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
           ) : null}
         </div>
       </aside>
-    </>,
-    document.body
+    </>
   )
+
+  return isLandscape ? content : createPortal(content, document.body)
 })
 
 export default TechniquesSidebar

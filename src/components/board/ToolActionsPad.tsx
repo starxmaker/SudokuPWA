@@ -16,6 +16,7 @@ type Props = {
   hasAnyFillableCell: boolean
   hasSingleCandidates: boolean
   requiredTechniquesLoading: boolean
+  requiredTechniquesOpen: boolean
   haptic: boolean
   onTriggerHaptic?: () => void
   onClearAllColors: () => boolean | void
@@ -35,7 +36,7 @@ export default function ToolActionsPad({
   hasAnyColors, hasAnyDrawings,
   undoDisabled, redoDisabled,
   hasAnyFillableCell, hasSingleCandidates,
-  requiredTechniquesLoading, haptic, onTriggerHaptic,
+  requiredTechniquesLoading, requiredTechniquesOpen, haptic, onTriggerHaptic,
   onClearAllColors, onClearAllDrawings,
   onUndo, onRedo,
   onFillAllCandidates, onApplySingleCandidates, onShowRequiredTechniques,
@@ -93,16 +94,19 @@ export default function ToolActionsPad({
         <span className="eraser-action-button__icon" aria-hidden="true"><FaWandMagicSparkles size={20} /></span>
         <span className="eraser-action-button__label">{t('board.singleCandidateToDigit')}</span>
       </button>
-      <button type="button" className="eraser-action-button" aria-label={t('board.seeRequiredTechniques')}
+      <button type="button" className="eraser-action-button" aria-label={requiredTechniquesLoading ? t('board.solvingSudoku') : t('board.seeRequiredTechniques')}
         aria-busy={requiredTechniquesLoading}
-        disabled={paused || won || requiredTechniquesLoading}
+        aria-expanded={requiredTechniquesOpen}
+        disabled={paused || won || requiredTechniquesLoading || requiredTechniquesOpen}
         onClick={async (event) => {
           event.currentTarget.blur()
           if (haptic) onTriggerHaptic?.()
           await onShowRequiredTechniques()
         }} tabIndex={tabIndex}>
-        <span className="eraser-action-button__icon" aria-hidden="true"><MdLightbulbOutline size={20} /></span>
-        <span className="eraser-action-button__label">{t('board.seeRequiredTechniques')}</span>
+        <span className="eraser-action-button__icon" aria-hidden="true">
+          {requiredTechniquesLoading ? <span className="spinner spinner--current" /> : <MdLightbulbOutline size={20} />}
+        </span>
+        <span className="eraser-action-button__label">{requiredTechniquesLoading ? t('board.solvingSudoku') : t('board.seeRequiredTechniques')}</span>
       </button>
     </>
   )

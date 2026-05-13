@@ -139,6 +139,7 @@
   "board.requiredTechniquesTitle": "Técnicas necesarias",
   "board.closeRequiredTechniques": "Cerrar técnicas necesarias",
   "board.requiredTechniquesLoading": "Analizando técnicas necesarias...",
+  "board.solvingSudoku": "Resolviendo sudoku....",
   "board.requiredTechniquesCount": "{count} técnicas",
   "board.requiredTechniquesEmpty": "No hacen falta más técnicas.",
   "board.requiredTechniquesUnsolvable": "Este sudoku no tiene solución.",
