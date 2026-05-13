@@ -1,8 +1,8 @@
 import React from 'react'
 import { FaEraser } from 'react-icons/fa'
-import { FaBrush, FaWandMagicSparkles } from 'react-icons/fa6'
+import { FaBrush } from 'react-icons/fa6'
 import { GiMagicBroom } from 'react-icons/gi'
-import { MdDraw, MdHistory, MdUndo } from 'react-icons/md'
+import { MdDraw, MdHistory, MdLightbulbOutline, MdUndo } from 'react-icons/md'
 import { PiFlagCheckeredFill } from 'react-icons/pi'
 import { TbNumbers } from 'react-icons/tb'
 import type { BrushColorId } from '../../store/gameTypes'
@@ -316,7 +316,7 @@ export default function BoardControlsPanel({
               className="num-key candidates-toggle"
               tabIndex={-1}
             >
-              <FaWandMagicSparkles size={20} />
+              <MdLightbulbOutline size={20} />
             </button>
           </div>
           <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
@@ -449,7 +449,7 @@ export default function BoardControlsPanel({
             disabled={paused || won}
             onClick={(event) => onModeButtonClick(event, toggleCandidateTools)}
           >
-            <FaWandMagicSparkles size={20} />
+            <MdLightbulbOutline size={20} />
           </button>
         </div>
         {toolTrayOverlayView === 'main' && (
@@ -474,7 +474,7 @@ export default function BoardControlsPanel({
               {renderToolTrayButtonIcon('drawing')}
             </button>
             <button type="button" className="num-key candidates-toggle" tabIndex={-1}>
-              <FaWandMagicSparkles size={20} />
+              <MdLightbulbOutline size={20} />
             </button>
           </div>
         )}
