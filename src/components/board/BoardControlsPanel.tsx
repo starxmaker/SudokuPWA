@@ -2,7 +2,7 @@ import React from 'react'
 import { FaEraser } from 'react-icons/fa'
 import { FaBrush } from 'react-icons/fa6'
 import { GiMagicBroom } from 'react-icons/gi'
-import { MdDraw, MdHistory, MdLightbulbOutline, MdUndo } from 'react-icons/md'
+import { MdArrowBack, MdDraw, MdHistory, MdLightbulbOutline, MdMoreHoriz, MdUndo } from 'react-icons/md'
 import { PiFlagCheckeredFill } from 'react-icons/pi'
 import { TbNumbers } from 'react-icons/tb'
 import type { BrushColorId } from '../../store/gameTypes'
@@ -19,6 +19,11 @@ import NumberPad from './NumberPad'
 import ToolActionsPad from './ToolActionsPad'
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
+
+type RequiredTechniquesSummary = {
+  technique: string
+  notation: string
+}
 
 type Props = {
   paused: boolean
@@ -59,6 +64,7 @@ type Props = {
   hasSingleCandidates: boolean
   requiredTechniquesLoading: boolean
   requiredTechniquesOpen: boolean
+  requiredTechniquesSummary: RequiredTechniquesSummary | null
   remaining: Record<number, number>
   candidateSelectedDigit: number | null
   selectedHasAnyColors: boolean
@@ -76,6 +82,8 @@ type Props = {
   fillAllCandidates: () => boolean
   applySingleCandidatesToDigits: () => boolean
   showRequiredTechniques: () => Promise<unknown>
+  openRequiredTechniquesSidebar: () => void
+  hideRequiredTechniquesSummary: () => void
   toggleHistoryTools: () => void
   toggleEraserMode: () => void
   toggleNotesTools: () => void
@@ -159,6 +167,7 @@ export default function BoardControlsPanel({
   hasSingleCandidates,
   requiredTechniquesLoading,
   requiredTechniquesOpen,
+  requiredTechniquesSummary,
   remaining,
   candidateSelectedDigit,
   selectedHasAnyColors,
@@ -176,6 +185,8 @@ export default function BoardControlsPanel({
   fillAllCandidates,
   applySingleCandidatesToDigits,
   showRequiredTechniques,
+  openRequiredTechniquesSidebar,
+  hideRequiredTechniquesSummary,
   toggleHistoryTools,
   toggleEraserMode,
   toggleNotesTools,
@@ -675,36 +686,85 @@ export default function BoardControlsPanel({
         </div>
       ) : candidateToolMode ? (
         <div className="input-pad-switcher input-pad-switcher--candidate-actions">
-          <div
-            className="candidate-action-pad candidate-action-pad--single-row"
-            role="toolbar"
-            aria-label={t('board.candidateActions')}
-          >
-            <ToolActionsPad
-              mode="candidate"
-              paused={paused}
-              won={won}
-              hasAnyColors={hasAnyColors}
-              hasAnyDrawings={hasAnyDrawings}
-              undoDisabled={undoDisabled}
-              redoDisabled={redoDisabled}
-              hasAnyFillableCell={hasAnyFillableCell}
-              hasSingleCandidates={hasSingleCandidates}
-              requiredTechniquesLoading={requiredTechniquesLoading}
-              requiredTechniquesOpen={requiredTechniquesOpen}
-              haptic={haptic ?? false}
-              onTriggerHaptic={onTriggerHaptic}
-              onClearAllColors={clearAllColors}
-              onClearAllDrawings={clearAllDrawings}
-              onUndo={undo}
-              onRedo={redo}
-              onFillAllCandidates={fillAllCandidates}
-              onApplySingleCandidates={applySingleCandidatesToDigits}
-              onShowRequiredTechniques={showRequiredTechniques}
-              onMomentaryButtonClick={onMomentaryButtonClick}
-              t={t}
-            />
-          </div>
+          {requiredTechniquesSummary ? (
+            <div
+              className="candidate-action-pad candidate-action-pad--techniques-preview"
+              role="region"
+              aria-label={t('board.requiredTechniquesTitle')}
+            >
+              <div className="required-techniques-preview">
+                <div className="required-techniques-preview__main">
+                  <div className="required-techniques-preview__content">
+                    <p className="required-techniques-preview__label">{t('board.nextTechnique')}</p>
+                    <p className="required-techniques-preview__technique">{requiredTechniquesSummary.technique}</p>
+                    <p className="required-techniques-preview__label">{t('board.notationLabel')}</p>
+                    <p className="required-techniques-preview__notation">
+                      {requiredTechniquesSummary.notation.length > 0 ? requiredTechniquesSummary.notation : '-'}
+                    </p>
+                  </div>
+                  <div className="required-techniques-preview__actions">
+                    <button
+                      type="button"
+                      className="required-techniques-preview__icon-button"
+                      aria-label={t('board.backToCandidateTools')}
+                      disabled={paused || won}
+                      onClick={(event) => {
+                        event.currentTarget.blur()
+                        if (haptic) onTriggerHaptic?.()
+                        hideRequiredTechniquesSummary()
+                      }}
+                    >
+                      <MdArrowBack size={18} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className="required-techniques-preview__icon-button"
+                      aria-label={t('board.seeRemainingTechniques')}
+                      disabled={paused || won || requiredTechniquesOpen}
+                      onClick={(event) => {
+                        event.currentTarget.blur()
+                        if (haptic) onTriggerHaptic?.()
+                        openRequiredTechniquesSidebar()
+                      }}
+                    >
+                      <MdMoreHoriz size={18} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="candidate-action-pad candidate-action-pad--single-row"
+              role="toolbar"
+              aria-label={t('board.candidateActions')}
+            >
+              <ToolActionsPad
+                mode="candidate"
+                paused={paused}
+                won={won}
+                hasAnyColors={hasAnyColors}
+                hasAnyDrawings={hasAnyDrawings}
+                undoDisabled={undoDisabled}
+                redoDisabled={redoDisabled}
+                hasAnyFillableCell={hasAnyFillableCell}
+                hasSingleCandidates={hasSingleCandidates}
+                requiredTechniquesLoading={requiredTechniquesLoading}
+                requiredTechniquesOpen={requiredTechniquesOpen}
+                haptic={haptic ?? false}
+                onTriggerHaptic={onTriggerHaptic}
+                onClearAllColors={clearAllColors}
+                onClearAllDrawings={clearAllDrawings}
+                onUndo={undo}
+                onRedo={redo}
+                onFillAllCandidates={fillAllCandidates}
+                onApplySingleCandidates={applySingleCandidatesToDigits}
+                onShowRequiredTechniques={showRequiredTechniques}
+                onMomentaryButtonClick={onMomentaryButtonClick}
+                t={t}
+              />
+            </div>
+          )}
         </div>
       ) : pencilMode ? (
         brushMode || drawingMode ? (

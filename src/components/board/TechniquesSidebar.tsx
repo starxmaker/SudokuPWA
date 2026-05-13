@@ -11,7 +11,8 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string
 
 export type TechniquesSidebarHandle = {
   reset: () => void
-  show: () => Promise<boolean>
+  show: (options?: { openSidebar?: boolean }) => Promise<boolean>
+  open: () => boolean
 }
 
 type Props = {
@@ -21,6 +22,8 @@ type Props = {
   onCloseCandidateOverlay: () => void
   onOpenChange?: (open: boolean) => void
   onDockedOpenChange?: (open: boolean) => void
+  onResultChange?: (result: RequiredTechniques | null) => void
+  onErrorChange?: (error: string | null) => void
   t: TFunc
 }
 
@@ -41,7 +44,7 @@ export function formatPromptPuzzleState(grid: Grid, notes: number[][][]): string
 }
 
 const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function TechniquesSidebar(
-  { internalPuzzle, notes, onTriggerHaptic, onCloseCandidateOverlay, onOpenChange, onDockedOpenChange, t }, ref
+  { internalPuzzle, notes, onTriggerHaptic, onCloseCandidateOverlay, onOpenChange, onDockedOpenChange, onResultChange, onErrorChange, t }, ref
 ) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -100,7 +103,15 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
     await copyPromptText(prompt, false)
   }, [buildPrompt, copyPromptText, onTriggerHaptic, t])
 
-  const show = useCallback(async () => {
+  const openSidebar = useCallback(() => {
+    if (loading) return false
+    if (result === null && error === null) return false
+    setOpen(true)
+    return true
+  }, [error, loading, result])
+
+  const show = useCallback(async (options?: { openSidebar?: boolean }) => {
+    const shouldOpenSidebar = options?.openSidebar ?? true
     onCloseCandidateOverlay()
     abortRef.current?.abort()
     abortRef.current = null
@@ -120,7 +131,7 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
         setError(t('board.requiredTechniquesUnsolvable'))
         return false
       }
-      setOpen(true)
+      setOpen(shouldOpenSidebar || cachedAnalysis.steps.length === 0)
       setResult(cachedAnalysis)
       return true
     }
@@ -151,7 +162,7 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
         setError(t('board.requiredTechniquesUnsolvable'))
         return false
       }
-      setOpen(true)
+      setOpen(shouldOpenSidebar || analysis.steps.length === 0)
       setResult(analysis)
       return true
     } catch {
@@ -178,7 +189,7 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
     setExpandedSteps([])
   }, [])
 
-  useImperativeHandle(ref, () => ({ reset, show }), [reset, show])
+  useImperativeHandle(ref, () => ({ reset, show, open: openSidebar }), [openSidebar, reset, show])
 
   useEffect(() => {
     if (!open) return
@@ -204,13 +215,36 @@ const TechniquesSidebar = forwardRef<TechniquesSidebarHandle, Props>(function Te
 
   useEffect(() => {
     onOpenChange?.(open)
-    return () => onOpenChange?.(false)
   }, [onOpenChange, open])
 
   useEffect(() => {
     onDockedOpenChange?.(open && isLandscape)
-    return () => onDockedOpenChange?.(false)
   }, [isLandscape, onDockedOpenChange, open])
+
+  useEffect(() => {
+    onResultChange?.(result)
+  }, [onResultChange, result])
+
+  useEffect(() => {
+    onErrorChange?.(error)
+  }, [error, onErrorChange])
+
+  useEffect(() => {
+    const puzzleState = encodeGridWithCandidates(internalPuzzle, notes)
+    if (open || cacheRef.current?.puzzle === puzzleState) return
+    if (result !== null || error !== null) {
+      setResult(null)
+      setError(null)
+      setExpandedSteps([])
+    }
+  }, [error, internalPuzzle, notes, open, result])
+
+  useEffect(() => () => {
+    onOpenChange?.(false)
+    onDockedOpenChange?.(false)
+    onResultChange?.(null)
+    onErrorChange?.(null)
+  }, [onDockedOpenChange, onErrorChange, onOpenChange, onResultChange])
 
   if (!open) return null
 

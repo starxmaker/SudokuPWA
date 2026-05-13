@@ -141,6 +141,31 @@ function emptyNotesGrid() {
   return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as number[]))
 }
 
+function mockLandscapeOrientation(matches: boolean) {
+  const originalMatchMedia = window.matchMedia
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (query: string) => ({
+      matches: query === '(orientation: landscape)' ? matches : false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  })
+  return () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: originalMatchMedia,
+    })
+  }
+}
+
 describe('Board component', () => {
   it('renders 81 cells and control buttons', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
@@ -370,7 +395,7 @@ describe('Board component', () => {
     await waitFor(() => expect(cells[2]).toHaveTextContent('4'))
   })
 
-  it('shows required techniques in a sidebar and reveals notation on click', async () => {
+  it('shows the next required technique in portrait and opens the sidebar on demand', async () => {
     clipboardMocks.writeClipboardText.mockResolvedValue(undefined)
     const open = vi.fn().mockReturnValue(null)
     vi.spyOn(window, 'open').mockImplementation(open as typeof window.open)
@@ -407,6 +432,23 @@ describe('Board component', () => {
     await waitFor(() => {
       expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledWith(expectedPuzzleState, expect.any(Array), expect.any(AbortSignal))
     })
+
+    expect(screen.queryByRole('dialog', { name: /required techniques/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /show all basic candidates/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /single candidate to digit/i })).toBeNull()
+    expect(screen.getByText('Next technique')).toBeInTheDocument()
+    expect(screen.getByText('Hidden Single')).toBeInTheDocument()
+    expect(screen.getByText('r5c5=9')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /back to tools/i }))
+
+    expect(screen.getByRole('button', { name: /show all basic candidates/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /single candidate to digit/i })).toBeInTheDocument()
+    expect(screen.queryByText('Next technique')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+    await screen.findByText('Next technique')
+    await user.click(screen.getByRole('button', { name: /see remaining techniques/i }))
 
     const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
     expect(within(sidebar).getByText('2 techniques')).toBeInTheDocument()
@@ -488,6 +530,8 @@ describe('Board component', () => {
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
 
+    await user.click(await screen.findByRole('button', { name: /see remaining techniques/i }))
+
     const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
     await user.click(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i }))
 
@@ -549,12 +593,11 @@ describe('Board component', () => {
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
 
-    await screen.findByRole('dialog', { name: /required techniques/i })
+    await screen.findByRole('button', { name: /see remaining techniques/i })
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(1)
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(initialPuzzleState, expect.any(Array), expect.any(AbortSignal))
 
-    await user.click(screen.getByRole('button', { name: /close required techniques/i }))
-    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+    await user.click(screen.getByRole('button', { name: /see remaining techniques/i }))
 
     await screen.findByRole('dialog', { name: /required techniques/i })
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(1)
@@ -562,14 +605,16 @@ describe('Board component', () => {
     await user.click(screen.getByRole('button', { name: /close required techniques/i }))
     await user.click(cells[2])
     fireEvent.keyDown(window, { key: '4' })
+    await waitFor(() => expect(screen.getByRole('button', { name: /see required techniques/i })).toBeEnabled())
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
 
-    await screen.findByRole('dialog', { name: /required techniques/i })
+    await screen.findByRole('button', { name: /see remaining techniques/i })
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(2)
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(updatedPuzzleState, expect.any(Array), expect.any(AbortSignal))
   })
 
   it('disables the see required techniques button while the sidebar is open', async () => {
+    const restoreMatchMedia = mockLandscapeOrientation(true)
     mockedAnalyzeRequiredTechniques.mockResolvedValue({
       difficulty: 'Extreme',
       score: 3018,
@@ -589,19 +634,23 @@ describe('Board component', () => {
     await waitForBoard()
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
-    const seeRequiredTechniquesButton = screen.getByRole('button', { name: /see required techniques/i })
+    try {
+      await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+      const seeRequiredTechniquesButton = screen.getByRole('button', { name: /see required techniques/i })
 
-    expect(seeRequiredTechniquesButton).toBeEnabled()
+      expect(seeRequiredTechniquesButton).toBeEnabled()
 
-    await user.click(seeRequiredTechniquesButton)
+      await user.click(seeRequiredTechniquesButton)
 
-    await screen.findByRole('dialog', { name: /required techniques/i })
-    expect(screen.getByRole('button', { name: /see required techniques/i })).toBeDisabled()
+      await screen.findByRole('dialog', { name: /required techniques/i })
+      expect(screen.getByRole('button', { name: /see required techniques/i })).toBeDisabled()
 
-    await user.click(screen.getByRole('button', { name: /close required techniques/i }))
+      await user.click(screen.getByRole('button', { name: /close required techniques/i }))
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /see required techniques/i })).toBeEnabled())
+      await waitFor(() => expect(screen.getByRole('button', { name: /see required techniques/i })).toBeEnabled())
+    } finally {
+      restoreMatchMedia()
+    }
   })
 
   it('shows an error when hodoku reports the current board is unsolvable', async () => {
@@ -648,6 +697,8 @@ describe('Board component', () => {
 
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+
+    await user.click(await screen.findByRole('button', { name: /see remaining techniques/i }))
 
     const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
     await user.click(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i }))

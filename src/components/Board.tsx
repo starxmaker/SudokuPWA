@@ -20,6 +20,7 @@ import {
   emptyDrawingStrokes,
 } from '../utils/gameStorage'
 import { useI18n } from '../utils/i18n'
+import type { RequiredTechniques } from '../utils/generators/hodoku'
 import type { BoardHistoryEntry, BrushColorId } from '../store/gameTypes'
 import {
   cloneGrid, cloneNotesGrid, cloneCellColorsGrid, cloneCandidateColorsGrid,
@@ -209,8 +210,14 @@ export default function Board({
   const toolTrayRef = React.useRef<HTMLDivElement | null>(null)
   const [boardPixelWidth, setBoardPixelWidth] = useState<number | null>(null)
   const [requiredTechniquesLoading, setRequiredTechniquesLoading] = useState(false)
+  const [requiredTechniquesResult, setRequiredTechniquesResult] = useState<RequiredTechniques | null>(null)
+  const [requiredTechniquesError, setRequiredTechniquesError] = useState<string | null>(null)
+  const [portraitTechniquesSummaryDismissed, setPortraitTechniquesSummaryDismissed] = useState(false)
   const [techniquesOpen, setTechniquesOpen] = useState(false)
   const [techniquesDockedOpen, setTechniquesDockedOpen] = useState(false)
+  const [isLandscape, setIsLandscape] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(orientation: landscape)').matches,
+  )
   const mainNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const mainBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const mainDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
@@ -288,6 +295,17 @@ export default function Board({
       resizeObserver?.disconnect()
       window.removeEventListener('resize', updateBoardPixelWidth)
     }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const mediaQuery = window.matchMedia('(orientation: landscape)')
+    const updateLandscape = (event?: MediaQueryListEvent) => {
+      setIsLandscape(event?.matches ?? mediaQuery.matches)
+    }
+    updateLandscape()
+    mediaQuery.addEventListener('change', updateLandscape)
+    return () => mediaQuery.removeEventListener('change', updateLandscape)
   }, [])
 
   useEffect(() => {
@@ -1306,15 +1324,24 @@ export default function Board({
   }, [hasAnyFillableCell, onIdentifyCandidatesAvailabilityChange])
 
   const showRequiredTechniques = React.useCallback(async () => {
+    setPortraitTechniquesSummaryDismissed(false)
     setRequiredTechniquesLoading(true)
     try {
       if (typeof window !== 'undefined') {
         await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
       }
-      return await (techniquesRef.current?.show() ?? Promise.resolve(false))
+      return await (techniquesRef.current?.show({ openSidebar: isLandscape }) ?? Promise.resolve(false))
     } finally {
       setRequiredTechniquesLoading(false)
     }
+  }, [isLandscape])
+
+  const openRequiredTechniquesSidebar = React.useCallback(() => {
+    techniquesRef.current?.open()
+  }, [])
+
+  const hideRequiredTechniquesSummary = React.useCallback(() => {
+    setPortraitTechniquesSummaryDismissed(true)
   }, [])
 
   if(internalPuzzle.length===0) return null
@@ -1357,6 +1384,18 @@ export default function Board({
   }
 
   const displayedDifficulty = localizeDifficultyLabel(difficulty ?? puzzleMetadata?.difficultyLabel) ?? t('board.customDifficulty')
+  const requiredTechniquesSummary =
+    !isLandscape &&
+    !techniquesOpen &&
+    !portraitTechniquesSummaryDismissed &&
+    requiredTechniquesError === null &&
+    requiredTechniquesResult !== null &&
+    requiredTechniquesResult.steps.length > 0
+      ? {
+          technique: requiredTechniquesResult.steps[0].technique,
+          notation: requiredTechniquesResult.steps[0].notation,
+        }
+      : null
 
   return (
     <div className="game-layout game-layout--board">
@@ -1458,6 +1497,7 @@ export default function Board({
           hasSingleCandidates={hasSingleCandidates}
           requiredTechniquesLoading={requiredTechniquesLoading}
           requiredTechniquesOpen={techniquesOpen}
+          requiredTechniquesSummary={requiredTechniquesSummary}
           remaining={remaining}
           candidateSelectedDigit={candidateSelectedDigit}
           selectedHasAnyColors={selectedHasAnyColors}
@@ -1475,6 +1515,8 @@ export default function Board({
           fillAllCandidates={fillAllCandidates}
           applySingleCandidatesToDigits={applySingleCandidatesToDigits}
           showRequiredTechniques={showRequiredTechniques}
+          openRequiredTechniquesSidebar={openRequiredTechniquesSidebar}
+          hideRequiredTechniquesSummary={hideRequiredTechniquesSummary}
           toggleHistoryTools={toggleHistoryTools}
           toggleEraserMode={toggleEraserMode}
           toggleNotesTools={toggleNotesTools}
@@ -1485,7 +1527,7 @@ export default function Board({
           onModeButtonClick={handleModeButtonClick}
           t={t}
         />
-        <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} onOpenChange={setTechniquesOpen} onDockedOpenChange={setTechniquesDockedOpen} t={t} />
+        <TechniquesSidebar ref={techniquesRef} internalPuzzle={internalPuzzle} notes={notes} onTriggerHaptic={onTriggerHaptic} onCloseCandidateOverlay={closeCandidateOverlay} onOpenChange={setTechniquesOpen} onDockedOpenChange={setTechniquesDockedOpen} onResultChange={setRequiredTechniquesResult} onErrorChange={setRequiredTechniquesError} t={t} />
       </div>
       {candidateOverlay && <CandidateOverlayComp overlay={candidateOverlay} cellNotes={overlayCellNotes} candidateColors={candidateColors} overlayHasCellColor={overlayHasCellColor} onClose={closeCandidateOverlay} onSetPreviewDigit={setCandidateOverlayPreviewDigit} onSelectDigit={setCandidateSelectedDigit} onRemoveCandidate={removeCandidateAt} onApplyCandidateBrushColor={applyCandidateBrushColorAt} haptic={haptic} onTriggerHaptic={onTriggerHaptic} t={t} />}
       <VictoryOverlay won={won} finalTime={finalTime} formatTime={formatTime} onRetry={handleRetry} onShare={onShare} onNew={onNew} onNewGame={newGame} t={t} />

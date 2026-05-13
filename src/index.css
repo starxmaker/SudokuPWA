@@ -831,6 +831,9 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .candidate-action-pad--single-row{
   grid-template-columns:repeat(3,minmax(0,1fr));
 }
+.candidate-action-pad--techniques-preview{
+  grid-template-columns:minmax(0,1fr);
+}
 .eraser-action-button{
   min-height:72px;
   padding:10px 8px;
@@ -864,6 +867,85 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 }
 .dark .eraser-action-button{
   background:#181818;
+  border-color:#555;
+  color:#fff;
+}
+.required-techniques-preview{
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  padding:12px;
+  border:1px solid var(--cell-inner);
+  border-radius:12px;
+  background:#fff;
+  cursor:default;
+}
+.required-techniques-preview__main{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  cursor:default;
+}
+.required-techniques-preview__content{
+  flex:1 1 auto;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  cursor:default;
+}
+.required-techniques-preview__label{
+  margin:0;
+  color:var(--muted);
+  font-size:0.72rem;
+  font-weight:700;
+  line-height:1.2;
+  text-transform:uppercase;
+}
+.required-techniques-preview__technique{
+  margin:0;
+  font-size:1rem;
+  font-weight:700;
+  line-height:1.3;
+}
+.required-techniques-preview__notation{
+  margin:0;
+  color:var(--muted);
+  line-height:1.45;
+  word-break:break-word;
+  user-select:text;
+  -webkit-user-select:text;
+  cursor:text;
+}
+.required-techniques-preview__icon-button{
+  width:40px;
+  height:40px;
+  padding:0;
+  border:1px solid var(--cell-inner);
+  border-radius:999px;
+  background:transparent;
+  color:var(--text);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.required-techniques-preview__actions{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  flex:0 0 auto;
+  gap:8px;
+}
+.required-techniques-preview__icon-button:disabled{
+  opacity:0.35;
+  cursor:default;
+}
+.dark .required-techniques-preview{
+  background:#181818;
+  border-color:#555;
+}
+.dark .required-techniques-preview__icon-button{
+  background:transparent;
   border-color:#555;
   color:#fff;
 }
