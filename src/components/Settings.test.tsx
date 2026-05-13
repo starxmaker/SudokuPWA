@@ -14,7 +14,7 @@ const BASE_SETTINGS: SettingsState = {
   autoRemove: false,
   haptic: false,
   pencilMode: false,
-  coordinateLabels: false,
+  coordinateLabels: 'none',
   firstColorFlag: false,
   paintingScope: 'digit',
   difficulty: null,
@@ -42,7 +42,7 @@ describe('Settings', () => {
     expect(screen.getByRole('switch', { name: /dark mode/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /auto-check/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /auto-remove/i })).toBeInTheDocument()
-    expect(screen.getByRole('switch', { name: /coordinate labels/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /coordinate labels/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /language/i })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: /painting scope/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /digits/i })).toBeInTheDocument()
@@ -111,10 +111,10 @@ describe('Settings', () => {
     expect(store.getState().settings.autoRemove).toBe(true)
   })
 
-  it('sets coordinateLabels to true when toggled on', async () => {
+  it('sets coordinate label mode from the dropdown', async () => {
     const { store } = renderSettings()
-    await userEvent.click(screen.getByRole('switch', { name: /coordinate labels/i }))
-    expect(store.getState().settings.coordinateLabels).toBe(true)
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /coordinate labels/i }), 'row-number-column-number')
+    expect(store.getState().settings.coordinateLabels).toBe('row-number-column-number')
   })
 
   it('sets paintingScope to candidate when toggled', async () => {

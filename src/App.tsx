@@ -15,6 +15,7 @@ import { DIFFICULTY_LABELS, GameDifficulty } from './utils/difficulties'
 import { type VerifiedPuzzle, verifyPuzzle } from './utils/generators/hodoku'
 import { getPreloadedPuzzleAvailability, takePreloadedPuzzle } from './utils/preloadedPuzzles'
 import { useI18n } from './utils/i18n'
+import type { CoordinateLabelMode } from './utils/coordinateLabels'
 import { useAppSelector, useAppDispatch } from './store/hooks'
 import {
   parseUrlGame, clearPendingImportedPuzzle, markAutoOpenImportedGame,
@@ -42,7 +43,7 @@ export default function App(){
   const autoRemove = useAppSelector(s => s.settings.autoRemove)
   const haptic = useAppSelector(s => s.settings.haptic)
   const pencilMode = useAppSelector(s => s.settings.pencilMode)
-  const coordinateLabels = useAppSelector(s => s.settings.coordinateLabels)
+  const coordinateLabels = useAppSelector(s => s.settings.coordinateLabels) as CoordinateLabelMode
   const firstColorFlag = useAppSelector(s => s.settings.firstColorFlag)
   const paintingScope = useAppSelector(s => s.settings.paintingScope)
   const difficultyLabel = useAppSelector(s => s.settings.difficulty)

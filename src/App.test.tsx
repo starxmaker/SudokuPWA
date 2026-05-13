@@ -358,11 +358,11 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /menu/i }))
     await user.click(screen.getByRole('menuitem', { name: /settings/i }))
-    await user.click(screen.getByRole('switch', { name: /coordinate labels/i }))
+    await user.selectOptions(screen.getByRole('combobox', { name: /coordinate labels/i }), 'row-number-column-letter')
 
-    expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('123456789')
-    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('ABCDEFGHI')
-    expect(localStorage.getItem('coordinateLabels')).toBe('true')
+    expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('ABCDEFGHI')
+    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('123456789')
+    expect(localStorage.getItem('coordinateLabels')).toBe('row-number-column-letter')
   })
 
   it('clears elapsed time when starting a new game so the clock resets to 0:00', async () => {

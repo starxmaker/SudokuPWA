@@ -1,4 +1,5 @@
 import React from 'react'
+import type { CoordinateLabelMode } from '../utils/coordinateLabels'
 import type { AppLanguageSetting } from '../utils/i18n'
 import { useI18n } from '../utils/i18n'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
@@ -171,16 +172,16 @@ export default function Settings({ open, onClose, onReset }: Props){
             <div>{t('settings.coordinateLabels')}</div>
             <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.coordinateLabelsDescription')}</div>
           </div>
-          <label className="toggle-switch" aria-label={t('settings.toggleCoordinateLabels')}>
-            <input
-              type="checkbox"
-              role="switch"
-              aria-checked={coordinateLabels}
-              checked={coordinateLabels}
-              onChange={(e)=> dispatch(setCoordinateLabels(e.target.checked))}
-            />
-            <span className="switch" />
-          </label>
+          <select
+            aria-label={t('settings.coordinateLabels')}
+            value={coordinateLabels}
+            onChange={(event) => dispatch(setCoordinateLabels(event.target.value as CoordinateLabelMode))}
+            style={{marginLeft:12,maxWidth:220}}
+          >
+            <option value="none">{t('settings.coordinateLabelsNone')}</option>
+            <option value="row-number-column-letter">{t('settings.coordinateLabelsRowNumberColumnLetter')}</option>
+            <option value="row-number-column-number">{t('settings.coordinateLabelsRowNumberColumnNumber')}</option>
+          </select>
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
           <div>

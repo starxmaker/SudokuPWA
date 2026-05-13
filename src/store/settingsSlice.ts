@@ -1,4 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { DEFAULT_COORDINATE_LABEL_MODE, type CoordinateLabelMode } from '../utils/coordinateLabels'
 
 type BrushPrefs = {
   activeColors: string[]
@@ -13,7 +14,7 @@ export type SettingsState = {
   autoRemove: boolean
   haptic: boolean
   pencilMode: boolean
-  coordinateLabels: boolean
+  coordinateLabels: CoordinateLabelMode
   firstColorFlag: boolean
   paintingScope: 'digit' | 'candidate'
   difficulty: string | null
@@ -35,7 +36,7 @@ export const settingsSlice = createSlice({
     autoRemove: true as boolean,
     haptic: true as boolean,
     pencilMode: false as boolean,
-    coordinateLabels: false as boolean,
+    coordinateLabels: DEFAULT_COORDINATE_LABEL_MODE as CoordinateLabelMode,
     firstColorFlag: false as boolean,
     paintingScope: 'digit' as 'digit' | 'candidate',
     difficulty: null as string | null,
@@ -62,7 +63,7 @@ export const settingsSlice = createSlice({
     setPencilMode(state, action: PayloadAction<boolean>) {
       state.pencilMode = action.payload
     },
-    setCoordinateLabels(state, action: PayloadAction<boolean>) {
+    setCoordinateLabels(state, action: PayloadAction<CoordinateLabelMode>) {
       state.coordinateLabels = action.payload
     },
     setFirstColorFlag(state, action: PayloadAction<boolean>) {
@@ -83,7 +84,7 @@ export const settingsSlice = createSlice({
       state.autoRemove = true
       state.haptic = true
       state.pencilMode = false
-      state.coordinateLabels = false
+      state.coordinateLabels = DEFAULT_COORDINATE_LABEL_MODE
       state.firstColorFlag = false
       state.paintingScope = 'digit'
       state.brushPrefs = { activeColors: [], activeDrawingColors: [], candidateMode: false, firstColorFlagEnabled: true }

@@ -1,9 +1,8 @@
 import React from 'react'
 import { MdPause, MdPlayArrow } from 'react-icons/md'
 import type { DrawingStroke } from '../../utils/gameStorage'
+import { getCoordinateLabelSets, type CoordinateLabelMode } from '../../utils/coordinateLabels'
 import {
-  COORDINATE_COLUMN_LABELS,
-  COORDINATE_ROW_LABELS,
   DRAWING_STROKE_WIDTH,
   formatTime,
 } from './boardUtils'
@@ -18,7 +17,7 @@ type Props = {
   paused: boolean
   won: boolean
   pencilMode?: boolean
-  coordinateLabels?: boolean
+  coordinateLabels?: CoordinateLabelMode
   boardRef: React.MutableRefObject<HTMLDivElement | null>
   children: React.ReactNode
   drawingMode: boolean
@@ -56,6 +55,9 @@ export default function BoardSurface({
   cancelDrawing,
   t,
 }: Props) {
+  const { rowLabels, columnLabels } = getCoordinateLabelSets(coordinateLabels ?? 'none')
+  const showCoordinateLabels = rowLabels !== null && columnLabels !== null
+
   return (
     <div className="board-area">
       <div className="board-column">
@@ -76,18 +78,18 @@ export default function BoardSurface({
           </div>
         </div>
         <div className="board-wrapper" style={pencilMode ? ({ '--board-safe-space': '140px' } as React.CSSProperties) : undefined}>
-          <div className={`board-shell${coordinateLabels ? ' board-shell--with-coordinates' : ''}`}>
-            {coordinateLabels && <div className="board-coordinate-corner" aria-hidden="true" />}
-            {coordinateLabels && (
+          <div className={`board-shell${showCoordinateLabels ? ' board-shell--with-coordinates' : ''}`}>
+            {showCoordinateLabels && <div className="board-coordinate-corner" aria-hidden="true" />}
+            {showCoordinateLabels && (
               <div className="board-coordinate-columns" aria-hidden="true" data-testid="board-coordinate-columns">
-                {COORDINATE_COLUMN_LABELS.map(label => (
+                {columnLabels.map(label => (
                   <span key={label} className="board-coordinate-label">{label}</span>
                 ))}
               </div>
             )}
-            {coordinateLabels && (
+            {showCoordinateLabels && (
               <div className="board-coordinate-rows" aria-hidden="true" data-testid="board-coordinate-rows">
-                {COORDINATE_ROW_LABELS.map(label => (
+                {rowLabels.map(label => (
                   <span key={label} className="board-coordinate-label">{label}</span>
                 ))}
               </div>

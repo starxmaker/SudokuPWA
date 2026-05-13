@@ -12,6 +12,7 @@ import {
   emptyCandidateColors,
   emptyDrawingStrokes,
 } from '../utils/gameStorage'
+import { parseCoordinateLabelMode, type CoordinateLabelMode } from '../utils/coordinateLabels'
 import type { Grid } from '../utils/sudoku_types'
 
 type HydratedGameState = {
@@ -34,7 +35,7 @@ type HydratedSettingsState = {
   autoRemove: boolean
   haptic: boolean
   pencilMode: boolean
-  coordinateLabels: boolean
+  coordinateLabels: CoordinateLabelMode
   firstColorFlag: boolean
   paintingScope: 'digit' | 'candidate'
   difficulty: string | null
@@ -117,10 +118,10 @@ function hydrateSettings(): HydratedSettingsState {
     // Ignore unavailable localStorage.
   }
 
-  let coordinateLabels = false
+  let coordinateLabels: CoordinateLabelMode = 'none'
   try {
     const saved = localStorage.getItem('coordinateLabels')
-    if (saved !== null) coordinateLabels = saved === 'true'
+    coordinateLabels = parseCoordinateLabelMode(saved)
   } catch {
     // Ignore unavailable localStorage.
   }

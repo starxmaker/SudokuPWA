@@ -4,6 +4,7 @@ import { FaEraser } from 'react-icons/fa'
 import { FcOk } from 'react-icons/fc'
 import { LuClipboardList } from 'react-icons/lu'
 import { type CreatedPuzzleValidationMessageKey, type Grid, validateCreatedPuzzle } from '../utils/sudoku'
+import { getCoordinateLabelSets, type CoordinateLabelMode } from '../utils/coordinateLabels'
 import { type VerifiedPuzzle, verifyPuzzle } from '../utils/generators/hodoku'
 import { decodeGrid } from '../utils/gameStorage'
 import { readClipboardText } from '../utils/clipboard'
@@ -12,7 +13,7 @@ import { useI18n } from '../utils/i18n'
 
 type Props = {
   onStart: (puzzle: Grid, verified: VerifiedPuzzle) => void
-  coordinateLabels?: boolean
+  coordinateLabels?: CoordinateLabelMode
   initialGrid?: Grid
   pencilMode?: boolean
   haptic?: boolean
@@ -21,8 +22,6 @@ type Props = {
 }
 
 const EMPTY_GRID: Grid = Array.from({ length: 9 }, () => Array(9).fill(0))
-const COORDINATE_ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
-const COORDINATE_COLUMN_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 const CLIPBOARD_PUZZLE_PATTERN = /[0-9.-]{81,}/g
 const CREATED_PUZZLE_VALIDATION_MESSAGE_KEYS = {
   needs17Clues: 'creator.validation.needs17Clues',
@@ -56,7 +55,7 @@ function extractGridFromClipboardText(text: string): Grid | null {
 
 export default function PuzzleCreator({
   onStart,
-  coordinateLabels = false,
+  coordinateLabels = 'none',
   initialGrid,
   pencilMode = false,
   haptic,
@@ -64,6 +63,8 @@ export default function PuzzleCreator({
   onTriggerErrorHaptic,
 }: Props) {
   const { t } = useI18n()
+  const { rowLabels, columnLabels } = getCoordinateLabelSets(coordinateLabels)
+  const showCoordinateLabels = rowLabels !== null && columnLabels !== null
   const [grid, setGrid] = useState<Grid>(() => initialGrid ? cloneGrid(initialGrid) : cloneGrid(EMPTY_GRID))
   const [history, setHistory] = useState<Grid[]>([])
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null)
@@ -101,7 +102,7 @@ export default function PuzzleCreator({
     setGrid(next)
     setSelected({ r, c })
     setError(null)
-  }, [grid, pushHistory])
+  }, [grid, pushHistory, setError, setGrid, setSelected])
 
   const clearCell = useCallback((r: number, c: number) => {
     if (grid[r][c] === 0) {
@@ -114,7 +115,7 @@ export default function PuzzleCreator({
     setGrid(next)
     setSelected({ r, c })
     setError(null)
-  }, [grid, pushHistory])
+  }, [grid, pushHistory, setError, setGrid, setSelected])
 
   const handleDigitInput = useCallback((digit: number) => {
     if (selected === null) return
@@ -215,7 +216,7 @@ export default function PuzzleCreator({
     } finally {
       setIsVerifying(false)
     }
-  }, [grid, haptic, isVerifying, onStart, onTriggerErrorHaptic, onTriggerHaptic, t])
+  }, [grid, haptic, isVerifying, onStart, onTriggerErrorHaptic, onTriggerHaptic, setError, setIsVerifying, setPencilOverlayCell, t])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -363,18 +364,18 @@ export default function PuzzleCreator({
           </div>
           {error && !pasteFallbackOpen && <p className="creator-error" role="alert">{error}</p>}
           <div className="board-wrapper" style={pencilMode ? ({ '--board-safe-space': '140px' } as React.CSSProperties) : undefined}>
-            <div className={`board-shell${coordinateLabels ? ' board-shell--with-coordinates' : ''}`}>
-              {coordinateLabels && <div className="board-coordinate-corner" aria-hidden="true" />}
-              {coordinateLabels && (
+            <div className={`board-shell${showCoordinateLabels ? ' board-shell--with-coordinates' : ''}`}>
+              {showCoordinateLabels && <div className="board-coordinate-corner" aria-hidden="true" />}
+              {showCoordinateLabels && (
                 <div className="board-coordinate-columns" aria-hidden="true" data-testid="creator-coordinate-columns">
-                  {COORDINATE_COLUMN_LABELS.map(label => (
+                  {columnLabels.map(label => (
                     <span key={label} className="board-coordinate-label">{label}</span>
                   ))}
                 </div>
               )}
-              {coordinateLabels && (
+              {showCoordinateLabels && (
                 <div className="board-coordinate-rows" aria-hidden="true" data-testid="creator-coordinate-rows">
-                  {COORDINATE_ROW_LABELS.map(label => (
+                  {rowLabels.map(label => (
                     <span key={label} className="board-coordinate-label">{label}</span>
                   ))}
                 </div>

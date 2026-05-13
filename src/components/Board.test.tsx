@@ -198,10 +198,17 @@ describe('Board component', () => {
   })
 
   it('renders coordinate labels when enabled', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels="row-number-column-letter" />)
+    await waitForBoard()
+    expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('ABCDEFGHI')
+    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('123456789')
+  })
+
+  it('renders numeric row and column coordinate labels', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels="row-number-column-number" />)
     await waitForBoard()
     expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('123456789')
-    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('ABCDEFGHI')
+    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('123456789')
   })
 
   it('selects a cell on click', async () => {

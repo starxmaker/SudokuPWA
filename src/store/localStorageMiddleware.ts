@@ -70,7 +70,7 @@ function persistSettings(state: RootState) {
   try { localStorage.setItem('autoRemove', s.autoRemove ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
   try { localStorage.setItem('haptic', s.haptic ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
   try { localStorage.setItem('pencilMode', s.pencilMode ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
-  try { localStorage.setItem('coordinateLabels', s.coordinateLabels ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
+  try { localStorage.setItem('coordinateLabels', s.coordinateLabels) } catch { /* Ignore storage errors. */ }
   try { localStorage.setItem('firstColorFlag', s.firstColorFlag ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
   if (s.difficulty) {
     try { localStorage.setItem('difficulty', s.difficulty) } catch { /* Ignore storage errors. */ }

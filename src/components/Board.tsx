@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { generateGame, Grid } from '../utils/sudoku'
+import type { CoordinateLabelMode } from '../utils/coordinateLabels'
 import PencilOverlay from './PencilOverlay'
 import {
   type CandidateColorGrid,
@@ -56,7 +57,7 @@ type Props = {
   onWin?: () => void
   difficulty?: string | null
   pencilMode?: boolean
-  coordinateLabels?: boolean
+  coordinateLabels?: CoordinateLabelMode
   firstColorFlag?: boolean
   restartRef?: React.MutableRefObject<(() => void) | null>
   clearColorsRef?: React.MutableRefObject<(() => void) | null>
