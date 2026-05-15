@@ -1058,6 +1058,28 @@ describe('Board with fixed puzzle', () => {
     expect(noteSpans[6].textContent).toBe('')
   })
 
+  it('removes a touched candidate directly in stylus eraser mode without opening the overlay', async () => {
+    const notes = emptyNotesGrid()
+    notes[0][2] = [4, 7]
+    saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
+
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} pencilMode />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    mockCellRect(cells[2])
+    fireEvent.pointerDown(cells[2], { pointerId: 3, pointerType: 'touch', button: 0, clientX: 15, clientY: 75 })
+
+    expect(screen.queryByRole('dialog', { name: /candidate eraser/i })).toBeNull()
+
+    await waitFor(() => {
+      const noteSpans = cells[2].querySelectorAll('.cell-note')
+      expect(noteSpans[3].textContent).toBe('4')
+      expect(noteSpans[6].textContent).toBe('')
+    })
+  })
+
   it('does not open the candidate overlay when candidate painting mode is enabled but the cell has no candidates', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
     const cells = screen.getAllByRole('gridcell')

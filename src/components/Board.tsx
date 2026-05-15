@@ -1448,6 +1448,7 @@ export default function Board({
             haptic={haptic}
             isClue={isClue}
             clearCellAt={clearCellAt}
+            removeCandidateAt={removeCandidateAt}
             openCandidateOverlay={openCandidateOverlay}
             applyCandidateBrushColorAt={applyCandidateBrushColorAt}
             applyCellBrushColorAt={applyCellBrushColorAt}

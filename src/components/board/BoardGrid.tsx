@@ -27,6 +27,7 @@ type Props = {
   haptic?: boolean
   isClue: (r: number, c: number) => boolean
   clearCellAt: (r: number, c: number) => boolean
+  removeCandidateAt: (r: number, c: number, d: number) => boolean
   openCandidateOverlay: (
     r: number,
     c: number,
@@ -76,6 +77,7 @@ export default function BoardGrid({
   haptic,
   isClue,
   clearCellAt,
+  removeCandidateAt,
   openCandidateOverlay,
   applyCandidateBrushColorAt,
   applyCellBrushColorAt,
@@ -131,8 +133,14 @@ export default function BoardGrid({
                   if (haptic) onTriggerHaptic?.()
                   clearCellAt(r, c)
                 } else if (cellNotes.length > 0) {
-                  const opened = openCandidateOverlay(r, c, e.currentTarget, 'erase')
-                  if (opened && haptic) onTriggerHaptic?.()
+                  closeCandidateOverlay()
+                  focusCell(r, c)
+                  const digit = getCandidateDigitFromPoint(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY)
+                  const changed = removeCandidateAt(r, c, digit)
+                  if (changed && haptic) onTriggerHaptic?.()
+                  if (!changed) {
+                    setCandidateSelectedDigit(null)
+                  }
                 }
               } else if (internalPuzzle[r][c] === 0 && cellNotes.length > 0) {
                 const opened = openCandidateOverlay(r, c, e.currentTarget, 'erase')
