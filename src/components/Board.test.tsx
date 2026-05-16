@@ -1147,6 +1147,26 @@ describe('Board with fixed puzzle', () => {
     expect(cells[33].classList.contains('same-digit')).toBe(false)
   })
 
+  it('does not highlight matching digits when previewing a candidate in the eraser overlay', async () => {
+    const notes = emptyNotesGrid()
+    notes[0][2] = [4, 7]
+    saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
+
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    mockCellRect(cells[2])
+    await user.click(cells[2])
+
+    const candidateButton = screen.getByRole('button', { name: /erase candidate 4/i })
+    fireEvent.pointerMove(candidateButton)
+
+    expect(cells[33].classList.contains('same-digit')).toBe(false)
+    expect(cells[2].querySelectorAll('.cell-note')[3].classList.contains('cell-note--highlight')).toBe(false)
+  })
+
   it('does not preview a candidate just because an overlay button receives focus', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
     const cells = screen.getAllByRole('gridcell')
