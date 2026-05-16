@@ -919,6 +919,28 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
   })
 
+  it('restores brush painting state after toggling history tools off', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(cells[0])
+
+    expect(cells[0].classList.contains('selected-brush')).toBe(true)
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: /toggle history tools/i }))
+
+    expect(cells[0].classList.contains('selected-brush')).toBe(true)
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: /toggle history tools/i }))
+
+    expect(cells[0].classList.contains('selected-brush')).toBe(true)
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+  })
+
   it('accumulates brush colors on a cell across multiple paint passes', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
@@ -1478,6 +1500,29 @@ describe('Board with fixed puzzle', () => {
 
     const cell04Notes = cells[4].querySelectorAll('.cell-note')
     expect(cell04Notes[6].textContent).toBe('7')
+  })
+
+  it('keeps selected reference digits active while history tools are toggled', async () => {
+    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} pencilMode />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[1])
+    const referenceNumberBtn = screen.getByRole('button', { name: /^5,/ })
+    await user.click(referenceNumberBtn)
+
+    expect(referenceNumberBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(cells[0].classList.contains('same-digit')).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: /toggle history tools/i }))
+
+    expect(referenceNumberBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(cells[0].classList.contains('same-digit')).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: /toggle history tools/i }))
+
+    expect(referenceNumberBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(cells[0].classList.contains('same-digit')).toBe(true)
   })
 
   it('restores candidates on first undo after a wrong entry', async () => {

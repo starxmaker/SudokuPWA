@@ -722,17 +722,8 @@ export default function Board({
   }
 
   function toggleHistoryTools() {
-    const next = !historyToolMode
-    closeCandidateOverlay()
-    setHistoryToolMode(next)
-    setEraserMode(false)
-    setCandidateToolMode(false)
-    if (next) {
-      setNotesMode(false)
-      setBrushMode(false)
-      disableDrawingMode()
-      switchLowerPad('numbers', 'backward')
-    }
+    closeCandidateOverlay(true)
+    setHistoryToolMode(prev => !prev)
   }
 
   function toggleEraserMode() {
