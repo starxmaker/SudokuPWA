@@ -2,13 +2,17 @@ import {
   rateSudoku,
   rateSudokus,
   generateSudokus,
-  type SudokuSolutionPathStep,
   HodokuDifficulty,
 } from 'hodoku-core-js'
 import type { SolveRating } from './types'
 import { GameDifficulty } from '../difficulties'
 import type { Grid } from '../sudoku_types'
-import { decodeGrid, encodeGrid } from '../gameStorage'
+import { decodeGrid, encodeGrid, encodeGridWithCandidates } from '../gameStorage'
+import type {
+  RequiredTechniquesResult,
+  RequiredTechniquesWorkerRequest,
+  RequiredTechniquesWorkerResponse,
+} from '../requiredTechniquesWorkerProtocol'
 
 type PuzzleLine = {
   puzzleNumber: number
@@ -75,12 +79,12 @@ export async function generate(difficulty : GameDifficulty, onValidNewPuzzle: (p
       return
     }
     const valid = !puzzle.unsolvable && !puzzle.givenUp && !!puzzle.solution
-    let result : SolveRating = {
-        puzzle: puzzle.puzzle,
-        solution: puzzle.solution ?? null,
-        difficulty: getMatchingDifficulty(puzzle.score, puzzle.difficulty),
-        score: puzzle.score ?? null,
-      }
+    const result: SolveRating = {
+      puzzle: puzzle.puzzle,
+      solution: puzzle.solution ?? null,
+      difficulty: getMatchingDifficulty(puzzle.score, puzzle.difficulty),
+      score: puzzle.score ?? null,
+    }
     if (valid) {
       const continueProcessing = onValidNewPuzzle(result)
       if (!continueProcessing) {
@@ -108,12 +112,12 @@ export async function evaluate(
     }
     const solution = rating.solution ?? null
     const validSolution = !rating.givenUp && !rating.unsolvable && !!solution
-    const result : SolveRating = {
-        puzzle: rating.puzzle,
-        solution : validSolution ? solution : null,
-        difficulty: validSolution ? getMatchingDifficulty(rating.score, rating.difficulty) : null,
-        score: validSolution ? rating.score : null,
-      }
+    const result: SolveRating = {
+      puzzle: rating.puzzle,
+      solution: validSolution ? solution : null,
+      difficulty: validSolution ? getMatchingDifficulty(rating.score, rating.difficulty) : null,
+      score: validSolution ? rating.score : null,
+    }
     if (onValidNewPuzzle && validSolution) {
       const continueProcessing = onValidNewPuzzle(result)
       if (!continueProcessing) {
@@ -132,14 +136,7 @@ export type VerifiedPuzzle = {
   score: number | null
 }
 
-export type RequiredTechniques = {
-  difficulty: HodokuDifficulty
-  score: number
-  givenUp: boolean
-  bruteForced: boolean
-  unsolvable: boolean
-  steps: SudokuSolutionPathStep[]
-}
+export type RequiredTechniques = RequiredTechniquesResult
 
 export async function verifyPuzzle(puzzle: Grid, signal?: AbortSignal): Promise<VerifiedPuzzle | null> {
   const [rating] = await evaluate([encodeGrid(puzzle)], undefined, signal)
@@ -159,11 +156,14 @@ export async function verifyPuzzle(puzzle: Grid, signal?: AbortSignal): Promise<
   }
 }
 
-export async function analyzeRequiredTechniques(
-  puzzle: Grid,
+function shouldUseRequiredTechniquesWorker() {
+  return typeof Worker !== 'undefined'
+}
+
+async function analyzeRequiredTechniquesOnCurrentThread(
+  puzzleString: string,
   signal?: AbortSignal,
 ): Promise<RequiredTechniques | null> {
-  const puzzleString = encodeGrid(puzzle)
   const rating = await rateSudoku({
     puzzle: puzzleString,
     includePath: true,
@@ -183,8 +183,89 @@ export async function analyzeRequiredTechniques(
   }
 }
 
+function requiredTechniquesWorkerFactory() {
+  return new Worker(new URL('../requiredTechniques.worker.ts', import.meta.url), { type: 'module' })
+}
+
+async function analyzeRequiredTechniquesInWorker(
+  puzzleString: string,
+  signal?: AbortSignal,
+): Promise<RequiredTechniques | null> {
+  return new Promise<RequiredTechniques | null>((resolve, reject) => {
+    const worker = requiredTechniquesWorkerFactory()
+    let settled = false
+
+    const cleanup = () => {
+      worker.onmessage = null
+      worker.onerror = null
+      signal?.removeEventListener('abort', handleAbort)
+    }
+
+    const finishWithError = (error: Error) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      worker.terminate()
+      reject(error)
+    }
+
+    const handleAbort = () => {
+      finishWithError(new DOMException('Aborted', 'AbortError'))
+    }
+
+    if (signal?.aborted) {
+      handleAbort()
+      return
+    }
+
+    signal?.addEventListener('abort', handleAbort, { once: true })
+
+    worker.onmessage = (event: MessageEvent<RequiredTechniquesWorkerResponse>) => {
+      if (settled) return
+      const message = event.data
+      if (message.type === 'result') {
+        settled = true
+        cleanup()
+        worker.terminate()
+        resolve(message.result)
+        return
+      }
+
+      const error = new Error(message.message)
+      error.name = message.name ?? 'Error'
+      finishWithError(error)
+    }
+
+    worker.onerror = (event: ErrorEvent) => {
+      finishWithError(
+        event.error instanceof Error
+          ? event.error
+          : new Error(event.message || 'Failed to analyze required techniques'),
+      )
+    }
+
+    const request: RequiredTechniquesWorkerRequest = {
+      type: 'analyze',
+      puzzle: puzzleString,
+    }
+    worker.postMessage(request)
+  })
+}
+
+export async function analyzeRequiredTechniques(
+  puzzle: Grid,
+  notes?: number[][][],
+  signal?: AbortSignal,
+): Promise<RequiredTechniques | null> {
+  const puzzleString = notes ? encodeGridWithCandidates(puzzle, notes) : encodeGrid(puzzle)
+  if (!shouldUseRequiredTechniquesWorker()) {
+    return analyzeRequiredTechniquesOnCurrentThread(puzzleString, signal)
+  }
+  return analyzeRequiredTechniquesInWorker(puzzleString, signal)
+}
+
 const regex =
-  /^([\.0-9]{81})\s+#(\d+)\s+(Easy|Medium|Hard|Unfair|Extreme)\s+\((\d+)\)$/
+  /^([.0-9]{81})\s+#(\d+)\s+(Easy|Medium|Hard|Unfair|Extreme)\s+\((\d+)\)$/
 
 export const map = (line: string): PuzzleLine | null => {
   const match = line.trim().match(regex)

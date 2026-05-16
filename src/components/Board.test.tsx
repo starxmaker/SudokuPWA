@@ -2,8 +2,9 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Board from './Board'
+import { formatPromptPuzzleState } from './board/TechniquesSidebar'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { emptyCandidateColors, emptyCellColors, encodeGrid, saveGame } from '../utils/gameStorage'
+import { emptyCandidateColors, emptyCellColors, saveGame } from '../utils/gameStorage'
 import { analyzeRequiredTechniques } from '../utils/generators/hodoku'
 import { LocalizationProvider, LANGUAGE_STORAGE_KEY } from '../utils/i18n'
 
@@ -43,6 +44,7 @@ vi.mock('../utils/clipboard', () => ({
 }))
 
 const mockedAnalyzeRequiredTechniques = vi.mocked(analyzeRequiredTechniques)
+const EMPTY_NOTES = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as number[]))
 
 beforeEach(() => {
   vi.restoreAllMocks()
@@ -139,6 +141,31 @@ function emptyNotesGrid() {
   return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as number[]))
 }
 
+function mockLandscapeOrientation(matches: boolean) {
+  const originalMatchMedia = window.matchMedia
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (query: string) => ({
+      matches: query === '(orientation: landscape)' ? matches : false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  })
+  return () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: originalMatchMedia,
+    })
+  }
+}
+
 describe('Board component', () => {
   it('renders 81 cells and control buttons', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
@@ -171,10 +198,17 @@ describe('Board component', () => {
   })
 
   it('renders coordinate labels when enabled', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels />)
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels="row-number-column-letter" />)
+    await waitForBoard()
+    expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('ABCDEFGHI')
+    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('123456789')
+  })
+
+  it('renders numeric row and column coordinate labels', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels="row-number-column-number" />)
     await waitForBoard()
     expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('123456789')
-    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('ABCDEFGHI')
+    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('123456789')
   })
 
   it('selects a cell on click', async () => {
@@ -368,7 +402,7 @@ describe('Board component', () => {
     await waitFor(() => expect(cells[2]).toHaveTextContent('4'))
   })
 
-  it('shows required techniques in a sidebar and reveals notation on click', async () => {
+  it('shows the next required technique in portrait and opens the sidebar on demand', async () => {
     clipboardMocks.writeClipboardText.mockResolvedValue(undefined)
     const open = vi.fn().mockReturnValue(null)
     vi.spyOn(window, 'open').mockImplementation(open as typeof window.open)
@@ -395,13 +429,33 @@ describe('Board component', () => {
     const cells = screen.getAllByRole('gridcell')
     const expectedPuzzleState = PUZZLE_WITH_7_REMAINING.map(row => [...row])
     expectedPuzzleState[0][2] = 4
+    const expectedNotes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as number[]))
 
     await user.click(cells[2])
     await user.click(screen.getByRole('button', { name: /^4,/ }))
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
 
-    expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledWith(expectedPuzzleState, expect.any(AbortSignal))
+    await waitFor(() => {
+      expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledWith(expectedPuzzleState, expect.any(Array), expect.any(AbortSignal))
+    })
+
+    expect(screen.queryByRole('dialog', { name: /required techniques/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /show all basic candidates/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /single candidate to digit/i })).toBeNull()
+    expect(screen.getByText('Next technique')).toBeInTheDocument()
+    expect(screen.getByText('Hidden Single')).toBeInTheDocument()
+    expect(screen.getByText('r5c5=9')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /back to tools/i }))
+
+    expect(screen.getByRole('button', { name: /show all basic candidates/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /single candidate to digit/i })).toBeInTheDocument()
+    expect(screen.queryByText('Next technique')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+    await screen.findByText('Next technique')
+    await user.click(screen.getByRole('button', { name: /see remaining techniques/i }))
 
     const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
     expect(within(sidebar).getByText('2 techniques')).toBeInTheDocument()
@@ -419,16 +473,18 @@ describe('Board component', () => {
     await user.click(within(sidebar).getByRole('button', { name: /copy prompt/i }))
 
     const expectedPrompt = [
-      'Explain how to apply this Sudoku technique to the current puzzle state. Focus on this move only, not the full solve.',
+      'Explain how to apply this Sudoku technique to the current puzzle state. Focus only on this step, not the full solve.',
       '',
-      'Current puzzle state (single-line grid):',
-      encodeGrid(expectedPuzzleState),
+      'Current puzzle state (cell-by-cell listing):',
+      formatPromptPuzzleState(expectedPuzzleState, expectedNotes),
       '',
       'Technique:',
       'Hidden Single',
       '',
       'Notation:',
       'r5c5=9',
+      '',
+      'In this notation, filled cells are shown as rNcM=value, and values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.',
       '',
       'Please explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.',
     ].join('\n')
@@ -481,20 +537,24 @@ describe('Board component', () => {
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
 
+    await user.click(await screen.findByRole('button', { name: /see remaining techniques/i }))
+
     const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
     await user.click(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i }))
 
     const expectedPrompt = [
-      'Explain how to apply this Sudoku technique to the current puzzle state. Focus on this move only, not the full solve.',
+      'Explain how to apply this Sudoku technique to the current puzzle state. Focus only on this step, not the full solve.',
       '',
-      'Current puzzle state (single-line grid):',
-      encodeGrid(PUZZLE_WITH_7_REMAINING),
+      'Current puzzle state (cell-by-cell listing):',
+      formatPromptPuzzleState(PUZZLE_WITH_7_REMAINING, EMPTY_NOTES),
       '',
       'Technique:',
       'Hidden Single',
       '',
       'Notation:',
       'r5c5=9',
+      '',
+      'In this notation, filled cells are shown as rNcM=value, and values inside {} represent candidate values for a cell. This is custom notation and may differ from standard Sudoku notation.',
       '',
       'Please explain it visually and step by step. Point out the relevant cells, rows, columns, and boxes, describe which candidates or digits change, and make the explanation easy to follow directly on the board.',
     ].join('\n')
@@ -540,12 +600,11 @@ describe('Board component', () => {
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
 
-    await screen.findByRole('dialog', { name: /required techniques/i })
+    await screen.findByRole('button', { name: /see remaining techniques/i })
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(1)
-    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(initialPuzzleState, expect.any(AbortSignal))
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(initialPuzzleState, expect.any(Array), expect.any(AbortSignal))
 
-    await user.click(screen.getByRole('button', { name: /close required techniques/i }))
-    await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+    await user.click(screen.getByRole('button', { name: /see remaining techniques/i }))
 
     await screen.findByRole('dialog', { name: /required techniques/i })
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(1)
@@ -553,11 +612,52 @@ describe('Board component', () => {
     await user.click(screen.getByRole('button', { name: /close required techniques/i }))
     await user.click(cells[2])
     fireEvent.keyDown(window, { key: '4' })
+    await waitFor(() => expect(screen.getByRole('button', { name: /see required techniques/i })).toBeEnabled())
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
 
-    await screen.findByRole('dialog', { name: /required techniques/i })
+    await screen.findByRole('button', { name: /see remaining techniques/i })
     expect(mockedAnalyzeRequiredTechniques).toHaveBeenCalledTimes(2)
-    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(updatedPuzzleState, expect.any(AbortSignal))
+    expect(mockedAnalyzeRequiredTechniques).toHaveBeenLastCalledWith(updatedPuzzleState, expect.any(Array), expect.any(AbortSignal))
+  })
+
+  it('disables the see required techniques button while the sidebar is open', async () => {
+    const restoreMatchMedia = mockLandscapeOrientation(true)
+    mockedAnalyzeRequiredTechniques.mockResolvedValue({
+      difficulty: 'Extreme',
+      score: 3018,
+      givenUp: false,
+      bruteForced: false,
+      unsolvable: false,
+      steps: [
+        { stepNumber: 1, technique: 'Hidden Single', notation: 'r1c3=4' },
+      ],
+    })
+
+    render(
+      <LocalizationProvider>
+        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
+      </LocalizationProvider>
+    )
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    try {
+      await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
+      const seeRequiredTechniquesButton = screen.getByRole('button', { name: /see required techniques/i })
+
+      expect(seeRequiredTechniquesButton).toBeEnabled()
+
+      await user.click(seeRequiredTechniquesButton)
+
+      await screen.findByRole('dialog', { name: /required techniques/i })
+      expect(screen.getByRole('button', { name: /see required techniques/i })).toBeDisabled()
+
+      await user.click(screen.getByRole('button', { name: /close required techniques/i }))
+
+      await waitFor(() => expect(screen.getByRole('button', { name: /see required techniques/i })).toBeEnabled())
+    } finally {
+      restoreMatchMedia()
+    }
   })
 
   it('shows an error when hodoku reports the current board is unsolvable', async () => {
@@ -604,6 +704,8 @@ describe('Board component', () => {
 
     await user.click(screen.getByRole('button', { name: /toggle candidate tools/i }))
     await user.click(screen.getByRole('button', { name: /see required techniques/i }))
+
+    await user.click(await screen.findByRole('button', { name: /see remaining techniques/i }))
 
     const sidebar = await screen.findByRole('dialog', { name: /required techniques/i })
     await user.click(within(sidebar).getByRole('button', { name: /1\.\s*hidden single/i }))
@@ -954,6 +1056,28 @@ describe('Board with fixed puzzle', () => {
     const noteSpans = cells[2].querySelectorAll('.cell-note')
     expect(noteSpans[3].textContent).toBe('4')
     expect(noteSpans[6].textContent).toBe('')
+  })
+
+  it('removes a touched candidate directly in stylus eraser mode without opening the overlay', async () => {
+    const notes = emptyNotesGrid()
+    notes[0][2] = [4, 7]
+    saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
+
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} pencilMode />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    mockCellRect(cells[2])
+    fireEvent.pointerDown(cells[2], { pointerId: 3, pointerType: 'touch', button: 0, clientX: 15, clientY: 75 })
+
+    expect(screen.queryByRole('dialog', { name: /candidate eraser/i })).toBeNull()
+
+    await waitFor(() => {
+      const noteSpans = cells[2].querySelectorAll('.cell-note')
+      expect(noteSpans[3].textContent).toBe('4')
+      expect(noteSpans[6].textContent).toBe('')
+    })
   })
 
   it('does not open the candidate overlay when candidate painting mode is enabled but the cell has no candidates', async () => {

@@ -188,9 +188,15 @@ describe('PuzzleCreator', () => {
   })
 
   it('renders coordinate labels when enabled', () => {
-    render(<PuzzleCreator onStart={vi.fn()} coordinateLabels />)
+    render(<PuzzleCreator onStart={vi.fn()} coordinateLabels="row-number-column-letter" />)
+    expect(screen.getByTestId('creator-coordinate-columns')).toHaveTextContent('ABCDEFGHI')
+    expect(screen.getByTestId('creator-coordinate-rows')).toHaveTextContent('123456789')
+  })
+
+  it('renders numeric row and column coordinate labels', () => {
+    render(<PuzzleCreator onStart={vi.fn()} coordinateLabels="row-number-column-number" />)
     expect(screen.getByTestId('creator-coordinate-columns')).toHaveTextContent('123456789')
-    expect(screen.getByTestId('creator-coordinate-rows')).toHaveTextContent('ABCDEFGHI')
+    expect(screen.getByTestId('creator-coordinate-rows')).toHaveTextContent('123456789')
   })
 
   it('opens the pencil overlay for empty cells when pencil mode is enabled', () => {

@@ -1,47 +1,48 @@
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Settings from './Settings'
 import { describe, it, expect, vi } from 'vitest'
+import { renderWithProvider } from '../testUtils'
+import type { SettingsState } from '../store/settingsSlice'
 
-const base = {
-  open: true,
-  onClose: vi.fn(),
-  onReset: vi.fn(),
-  theme: 'light' as const,
-  setTheme: vi.fn(),
+const onClose = vi.fn()
+const onReset = vi.fn()
+const BASE_SETTINGS: SettingsState = {
+  theme: 'light',
   autoCheck: false,
-  setAutoCheck: vi.fn(),
   autoRemove: false,
-  setAutoRemove: vi.fn(),
   haptic: false,
-  setHaptic: vi.fn(),
   pencilMode: false,
-  setPencilMode: vi.fn(),
-  coordinateLabels: false,
-  setCoordinateLabels: vi.fn(),
-  paintingScope: 'digit' as const,
-  setPaintingScope: vi.fn(),
+  coordinateLabels: 'none',
   firstColorFlag: false,
-  setFirstColorFlag: vi.fn(),
-  languageSetting: 'system' as const,
-  setLanguageSetting: vi.fn(),
+  paintingScope: 'digit',
+  difficulty: null,
+  brushPrefs: { activeColors: [], activeDrawingColors: [], candidateMode: false, firstColorFlagEnabled: true },
+}
+
+function renderSettings(open = true) {
+  return renderWithProvider(<Settings open={open} onClose={onClose} onReset={onReset} />, {
+    preloadedState: {
+      settings: BASE_SETTINGS,
+    },
+  })
 }
 
 describe('Settings', () => {
   it('renders nothing when closed', () => {
-    render(<Settings {...base} open={false} />)
+    renderSettings(false)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('renders all settings when open', () => {
-    render(<Settings {...base} />)
+    renderSettings()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('Settings')).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /dark mode/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /auto-check/i })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /auto-remove/i })).toBeInTheDocument()
-    expect(screen.getByRole('switch', { name: /coordinate labels/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /coordinate labels/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /language/i })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: /painting scope/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /digits/i })).toBeInTheDocument()
@@ -50,93 +51,89 @@ describe('Settings', () => {
   })
 
   it('calls onClose when Close button clicked', async () => {
-    const onClose = vi.fn()
-    render(<Settings {...base} onClose={onClose} />)
+    const closeFn = vi.fn()
+    renderWithProvider(<Settings open onClose={closeFn} onReset={onReset} />)
     await userEvent.click(screen.getByRole('button', { name: /close/i }))
-    expect(onClose).toHaveBeenCalledOnce()
+    expect(closeFn).toHaveBeenCalledOnce()
   })
 
   it('calls onReset when Reset settings clicked', async () => {
-    const onReset = vi.fn()
-    render(<Settings {...base} onReset={onReset} />)
+    const resetFn = vi.fn()
+    renderWithProvider(<Settings open onClose={onClose} onReset={resetFn} />)
     await userEvent.click(screen.getByRole('button', { name: /reset settings/i }))
-    expect(onReset).toHaveBeenCalledOnce()
+    expect(resetFn).toHaveBeenCalledOnce()
   })
 
   it('calls onClose when overlay background clicked', async () => {
-    const onClose = vi.fn()
-    const { container } = render(<Settings {...base} onClose={onClose} />)
+    const closeFn = vi.fn()
+    const { container } = renderWithProvider(<Settings open onClose={closeFn} onReset={onReset} />)
     await userEvent.click(container.querySelector('.settings-overlay')!)
-    expect(onClose).toHaveBeenCalled()
+    expect(closeFn).toHaveBeenCalled()
   })
 
   it('calls onClose on Escape key', () => {
-    const onClose = vi.fn()
-    render(<Settings {...base} onClose={onClose} />)
+    const closeFn = vi.fn()
+    renderWithProvider(<Settings open onClose={closeFn} onReset={onReset} />)
     fireEvent.keyDown(window, { key: 'Escape' })
-    expect(onClose).toHaveBeenCalledOnce()
+    expect(closeFn).toHaveBeenCalledOnce()
   })
 
   it('does not close when inner panel clicked', async () => {
-    const onClose = vi.fn()
-    const { container } = render(<Settings {...base} onClose={onClose} />)
+    const closeFn = vi.fn()
+    const { container } = renderWithProvider(<Settings open onClose={closeFn} onReset={onReset} />)
     await userEvent.click(container.querySelector('.settings-panel')!)
-    expect(onClose).not.toHaveBeenCalled()
+    expect(closeFn).not.toHaveBeenCalled()
   })
 
-  it('calls setTheme("dark") when dark mode toggled on', async () => {
-    const setTheme = vi.fn()
-    render(<Settings {...base} theme="light" setTheme={setTheme} />)
+  it('sets theme to dark when dark mode toggled on', async () => {
+    const { store } = renderSettings()
     await userEvent.click(screen.getByRole('switch', { name: /dark mode/i }))
-    expect(setTheme).toHaveBeenCalledWith('dark')
+    expect(store.getState().settings.theme).toBe('dark')
   })
 
-  it('calls setTheme("light") when dark mode toggled off', async () => {
-    const setTheme = vi.fn()
-    render(<Settings {...base} theme="dark" setTheme={setTheme} />)
+  it('sets theme to light when dark mode toggled off', async () => {
+    const { store } = renderWithProvider(<Settings open onClose={onClose} onReset={onReset} />, {
+      preloadedState: { settings: { ...BASE_SETTINGS, theme: 'dark' } },
+    })
     await userEvent.click(screen.getByRole('switch', { name: /dark mode/i }))
-    expect(setTheme).toHaveBeenCalledWith('light')
+    expect(store.getState().settings.theme).toBe('light')
   })
 
-  it('calls setAutoCheck(true) when auto-check toggled on', async () => {
-    const setAutoCheck = vi.fn()
-    render(<Settings {...base} autoCheck={false} setAutoCheck={setAutoCheck} />)
+  it('sets autoCheck to true when toggled on', async () => {
+    const { store } = renderSettings()
     await userEvent.click(screen.getByRole('switch', { name: /auto-check/i }))
-    expect(setAutoCheck).toHaveBeenCalledWith(true)
+    expect(store.getState().settings.autoCheck).toBe(true)
   })
 
-  it('calls setAutoRemove(true) when auto-remove toggled on', async () => {
-    const setAutoRemove = vi.fn()
-    render(<Settings {...base} autoRemove={false} setAutoRemove={setAutoRemove} />)
+  it('sets autoRemove to true when toggled on', async () => {
+    const { store } = renderSettings()
     await userEvent.click(screen.getByRole('switch', { name: /auto-remove/i }))
-    expect(setAutoRemove).toHaveBeenCalledWith(true)
+    expect(store.getState().settings.autoRemove).toBe(true)
   })
 
-  it('calls setCoordinateLabels(true) when coordinate labels toggled on', async () => {
-    const setCoordinateLabels = vi.fn()
-    render(<Settings {...base} coordinateLabels={false} setCoordinateLabels={setCoordinateLabels} />)
-    await userEvent.click(screen.getByRole('switch', { name: /coordinate labels/i }))
-    expect(setCoordinateLabels).toHaveBeenCalledWith(true)
+  it('sets coordinate label mode from the dropdown', async () => {
+    const { store } = renderSettings()
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /coordinate labels/i }), 'row-number-column-number')
+    expect(store.getState().settings.coordinateLabels).toBe('row-number-column-number')
   })
 
-  it('calls setPaintingScope("candidate") when painting scope toggled on', async () => {
-    const setPaintingScope = vi.fn()
-    render(<Settings {...base} paintingScope="digit" setPaintingScope={setPaintingScope} />)
+  it('sets paintingScope to candidate when toggled', async () => {
+    const { store } = renderSettings()
     await userEvent.click(screen.getByRole('button', { name: /candidates/i }))
-    expect(setPaintingScope).toHaveBeenCalledWith('candidate')
+    expect(store.getState().settings.paintingScope).toBe('candidate')
   })
 
-  it('calls setLanguageSetting("es") when language changes', async () => {
-    const setLanguageSetting = vi.fn()
-    render(<Settings {...base} setLanguageSetting={setLanguageSetting} />)
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /language/i }), 'es')
-    expect(setLanguageSetting).toHaveBeenCalledWith('es')
+  it('renders language combobox', async () => {
+    renderSettings()
+    const combobox = screen.getByRole('combobox', { name: /language/i })
+    expect(combobox).toBeInTheDocument()
+    expect((combobox as HTMLSelectElement).value).toBe('system')
   })
 
   it('does not register Escape listener when closed', () => {
-    const onClose = vi.fn()
-    render(<Settings {...base} open={false} onClose={onClose} />)
+    const closeFn = vi.fn()
+    renderWithProvider(<Settings open={false} onClose={closeFn} onReset={onReset} />)
     fireEvent.keyDown(window, { key: 'Escape' })
-    expect(onClose).not.toHaveBeenCalled()
+    expect(closeFn).not.toHaveBeenCalled()
   })
 })

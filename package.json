@@ -1,6 +1,6 @@
 {
   "name": "sudoku-pwa",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "private": true,
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/starxmaker/SudokuPWA/",
@@ -13,28 +13,40 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "npm run dev",
-    "test": "vitest"
+    "test": "vitest",
+    "lint": "eslint src vite.config.ts vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "check": "npm run lint && npm run typecheck"
   },
   "dependencies": {
     "@khmyznikov/pwa-install": "^0.6.3",
+    "@reduxjs/toolkit": "^2.11.2",
     "browser-handwritten-digit-recognition": "^1.0.1",
-    "hodoku-core-js": "^1.2.0",
+    "hodoku-core-js": "^1.4.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-icons": "^5.6.0",
+    "react-redux": "^9.2.0",
     "web-haptics": "^0.0.6"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.4.3",
+    "@types/node": "^25.6.2",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "^4.1.4",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
     "jsdom": "^29.0.2",
     "sharp": "^0.34.5",
     "typescript": "^5.0.0",
+    "typescript-eslint": "^8.59.2",
     "vite": "^7.0.0",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.4"
@@ -48,6 +60,6 @@
     "setupFiles": "./src/setupTests.ts"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.60.2"
+    "@rollup/rollup-linux-x64-gnu": "^4.60.3"
   }
 }

@@ -37,23 +37,23 @@ type SavedV9 = {
 
 const PUZZLE_SOURCES: PuzzleSource[] = ['generated', 'preloaded', 'imported', 'created']
 
-function cloneGrid(g: Grid): Grid {
+export function cloneGrid(g: Grid): Grid {
   return g.map(row => [...row])
 }
 
-function cloneNotes(n: number[][][]): number[][][] {
+export function cloneNotes(n: number[][][]): number[][][] {
   return n.map(row => row.map(cell => [...cell]))
 }
 
-function cloneCellColors(colors: CellColorGrid): CellColorGrid {
+export function cloneCellColors(colors: CellColorGrid): CellColorGrid {
   return colors.map(row => row.map(cell => [...cell]))
 }
 
-function cloneCandidateColors(colors: CandidateColorGrid): CandidateColorGrid {
+export function cloneCandidateColors(colors: CandidateColorGrid): CandidateColorGrid {
   return colors.map(row => row.map(cell => cell.map(candidate => [...candidate])))
 }
 
-function cloneFlaggedColorCell(cell: FlaggedColorCell): FlaggedColorCell {
+export function cloneFlaggedColorCell(cell: FlaggedColorCell): FlaggedColorCell {
   return cell === null ? null : { ...cell }
 }
 
@@ -451,6 +451,24 @@ export function saveGame(
 /** Encode a 9×9 grid as 81 chars with dots for empty squares, e.g. "53.6..." */
 export function encodeGrid(grid: Grid): string {
   return grid.flat().map(n => n === 0 ? '.' : String(n)).join('')
+}
+
+/** Encode a 9×9 grid with candidates for empty cells.
+ *  Empty cells with candidates get "{candidates}" (e.g. "{123}"),
+ *  cells with no candidates get ".", filled cells get their digit.
+ *  Example: "53.{123}67..."
+ */
+export function encodeGridWithCandidates(grid: Grid, notes: number[][][]): string {
+  return grid.flat().map((n, i) => {
+    if (n !== 0) return String(n)
+    const r = Math.floor(i / 9)
+    const c = i % 9
+    const cellNotes = notes[r][c]
+    if (cellNotes.length > 0) {
+      return `{${cellNotes.sort().join('')}}`
+    }
+    return '.'
+  }).join('')
 }
 
 /** Decode a string produced by encodeGrid back to a 9×9 Grid, or null if invalid.

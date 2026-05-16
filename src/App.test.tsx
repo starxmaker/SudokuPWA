@@ -1,7 +1,8 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
+import { renderWithProvider as render } from './testUtils'
 import { saveGame, saveElapsed, saveCompleted, ELAPSED_KEY, COMPLETED_KEY, encodeGrid } from './utils/gameStorage'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
@@ -344,7 +345,7 @@ describe('App', () => {
     await user.click(cells[2])
 
     expect(await screen.findByRole('dialog', { name: /candidate painter/i }, { timeout: 10000 })).toBeInTheDocument()
-  })
+  }, 10_000)
 
   it('shows coordinate labels when enabled from settings', async () => {
     saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
@@ -357,11 +358,11 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /menu/i }))
     await user.click(screen.getByRole('menuitem', { name: /settings/i }))
-    await user.click(screen.getByRole('switch', { name: /coordinate labels/i }))
+    await user.selectOptions(screen.getByRole('combobox', { name: /coordinate labels/i }), 'row-number-column-letter')
 
-    expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('123456789')
-    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('ABCDEFGHI')
-    expect(localStorage.getItem('coordinateLabels')).toBe('true')
+    expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('ABCDEFGHI')
+    expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('123456789')
+    expect(localStorage.getItem('coordinateLabels')).toBe('row-number-column-letter')
   })
 
   it('clears elapsed time when starting a new game so the clock resets to 0:00', async () => {

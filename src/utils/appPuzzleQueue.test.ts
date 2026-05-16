@@ -43,7 +43,10 @@ async function loadQueueModule({
   hasCapacity,
   availability,
   nextDifficulty = hasCapacity ? 'VERY_EASY' : null,
-  generateImpl = (..._args: unknown[]) => new Promise<never>(() => {}),
+  generateImpl = (...args: unknown[]) => {
+    void args
+    return new Promise<never>(() => {})
+  },
 }: {
   hasCapacity: boolean
   availability: ReturnType<typeof createAvailability>
