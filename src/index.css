@@ -696,6 +696,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .drawing-toggle--active,
 .candidates-toggle--active,
 .history-toggle--active,
+.more-toggle--active,
 .flag-toggle--active,
 .eraser-toggle--active,
 .num-pad-toolbar .num-key.notes-toggle.notes-toggle--active,
@@ -703,6 +704,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active,
 .num-pad-toolbar .num-key.candidates-toggle.candidates-toggle--active,
 .num-pad-toolbar .num-key.clear.history-toggle--active,
+.num-pad-toolbar .num-key.clear.more-toggle--active,
 .num-pad-toolbar .num-key.clear.flag-toggle--active,
 .num-pad-toolbar .num-key.clear.eraser-toggle--active,
 .num-pad-toolbar .num-key.clear.brush-mode-toggle--active{
@@ -715,6 +717,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active:disabled,
 .num-pad-toolbar .num-key.candidates-toggle.candidates-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.history-toggle--active:disabled,
+.num-pad-toolbar .num-key.clear.more-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.flag-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.eraser-toggle--active:disabled,
 .num-pad-toolbar .num-key.clear.brush-mode-toggle--active:disabled{
@@ -732,6 +735,7 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .dark .num-pad-toolbar .num-key.drawing-toggle.drawing-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.candidates-toggle.candidates-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.history-toggle--active:disabled,
+.dark .num-pad-toolbar .num-key.clear.more-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.flag-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.eraser-toggle--active:disabled,
 .dark .num-pad-toolbar .num-key.clear.brush-mode-toggle--active:disabled{

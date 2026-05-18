@@ -1,6 +1,6 @@
 {
   "name": "sudoku-pwa",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "private": true,
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/starxmaker/SudokuPWA/",
@@ -13,7 +13,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "npm run dev",
-    "test": "vitest",
+    "test": "vitest --run",
     "lint": "eslint src vite.config.ts vitest.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "check": "npm run lint && npm run typecheck"
