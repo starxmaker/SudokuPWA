@@ -181,6 +181,7 @@ export default function Board({
   const [drawingMode, setDrawingMode] = useState(false)
   const [candidateToolMode, setCandidateToolMode] = useState(false)
   const [historyToolMode, setHistoryToolMode] = useState(false)
+  const [moreToolMode, setMoreToolMode] = useState(false)
   const [activeBrushColor, setActiveBrushColor] = useState<BrushColorId>(() => {
     const savedColors = savedBrushPrefs?.activeColors
       ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
@@ -421,6 +422,7 @@ export default function Board({
     setManualPause(false)
     setWon(false)
     setHistoryToolMode(false)
+    setMoreToolMode(false)
     setBrushMode(false)
     setDrawingMode(false)
     setCandidateToolMode(false)
@@ -468,6 +470,7 @@ export default function Board({
     setManualPause(false)
     setWon(false)
     setHistoryToolMode(false)
+    setMoreToolMode(false)
     setBrushMode(false)
     setDrawingMode(false)
     setCandidateToolMode(false)
@@ -666,6 +669,7 @@ export default function Board({
     setEraserMode(false)
     setCandidateToolMode(false)
     setHistoryToolMode(false)
+    setMoreToolMode(false)
     if (next) {
       setBrushMode(false)
       disableDrawingMode()
@@ -679,6 +683,7 @@ export default function Board({
     setEraserMode(false)
     setCandidateToolMode(false)
     setHistoryToolMode(false)
+    setMoreToolMode(false)
     if (next) {
       closeCandidateOverlay()
       setNotesMode(false)
@@ -696,6 +701,7 @@ export default function Board({
     setEraserMode(false)
     setCandidateToolMode(false)
     setHistoryToolMode(false)
+    setMoreToolMode(false)
     if (next) {
       setDrawingMode(true)
       setNotesMode(false)
@@ -713,6 +719,7 @@ export default function Board({
     setCandidateToolMode(next)
     setEraserMode(false)
     setHistoryToolMode(false)
+    setMoreToolMode(false)
     if (next) {
       setNotesMode(false)
       setBrushMode(false)
@@ -722,23 +729,24 @@ export default function Board({
   }
 
   function toggleHistoryTools() {
-    const next = !historyToolMode
-    closeCandidateOverlay()
-    setHistoryToolMode(next)
-    setEraserMode(false)
+    closeCandidateOverlay(true)
+    setMoreToolMode(false)
+    setHistoryToolMode(prev => !prev)
+  }
+
+  function toggleMoreTools() {
+    closeCandidateOverlay(true)
+    setHistoryToolMode(false)
     setCandidateToolMode(false)
-    if (next) {
-      setNotesMode(false)
-      setBrushMode(false)
-      disableDrawingMode()
-      switchLowerPad('numbers', 'backward')
-    }
+    setEraserMode(false)
+    setMoreToolMode(prev => !prev)
   }
 
   function toggleEraserMode() {
     closeCandidateOverlay()
     setHistoryToolMode(false)
     setCandidateToolMode(false)
+    setMoreToolMode(false)
     setEraserMode(prev => !prev)
   }
 
@@ -1467,6 +1475,7 @@ export default function Board({
           onTriggerHaptic={onTriggerHaptic}
           onTriggerErrorHaptic={onTriggerErrorHaptic}
           historyToolMode={historyToolMode}
+          moreToolMode={moreToolMode}
           eraserMode={eraserMode}
           notesMode={notesMode}
           brushMode={brushMode}
@@ -1520,6 +1529,7 @@ export default function Board({
           openRequiredTechniquesSidebar={openRequiredTechniquesSidebar}
           hideRequiredTechniquesSummary={hideRequiredTechniquesSummary}
           toggleHistoryTools={toggleHistoryTools}
+          toggleMoreTools={toggleMoreTools}
           toggleEraserMode={toggleEraserMode}
           toggleNotesTools={toggleNotesTools}
           toggleBrushTools={toggleBrushTools}

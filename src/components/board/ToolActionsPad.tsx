@@ -1,12 +1,12 @@
 import React from 'react'
-import { MdUndo, MdRedo, MdOutlineInvertColorsOff, MdLightbulbOutline } from 'react-icons/md'
+import { MdUndo, MdRedo, MdOutlineInvertColorsOff, MdLightbulbOutline, MdHistory, MdDraw } from 'react-icons/md'
 import { PiPencilSlash } from 'react-icons/pi'
 import { FaWandMagicSparkles } from 'react-icons/fa6'
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
 
 type Props = {
-  mode: 'eraser' | 'history' | 'candidate'
+  mode: 'eraser' | 'history' | 'candidate' | 'more'
   paused: boolean
   won: boolean
   hasAnyColors: boolean
@@ -26,7 +26,10 @@ type Props = {
   onFillAllCandidates: () => boolean | void
   onApplySingleCandidates: () => void
   onShowRequiredTechniques: () => Promise<unknown>
+  onToggleHistoryTools: () => void
+  onToggleDrawingTools: () => void
   onMomentaryButtonClick: (event: React.MouseEvent<HTMLButtonElement>, action: () => boolean | void, alwaysHaptic?: boolean) => void
+  onModeButtonClick: (event: React.MouseEvent<HTMLButtonElement>, action: () => void) => void
   tabIndex?: number
   t: TFunc
 }
@@ -40,7 +43,8 @@ export default function ToolActionsPad({
   onClearAllColors, onClearAllDrawings,
   onUndo, onRedo,
   onFillAllCandidates, onApplySingleCandidates, onShowRequiredTechniques,
-  onMomentaryButtonClick, tabIndex, t,
+  onToggleHistoryTools, onToggleDrawingTools,
+  onMomentaryButtonClick, onModeButtonClick, tabIndex, t,
 }: Props) {
   if (mode === 'eraser') {
     return (
@@ -75,6 +79,25 @@ export default function ToolActionsPad({
           onClick={(event) => onMomentaryButtonClick(event, onRedo, true)} tabIndex={tabIndex}>
           <span className="eraser-action-button__icon" aria-hidden="true"><MdRedo size={20} /></span>
           <span className="eraser-action-button__label">{t('board.redo')}</span>
+        </button>
+      </>
+    )
+  }
+
+  if (mode === 'more') {
+    return (
+      <>
+        <button type="button" className="eraser-action-button" aria-label={t('board.historyShort')}
+          disabled={paused || won}
+          onClick={(event) => onModeButtonClick(event, onToggleHistoryTools)} tabIndex={tabIndex}>
+          <span className="eraser-action-button__icon" aria-hidden="true"><MdHistory size={20} /></span>
+          <span className="eraser-action-button__label">{t('board.historyShort')}</span>
+        </button>
+        <button type="button" className="eraser-action-button" aria-label={t('board.freeDrawingShort')}
+          disabled={paused || won}
+          onClick={(event) => onModeButtonClick(event, onToggleDrawingTools)} tabIndex={tabIndex}>
+          <span className="eraser-action-button__icon" aria-hidden="true"><MdDraw size={20} /></span>
+          <span className="eraser-action-button__label">{t('board.freeDrawingShort')}</span>
         </button>
       </>
     )

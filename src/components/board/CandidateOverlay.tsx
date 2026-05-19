@@ -48,6 +48,7 @@ export default function CandidateOverlay({
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => {
           const hasCandidate = cellNotes.includes(d)
           const colorIds = candidateColors[overlay.r][overlay.c][d - 1]
+          const canPreviewCandidate = hasCandidate && overlay.mode === 'paint' && !overlayHasCellColor
           return (
             <button
               key={d}
@@ -60,10 +61,10 @@ export default function CandidateOverlay({
                 : t('board.candidateUnavailable', { digit: d })}
               disabled={!hasCandidate || (overlay.mode === 'paint' && overlayHasCellColor)}
               onPointerMove={() => {
-                if (hasCandidate && (overlay.mode === 'erase' || !overlayHasCellColor)) onSetPreviewDigit(d)
+                if (canPreviewCandidate) onSetPreviewDigit(d)
               }}
               onPointerDown={() => {
-                if (hasCandidate && (overlay.mode === 'erase' || !overlayHasCellColor)) onSetPreviewDigit(d)
+                if (canPreviewCandidate) onSetPreviewDigit(d)
               }}
               onClick={() => {
                 const changed = overlay.mode === 'erase'

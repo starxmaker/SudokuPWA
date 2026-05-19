@@ -9,7 +9,14 @@ import PuzzleCreator from './components/PuzzleCreator'
 import { loadSaved, loadCompleted, encodeGrid } from './utils/gameStorage'
 import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 import type { Grid } from './utils/sudoku'
-import { getPuzzleQueueAvailability, resetPuzzleQueueDaemon, startPuzzleQueueDaemon, subscribePuzzleQueueAvailability, takeQueuedGame } from './utils/appPuzzleQueue'
+import {
+  getPuzzleQueueAvailability,
+  resetPuzzleQueueDaemon,
+  setPuzzleQueueTargetSize,
+  startPuzzleQueueDaemon,
+  subscribePuzzleQueueAvailability,
+  takeQueuedGame,
+} from './utils/appPuzzleQueue'
 import type { PuzzleQueueAvailability } from './utils/puzzleQueue'
 import { DIFFICULTY_LABELS, GameDifficulty } from './utils/difficulties'
 import { type VerifiedPuzzle, verifyPuzzle } from './utils/generators/hodoku'
@@ -46,6 +53,7 @@ export default function App(){
   const coordinateLabels = useAppSelector(s => s.settings.coordinateLabels) as CoordinateLabelMode
   const firstColorFlag = useAppSelector(s => s.settings.firstColorFlag)
   const paintingScope = useAppSelector(s => s.settings.paintingScope)
+  const puzzleGenerationCount = useAppSelector(s => s.settings.puzzleGenerationCount)
   const difficultyLabel = useAppSelector(s => s.settings.difficulty)
 
   const showHome = useAppSelector(s => s.ui.showHome)
@@ -73,6 +81,9 @@ export default function App(){
   useEffect(() => { initHaptic() }, [])
 
   const [puzzleAvailability, setPuzzleAvailability] = useState<PuzzleQueueAvailability>(() => getPuzzleQueueAvailability())
+  useEffect(() => {
+    setPuzzleQueueTargetSize(puzzleGenerationCount)
+  }, [puzzleGenerationCount])
   useEffect(() => {
     const unsubscribe = subscribePuzzleQueueAvailability(setPuzzleAvailability)
     startPuzzleQueueDaemon()

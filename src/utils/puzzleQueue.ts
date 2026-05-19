@@ -1,10 +1,11 @@
 import { DIFFICULTY_LABELS, GameDifficulty } from './difficulties'
 import { decodeGrid, encodeGrid } from './gameStorage'
 import type { SolvablePuzzle } from './generators/types'
+import { DEFAULT_PUZZLE_GENERATION_COUNT, normalizePuzzleGenerationCount } from './puzzleGeneration'
 
 const DIFFICULTIES = Object.keys(DIFFICULTY_LABELS) as GameDifficulty[]
 
-export const PUZZLE_QUEUE_TARGET_SIZE = 5
+export const PUZZLE_QUEUE_TARGET_SIZE = DEFAULT_PUZZLE_GENERATION_COUNT
 export const PUZZLE_QUEUE_STORAGE_KEY = 'puzzleQueue:v1'
 
 export type PuzzleQueueAvailability = Record<GameDifficulty, number>
@@ -82,6 +83,7 @@ export function createPuzzleQueueManager({
 }: CreatePuzzleQueueManagerOptions) {
   let loaded = false
   let queue = createEmptyQueue()
+  let targetSize = normalizePuzzleGenerationCount(queueTargetSize, PUZZLE_QUEUE_TARGET_SIZE)
   const listeners = new Set<Listener>()
 
   function ensureLoaded() {
@@ -122,11 +124,13 @@ export function createPuzzleQueueManager({
   }
 
   function pickNextDifficulty(): GameDifficulty | null {
+    if (targetSize <= 0) return null
+
     const availability = getAvailability()
 
     for (const difficulty of DIFFICULTIES) {
       const count = availability[difficulty]
-      if (count < queueTargetSize) return difficulty
+      if (count < targetSize) return difficulty
     }
 
     return null
@@ -165,7 +169,7 @@ export function createPuzzleQueueManager({
     ensureLoaded()
 
     const difficulty = generated.difficulty
-    if (queue[difficulty].length >= queueTargetSize) return false
+    if (targetSize <= 0 || queue[difficulty].length >= targetSize) return false
 
     const encoded: StoredPuzzle = {
       puzzle: encodeGrid(generated.puzzle),
@@ -208,12 +212,20 @@ export function createPuzzleQueueManager({
     return null
   }
 
+  function setQueueTargetSize(nextQueueTargetSize: number) {
+    const normalized = normalizePuzzleGenerationCount(nextQueueTargetSize, PUZZLE_QUEUE_TARGET_SIZE)
+    if (normalized === targetSize) return
+    targetSize = normalized
+    notify()
+  }
+
   return {
     enqueue,
     getAvailability,
     getNextDifficulty: pickNextDifficulty,
     hasCapacity,
     reset,
+    setQueueTargetSize,
     start,
     stop,
     subscribe,

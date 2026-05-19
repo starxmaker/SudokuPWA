@@ -109,6 +109,27 @@ describe('puzzle queue', () => {
     expect(manager.getNextDifficulty()).toBe('VERY_EASY')
   })
 
+  it('updates the target size at runtime, including disabling generation', () => {
+    const manager = createPuzzleQueueManager({
+      storage: localStorage,
+      storageKey: `${PUZZLE_QUEUE_STORAGE_KEY}:dynamic-target`,
+      queueTargetSize: 1,
+    })
+
+    expect(manager.getNextDifficulty()).toBe('VERY_EASY')
+
+    manager.setQueueTargetSize(0)
+
+    expect(manager.hasCapacity()).toBe(false)
+    expect(manager.getNextDifficulty()).toBeNull()
+    expect(manager.enqueue(createCalibratedPair(0, 'VERY_EASY'))).toBe(false)
+
+    manager.setQueueTargetSize(2)
+
+    expect(manager.getNextDifficulty()).toBe('VERY_EASY')
+    expect(manager.enqueue(createCalibratedPair(0, 'VERY_EASY'))).toBe(true)
+  })
+
   it('takes a queued puzzle and updates availability for that difficulty', async () => {
     localStorage.setItem(
       `${PUZZLE_QUEUE_STORAGE_KEY}:take`,

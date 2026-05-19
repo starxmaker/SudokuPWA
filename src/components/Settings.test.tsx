@@ -17,6 +17,7 @@ const BASE_SETTINGS: SettingsState = {
   coordinateLabels: 'none',
   firstColorFlag: false,
   paintingScope: 'digit',
+  puzzleGenerationCount: 1,
   difficulty: null,
   brushPrefs: { activeColors: [], activeDrawingColors: [], candidateMode: false, firstColorFlagEnabled: true },
 }
@@ -44,6 +45,7 @@ describe('Settings', () => {
     expect(screen.getByRole('switch', { name: /auto-remove/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /coordinate labels/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /language/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /background puzzle generation/i })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: /painting scope/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /digits/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /candidates/i })).toBeInTheDocument()
@@ -115,6 +117,12 @@ describe('Settings', () => {
     const { store } = renderSettings()
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /coordinate labels/i }), 'row-number-column-number')
     expect(store.getState().settings.coordinateLabels).toBe('row-number-column-number')
+  })
+
+  it('sets background puzzle generation count from the dropdown', async () => {
+    const { store } = renderSettings()
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /background puzzle generation/i }), '0')
+    expect(store.getState().settings.puzzleGenerationCount).toBe(0)
   })
 
   it('sets paintingScope to candidate when toggled', async () => {

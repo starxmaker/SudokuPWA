@@ -1,6 +1,7 @@
 import React from 'react'
 import { FaEraser } from 'react-icons/fa'
 import { FaBrush } from 'react-icons/fa6'
+import { BsThreeDots } from 'react-icons/bs'
 import { GiMagicBroom } from 'react-icons/gi'
 import { MdArrowBack, MdDraw, MdHistory, MdLightbulbOutline, MdMoreHoriz, MdUndo } from 'react-icons/md'
 import { PiFlagCheckeredFill } from 'react-icons/pi'
@@ -32,6 +33,7 @@ type Props = {
   onTriggerHaptic?: () => void
   onTriggerErrorHaptic?: () => void
   historyToolMode: boolean
+  moreToolMode: boolean
   eraserMode: boolean
   notesMode: boolean
   brushMode: boolean
@@ -85,6 +87,7 @@ type Props = {
   openRequiredTechniquesSidebar: () => void
   hideRequiredTechniquesSummary: () => void
   toggleHistoryTools: () => void
+  toggleMoreTools: () => void
   toggleEraserMode: () => void
   toggleNotesTools: () => void
   toggleBrushTools: () => void
@@ -102,12 +105,14 @@ type Props = {
   t: TFunc
 }
 
-function renderToolTrayButtonIcon(target: 'history' | 'eraser' | ToolTrayAnimatedTarget) {
+function renderToolTrayButtonIcon(target: 'history' | 'eraser' | 'more' | ToolTrayAnimatedTarget) {
   switch (target) {
     case 'history':
       return <MdHistory size={22} />
     case 'eraser':
       return <FaEraser size={22} />
+    case 'more':
+      return <BsThreeDots size={20} />
     case 'notes':
       return <TbNumbers size={20} />
     case 'brush':
@@ -135,6 +140,7 @@ export default function BoardControlsPanel({
   onTriggerHaptic,
   onTriggerErrorHaptic,
   historyToolMode,
+  moreToolMode,
   eraserMode,
   notesMode,
   brushMode,
@@ -188,6 +194,7 @@ export default function BoardControlsPanel({
   openRequiredTechniquesSidebar,
   hideRequiredTechniquesSummary,
   toggleHistoryTools,
+  toggleMoreTools,
   toggleEraserMode,
   toggleNotesTools,
   toggleBrushTools,
@@ -253,7 +260,7 @@ export default function BoardControlsPanel({
     return 'input-pad__panel--fade-out'
   }
 
-  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'candidates' | 'history') {
+  function mainToolButtonClass(button: 'clear' | 'notes' | 'brush' | 'drawing' | 'candidates' | 'history' | 'undo' | 'more') {
     const classes = ['tool-tray__main-button']
     const fadingTarget = stagedToolTarget !== null && button === stagedToolTarget
     if (isToolTrayOpening && isToolTrayFadingOut) {
@@ -297,7 +304,7 @@ export default function BoardControlsPanel({
         <div className="tool-tray__measure" aria-hidden="true">
           <div className="num-pad-toolbar tool-tray__panel">
             <button type="button" className="num-key clear" tabIndex={-1}>
-              {renderToolTrayButtonIcon('history')}
+              <MdUndo size={24} />
             </button>
             <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
               {renderToolTrayButtonIcon('eraser')}
@@ -319,19 +326,19 @@ export default function BoardControlsPanel({
               {renderToolTrayButtonIcon('brush')}
             </button>
             <button
-              ref={measureMainDrawingButtonRef}
-              type="button"
-              className="num-key drawing-toggle"
-              tabIndex={-1}
-            >
-              {renderToolTrayButtonIcon('drawing')}
-            </button>
-            <button
               type="button"
               className="num-key candidates-toggle"
               tabIndex={-1}
             >
               <MdLightbulbOutline size={20} />
+            </button>
+            <button
+              ref={measureMainDrawingButtonRef}
+              type="button"
+              className="num-key clear"
+              tabIndex={-1}
+            >
+              {renderToolTrayButtonIcon('more')}
             </button>
           </div>
           <div className="num-pad-toolbar tool-tray__panel tool-tray__panel--sub">
@@ -404,14 +411,13 @@ export default function BoardControlsPanel({
           aria-hidden={visibleToolTray !== 'main'}
         >
           <button
-            className={`num-key clear${historyToolMode ? ' history-toggle--active' : ''} ${mainToolButtonClass('history')}`}
+            className={`num-key clear ${mainToolButtonClass('undo')}`}
             type="button"
-            aria-label={t('board.toggleHistoryTools')}
-            aria-pressed={historyToolMode}
-            disabled={paused || won}
-            onClick={(event) => onModeButtonClick(event, toggleHistoryTools)}
+            aria-label={t('board.undo')}
+            disabled={undoDisabled}
+            onClick={(event) => onMomentaryButtonClick(event, undo, true)}
           >
-            {renderToolTrayButtonIcon('history')}
+            <MdUndo size={24} />
           </button>
           <button
             className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''} ${mainToolButtonClass('clear')}`}
@@ -447,17 +453,6 @@ export default function BoardControlsPanel({
           </button>
           <button
             type="button"
-            ref={mainDrawingButtonRef}
-            className={`num-key drawing-toggle${drawingMode ? ' drawing-toggle--active' : ''} ${mainToolButtonClass('drawing')}`}
-            aria-label={t('board.toggleFreeDrawing')}
-            aria-pressed={drawingMode}
-            disabled={paused || won}
-            onClick={(event) => onModeButtonClick(event, toggleDrawingTools)}
-          >
-            {renderToolTrayButtonIcon('drawing')}
-          </button>
-          <button
-            type="button"
             className={`num-key candidates-toggle${candidateToolMode ? ' candidates-toggle--active' : ''} ${mainToolButtonClass('candidates')}`}
             aria-label={t('board.toggleCandidateTools')}
             aria-pressed={candidateToolMode}
@@ -466,6 +461,17 @@ export default function BoardControlsPanel({
           >
             <MdLightbulbOutline size={20} />
           </button>
+          <button
+            type="button"
+            ref={mainDrawingButtonRef}
+            className={`num-key clear${moreToolMode ? ' more-toggle--active' : ''} ${mainToolButtonClass('more')}`}
+            aria-label={t('board.toggleMoreTools')}
+            aria-pressed={moreToolMode}
+            disabled={paused || won}
+            onClick={(event) => onModeButtonClick(event, toggleMoreTools)}
+          >
+            {renderToolTrayButtonIcon('more')}
+          </button>
         </div>
         {toolTrayOverlayView === 'main' && (
           <div
@@ -473,8 +479,8 @@ export default function BoardControlsPanel({
             role="presentation"
             aria-hidden="true"
           >
-            <button type="button" className={`num-key clear${historyToolMode ? ' history-toggle--active' : ''}`} tabIndex={-1}>
-              {renderToolTrayButtonIcon('history')}
+            <button type="button" className="num-key clear" tabIndex={-1}>
+              <MdUndo size={24} />
             </button>
             <button type="button" className={`num-key clear${eraserMode ? ' eraser-toggle--active' : ''}`} tabIndex={-1}>
               {renderToolTrayButtonIcon('eraser')}
@@ -485,11 +491,11 @@ export default function BoardControlsPanel({
             <button type="button" className="num-key brush-toggle" tabIndex={-1}>
               {renderToolTrayButtonIcon('brush')}
             </button>
-            <button type="button" className="num-key drawing-toggle" tabIndex={-1}>
-              {renderToolTrayButtonIcon('drawing')}
-            </button>
             <button type="button" className="num-key candidates-toggle" tabIndex={-1}>
               <MdLightbulbOutline size={20} />
+            </button>
+            <button type="button" className={`num-key clear${moreToolMode ? ' more-toggle--active' : ''}`} tabIndex={-1}>
+              {renderToolTrayButtonIcon('more')}
             </button>
           </div>
         )}
@@ -646,7 +652,10 @@ export default function BoardControlsPanel({
               onFillAllCandidates={fillAllCandidates}
               onApplySingleCandidates={applySingleCandidatesToDigits}
               onShowRequiredTechniques={showRequiredTechniques}
+              onToggleHistoryTools={toggleHistoryTools}
+              onToggleDrawingTools={toggleDrawingTools}
               onMomentaryButtonClick={onMomentaryButtonClick}
+              onModeButtonClick={onModeButtonClick}
               t={t}
             />
           </div>
@@ -679,7 +688,10 @@ export default function BoardControlsPanel({
               onFillAllCandidates={fillAllCandidates}
               onApplySingleCandidates={applySingleCandidatesToDigits}
               onShowRequiredTechniques={showRequiredTechniques}
+              onToggleHistoryTools={toggleHistoryTools}
+              onToggleDrawingTools={toggleDrawingTools}
               onMomentaryButtonClick={onMomentaryButtonClick}
+              onModeButtonClick={onModeButtonClick}
               t={t}
             />
           </div>
@@ -760,11 +772,50 @@ export default function BoardControlsPanel({
                 onFillAllCandidates={fillAllCandidates}
                 onApplySingleCandidates={applySingleCandidatesToDigits}
                 onShowRequiredTechniques={showRequiredTechniques}
+                onToggleHistoryTools={toggleHistoryTools}
+                onToggleDrawingTools={toggleDrawingTools}
                 onMomentaryButtonClick={onMomentaryButtonClick}
+                onModeButtonClick={onModeButtonClick}
                 t={t}
               />
             </div>
           )}
+        </div>
+      ) : moreToolMode ? (
+        <div className="input-pad-switcher input-pad-switcher--more-actions">
+          <div
+            className="eraser-action-pad"
+            role="toolbar"
+            aria-label={t('board.moreActions')}
+          >
+            <ToolActionsPad
+              mode="more"
+              paused={paused}
+              won={won}
+              hasAnyColors={hasAnyColors}
+              hasAnyDrawings={hasAnyDrawings}
+              undoDisabled={undoDisabled}
+              redoDisabled={redoDisabled}
+              hasAnyFillableCell={hasAnyFillableCell}
+              hasSingleCandidates={hasSingleCandidates}
+              requiredTechniquesLoading={requiredTechniquesLoading}
+              requiredTechniquesOpen={requiredTechniquesOpen}
+              haptic={haptic ?? false}
+              onTriggerHaptic={onTriggerHaptic}
+              onClearAllColors={clearAllColors}
+              onClearAllDrawings={clearAllDrawings}
+              onUndo={undo}
+              onRedo={redo}
+              onFillAllCandidates={fillAllCandidates}
+              onApplySingleCandidates={applySingleCandidatesToDigits}
+              onShowRequiredTechniques={showRequiredTechniques}
+              onToggleHistoryTools={toggleHistoryTools}
+              onToggleDrawingTools={toggleDrawingTools}
+              onMomentaryButtonClick={onMomentaryButtonClick}
+              onModeButtonClick={onModeButtonClick}
+              t={t}
+            />
+          </div>
         </div>
       ) : pencilMode ? (
         brushMode || drawingMode ? (

@@ -103,6 +103,20 @@ async function waitForBoard() {
   await screen.findAllByRole('gridcell')
 }
 
+async function openMoreTools(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /toggle more tools/i }))
+}
+
+async function openHistoryToolsFromMore(user: ReturnType<typeof userEvent.setup>) {
+  await openMoreTools(user)
+  await user.click(screen.getByRole('button', { name: /^history$/i }))
+}
+
+async function openDrawingToolsFromMore(user: ReturnType<typeof userEvent.setup>) {
+  await openMoreTools(user)
+  await user.click(screen.getByRole('button', { name: /^free drawing$/i }))
+}
+
 function mockDrawingLayerRect(layer: Element, size = 360) {
   Object.defineProperty(layer, 'getBoundingClientRect', {
     configurable: true,
@@ -172,11 +186,12 @@ describe('Board component', () => {
     const cells = await screen.findAllByRole('gridcell', undefined, { timeout: 10000 })
     expect(cells.length).toBe(81)
     expect(screen.getByRole('button', { name: /new/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /toggle history tools/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /eraser mode/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /toggle notes/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /toggle brush mode/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /toggle free drawing/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /toggle candidate tools/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /toggle more tools/i })).toBeInTheDocument()
   })
 
   it('renders number pad with buttons 1–9', async () => {
@@ -223,10 +238,13 @@ describe('Board component', () => {
   it('history actions are disabled initially', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
+    expect(screen.getByRole('button', { name: /^undo$/i })).toBeDisabled()
+
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /toggle history tools/i }))
-    expect(screen.getByRole('button', { name: /undo/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /redo/i })).toBeDisabled()
+    await openHistoryToolsFromMore(user)
+    const historyToolbar = screen.getByRole('toolbar', { name: /history actions/i })
+    expect(within(historyToolbar).getByRole('button', { name: /^undo$/i })).toBeDisabled()
+    expect(within(historyToolbar).getByRole('button', { name: /redo/i })).toBeDisabled()
   })
 
   it('renders pause button and timer', async () => {
@@ -306,7 +324,7 @@ describe('Board component', () => {
     expect(notesBtn.getAttribute('aria-pressed')).toBe('false')
     await user.click(notesBtn)
     expect(notesBtn.getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: /toggle history tools/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /toggle more tools/i })).toBeInTheDocument()
     await user.click(notesBtn)
     expect(notesBtn.getAttribute('aria-pressed')).toBe('false')
   })
@@ -328,7 +346,7 @@ describe('Board component', () => {
     expect(screen.getByRole('button', { name: /brush color 1/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /brush color 8/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /brush color 9/i })).toBeNull()
-    expect(screen.getByRole('button', { name: /toggle history tools/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /toggle more tools/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /brush color remover/i }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('button', { name: /^4,/ })).toBeNull()
@@ -363,13 +381,13 @@ describe('Board component', () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()
     const user = userEvent.setup()
-    const drawingBtn = screen.getByRole('button', { name: /toggle free drawing/i })
+    await openMoreTools(user)
+    const moreToolbar = screen.getByRole('toolbar', { name: /more actions/i })
+    const drawingBtn = within(moreToolbar).getByRole('button', { name: /^free drawing$/i })
 
-    expect(drawingBtn.getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('button', { name: /clear drawings/i })).toBeNull()
 
     await user.click(drawingBtn)
-    expect(drawingBtn.getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /brush color 1/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^4,/ })).toBeNull()
   })
@@ -762,10 +780,12 @@ describe('Board component', () => {
     await waitForBoard()
 
     const toolbar = screen.getByRole('toolbar', { name: /game tools/i })
-    expect(within(toolbar).getByRole('button', { name: /toggle history tools/i }).querySelector('svg')).not.toBeNull()
+    expect(within(toolbar).getByRole('button', { name: /^undo$/i }).querySelector('svg')).not.toBeNull()
     expect(within(toolbar).getByRole('button', { name: /eraser mode/i }).querySelector('svg')).not.toBeNull()
     expect(within(toolbar).getByRole('button', { name: /toggle notes mode/i }).querySelector('svg')).not.toBeNull()
+    expect(within(toolbar).getByRole('button', { name: /toggle brush mode/i }).querySelector('svg')).not.toBeNull()
     expect(within(toolbar).getByRole('button', { name: /toggle candidate tools/i }).querySelector('svg')).not.toBeNull()
+    expect(within(toolbar).getByRole('button', { name: /toggle more tools/i }).querySelector('svg')).not.toBeNull()
   })
 
   it('keeps brush colors visible in pencil mode and paints a candidate directly without opening the candidate painter', async () => {
@@ -844,9 +864,10 @@ describe('Board with fixed puzzle', () => {
     const user = userEvent.setup()
     await user.click(cells[2])
     await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit, won't complete puzzle
-    await user.click(screen.getByRole('button', { name: /toggle history tools/i }))
-    const undoBtn = screen.getByRole('button', { name: /undo/i })
-    const redoBtn = screen.getByRole('button', { name: /redo/i })
+    await openHistoryToolsFromMore(user)
+    const historyToolbar = screen.getByRole('toolbar', { name: /history actions/i })
+    const undoBtn = within(historyToolbar).getByRole('button', { name: /^undo$/i })
+    const redoBtn = within(historyToolbar).getByRole('button', { name: /redo/i })
     expect(undoBtn).not.toBeDisabled()
     expect(redoBtn).toBeDisabled()
     await user.click(undoBtn)
@@ -917,6 +938,28 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].classList.contains('selected-brush')).toBe(true)
     expect(cells[10].classList.contains('same-digit')).toBe(true)
     expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
+  })
+
+  it('restores brush painting state after toggling history tools off', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
+    await user.click(cells[0])
+
+    expect(cells[0].classList.contains('selected-brush')).toBe(true)
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+
+    await openHistoryToolsFromMore(user)
+
+    expect(cells[0].classList.contains('selected-brush')).toBe(true)
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
+
+    await openHistoryToolsFromMore(user)
+
+    expect(cells[0].classList.contains('selected-brush')).toBe(true)
+    expect(cells[28].classList.contains('same-digit')).toBe(true)
   })
 
   it('accumulates brush colors on a cell across multiple paint passes', async () => {
@@ -1147,6 +1190,26 @@ describe('Board with fixed puzzle', () => {
     expect(cells[33].classList.contains('same-digit')).toBe(false)
   })
 
+  it('does not highlight matching digits when previewing a candidate in the eraser overlay', async () => {
+    const notes = emptyNotesGrid()
+    notes[0][2] = [4, 7]
+    saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
+
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    mockCellRect(cells[2])
+    await user.click(cells[2])
+
+    const candidateButton = screen.getByRole('button', { name: /erase candidate 4/i })
+    fireEvent.pointerMove(candidateButton)
+
+    expect(cells[33].classList.contains('same-digit')).toBe(false)
+    expect(cells[2].querySelectorAll('.cell-note')[3].classList.contains('cell-note--highlight')).toBe(false)
+  })
+
   it('does not preview a candidate just because an overlay button receives focus', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
     const cells = screen.getAllByRole('gridcell')
@@ -1296,7 +1359,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     await user.click(screen.getByRole('button', { name: /brush color 3/i }))
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
-    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+    await openDrawingToolsFromMore(user)
     await user.click(screen.getByRole('button', { name: /brush color 5/i }))
 
     firstRender.unmount()
@@ -1308,7 +1371,7 @@ describe('Board with fixed puzzle', () => {
     expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('false')
 
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
-    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+    await openDrawingToolsFromMore(user)
 
     expect(screen.getByRole('button', { name: /brush color 5/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /brush color 3/i }).getAttribute('aria-pressed')).toBe('false')
@@ -1318,7 +1381,7 @@ describe('Board with fixed puzzle', () => {
     const { container } = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+    await openDrawingToolsFromMore(user)
 
     const drawingLayer = container.querySelector('.board-drawing-layer')
     expect(drawingLayer).not.toBeNull()
@@ -1332,8 +1395,8 @@ describe('Board with fixed puzzle', () => {
       expect(container.querySelectorAll('.board-drawing-layer polyline').length).toBe(1)
     )
 
-    await user.click(screen.getByRole('button', { name: /toggle history tools/i }))
-    await user.click(screen.getByRole('button', { name: /undo/i }))
+    await openHistoryToolsFromMore(user)
+    await user.click(within(screen.getByRole('toolbar', { name: /history actions/i })).getByRole('button', { name: /^undo$/i }))
 
     await waitFor(() =>
       expect(container.querySelectorAll('.board-drawing-layer polyline').length).toBe(0)
@@ -1344,7 +1407,7 @@ describe('Board with fixed puzzle', () => {
     const user = userEvent.setup()
     const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
 
-    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+    await openDrawingToolsFromMore(user)
 
     const firstLayer = firstRender.container.querySelector('.board-drawing-layer')
     expect(firstLayer).not.toBeNull()
@@ -1390,7 +1453,7 @@ describe('Board with fixed puzzle', () => {
 
     expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(false)
 
-    await user.click(screen.getByRole('button', { name: /toggle free drawing/i }))
+    await openDrawingToolsFromMore(user)
     const drawingLayer = view.container.querySelector('.board-drawing-layer')
     expect(drawingLayer).not.toBeNull()
     mockDrawingLayerRect(drawingLayer!)
@@ -1460,6 +1523,29 @@ describe('Board with fixed puzzle', () => {
     expect(cell04Notes[6].textContent).toBe('7')
   })
 
+  it('keeps selected reference digits active while history tools are toggled', async () => {
+    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} pencilMode />)
+    const cells = screen.getAllByRole('gridcell')
+    const user = userEvent.setup()
+
+    await user.click(cells[1])
+    const referenceNumberBtn = screen.getByRole('button', { name: /^5,/ })
+    await user.click(referenceNumberBtn)
+
+    expect(referenceNumberBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(cells[0].classList.contains('same-digit')).toBe(true)
+
+    await openHistoryToolsFromMore(user)
+
+    expect(referenceNumberBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(cells[0].classList.contains('same-digit')).toBe(true)
+
+    await openHistoryToolsFromMore(user)
+
+    expect(referenceNumberBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(cells[0].classList.contains('same-digit')).toBe(true)
+  })
+
   it('restores candidates on first undo after a wrong entry', async () => {
     render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
     const cells = screen.getAllByRole('gridcell')
@@ -1474,8 +1560,8 @@ describe('Board with fixed puzzle', () => {
     await user.click(screen.getByRole('button', { name: /^7,/ })) // wrong digit
     expect(cells[2].textContent?.trim()).toBe('7')
 
-    await user.click(screen.getByRole('button', { name: /toggle history tools/i }))
-    const undoBtn = screen.getByRole('button', { name: /undo/i })
+    await openHistoryToolsFromMore(user)
+    const undoBtn = within(screen.getByRole('toolbar', { name: /history actions/i })).getByRole('button', { name: /^undo$/i })
     await user.click(undoBtn)
     expect(cells[2].classList.contains('user')).toBe(false)
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
@@ -1766,21 +1852,28 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerHaptic when main tool buttons are pressed', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
     const user = userEvent.setup()
+    const cells = screen.getAllByRole('gridcell')
 
     for (const name of [
-      /toggle history tools/i,
       /eraser mode/i,
       /toggle notes mode/i,
       /toggle brush mode/i,
-      /toggle free drawing/i,
       /toggle candidate tools/i,
+      /toggle more tools/i,
     ]) {
       onTriggerHaptic.mockClear()
       await user.click(screen.getByRole('button', { name }))
       expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
     }
+
+    await user.click(screen.getByRole('button', { name: /toggle more tools/i }))
+    await user.click(cells[2])
+    await user.click(screen.getByRole('button', { name: /^7,/ }))
+    onTriggerHaptic.mockClear()
+    await user.click(screen.getByRole('button', { name: /^undo$/i }))
+    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
 
     onTriggerHaptic.mockClear()
     const notesButton = screen.getByRole('button', { name: /toggle notes mode/i })
@@ -1797,14 +1890,15 @@ describe('Board haptic callbacks', () => {
 
     await user.click(cells[2])
     await user.click(screen.getByRole('button', { name: /^7,/ }))
-    await user.click(screen.getByRole('button', { name: /toggle history tools/i }))
+    await openHistoryToolsFromMore(user)
+    const historyToolbar = screen.getByRole('toolbar', { name: /history actions/i })
     onTriggerHaptic.mockClear()
 
-    await user.click(screen.getByRole('button', { name: /undo/i }))
+    await user.click(within(historyToolbar).getByRole('button', { name: /^undo$/i }))
     expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
 
     onTriggerHaptic.mockClear()
-    await user.click(screen.getByRole('button', { name: /redo/i }))
+    await user.click(within(historyToolbar).getByRole('button', { name: /redo/i }))
     expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
   })
 
