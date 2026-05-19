@@ -2,11 +2,12 @@ import React from 'react'
 import type { CoordinateLabelMode } from '../utils/coordinateLabels'
 import type { AppLanguageSetting } from '../utils/i18n'
 import { useI18n } from '../utils/i18n'
+import { MAX_PUZZLE_GENERATION_COUNT } from '../utils/puzzleGeneration'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
 import {
   setTheme, setAutoCheck, setAutoRemove, setHaptic,
   setPencilMode, setCoordinateLabels, setFirstColorFlag,
-  setPaintingScope,
+  setPaintingScope, setPuzzleGenerationCount,
 } from '../store/settingsSlice'
 
 type Props = {
@@ -27,6 +28,14 @@ export default function Settings({ open, onClose, onReset }: Props){
   const coordinateLabels = useAppSelector(s => s.settings.coordinateLabels)
   const firstColorFlag = useAppSelector(s => s.settings.firstColorFlag)
   const paintingScope = useAppSelector(s => s.settings.paintingScope)
+  const puzzleGenerationCount = useAppSelector(s => s.settings.puzzleGenerationCount)
+  const puzzleGenerationOptions = React.useMemo(
+    () => Array.from({ length: MAX_PUZZLE_GENERATION_COUNT + 1 }, (_, value) => ({
+      value,
+      label: value === 0 ? t('settings.noGeneration') : String(value),
+    })),
+    [t],
+  )
 
   React.useEffect(()=>{
     function onKey(e: KeyboardEvent){ if(e.key === 'Escape') onClose() }
@@ -181,6 +190,22 @@ export default function Settings({ open, onClose, onReset }: Props){
             <option value="none">{t('settings.coordinateLabelsNone')}</option>
             <option value="row-number-column-letter">{t('settings.coordinateLabelsRowNumberColumnLetter')}</option>
             <option value="row-number-column-number">{t('settings.coordinateLabelsRowNumberColumnNumber')}</option>
+          </select>
+        </div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
+          <div>
+            <div>{t('settings.backgroundGeneration')}</div>
+            <div style={{fontSize:'0.8rem',color:'var(--muted)'}}>{t('settings.backgroundGenerationDescription')}</div>
+          </div>
+          <select
+            aria-label={t('settings.backgroundGeneration')}
+            value={puzzleGenerationCount}
+            onChange={(event) => dispatch(setPuzzleGenerationCount(Number(event.target.value)))}
+            style={{marginLeft:12,maxWidth:220}}
+          >
+            {puzzleGenerationOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>

@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import { DEFAULT_COORDINATE_LABEL_MODE, type CoordinateLabelMode } from '../utils/coordinateLabels'
+import { DEFAULT_PUZZLE_GENERATION_COUNT, normalizePuzzleGenerationCount } from '../utils/puzzleGeneration'
 
 type BrushPrefs = {
   activeColors: string[]
@@ -17,6 +18,7 @@ export type SettingsState = {
   coordinateLabels: CoordinateLabelMode
   firstColorFlag: boolean
   paintingScope: 'digit' | 'candidate'
+  puzzleGenerationCount: number
   difficulty: string | null
   brushPrefs: BrushPrefs
 }
@@ -39,6 +41,7 @@ export const settingsSlice = createSlice({
     coordinateLabels: DEFAULT_COORDINATE_LABEL_MODE as CoordinateLabelMode,
     firstColorFlag: false as boolean,
     paintingScope: 'digit' as 'digit' | 'candidate',
+    puzzleGenerationCount: DEFAULT_PUZZLE_GENERATION_COUNT as number,
     difficulty: null as string | null,
     brushPrefs: {
       activeColors: [] as string[],
@@ -72,6 +75,9 @@ export const settingsSlice = createSlice({
     setPaintingScope(state, action: PayloadAction<'digit' | 'candidate'>) {
       state.paintingScope = action.payload
     },
+    setPuzzleGenerationCount(state, action: PayloadAction<number>) {
+      state.puzzleGenerationCount = normalizePuzzleGenerationCount(action.payload)
+    },
     setDifficulty(state, action: PayloadAction<string | null>) {
       state.difficulty = action.payload
     },
@@ -87,6 +93,7 @@ export const settingsSlice = createSlice({
       state.coordinateLabels = DEFAULT_COORDINATE_LABEL_MODE
       state.firstColorFlag = false
       state.paintingScope = 'digit'
+      state.puzzleGenerationCount = DEFAULT_PUZZLE_GENERATION_COUNT
       state.brushPrefs = { activeColors: [], activeDrawingColors: [], candidateMode: false, firstColorFlagEnabled: true }
       state.difficulty = null
     },
@@ -102,6 +109,7 @@ export const {
   setCoordinateLabels,
   setFirstColorFlag,
   setPaintingScope,
+  setPuzzleGenerationCount,
   setDifficulty,
   setBrushPrefs,
   resetSettings,

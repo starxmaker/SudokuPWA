@@ -13,6 +13,11 @@ import {
   emptyDrawingStrokes,
 } from '../utils/gameStorage'
 import { parseCoordinateLabelMode, type CoordinateLabelMode } from '../utils/coordinateLabels'
+import {
+  DEFAULT_PUZZLE_GENERATION_COUNT,
+  normalizePuzzleGenerationCount,
+  PUZZLE_GENERATION_COUNT_STORAGE_KEY,
+} from '../utils/puzzleGeneration'
 import type { Grid } from '../utils/sudoku_types'
 
 type HydratedGameState = {
@@ -38,6 +43,7 @@ type HydratedSettingsState = {
   coordinateLabels: CoordinateLabelMode
   firstColorFlag: boolean
   paintingScope: 'digit' | 'candidate'
+  puzzleGenerationCount: number
   difficulty: string | null
   brushPrefs: {
     activeColors: string[]
@@ -134,6 +140,15 @@ function hydrateSettings(): HydratedSettingsState {
     // Ignore unavailable localStorage.
   }
 
+  let puzzleGenerationCount = DEFAULT_PUZZLE_GENERATION_COUNT
+  try {
+    puzzleGenerationCount = normalizePuzzleGenerationCount(
+      localStorage.getItem(PUZZLE_GENERATION_COUNT_STORAGE_KEY),
+    )
+  } catch {
+    // Ignore unavailable localStorage.
+  }
+
   let difficulty: string | null = null
   try {
     difficulty = localStorage.getItem('difficulty')
@@ -153,6 +168,7 @@ function hydrateSettings(): HydratedSettingsState {
     coordinateLabels,
     firstColorFlag,
     paintingScope,
+    puzzleGenerationCount,
     difficulty,
     brushPrefs: brushPrefs ?? {
       activeColors: [],

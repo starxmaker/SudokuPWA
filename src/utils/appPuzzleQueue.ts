@@ -266,6 +266,11 @@ export function startPuzzleQueueDaemon() {
   syncGenerationLoop()
 }
 
+export function setPuzzleQueueTargetSize(queueTargetSize: number) {
+  manager.setQueueTargetSize(queueTargetSize)
+  syncGenerationLoop()
+}
+
 export function stopPuzzleQueueDaemon() {
   daemonStarted = false
   clearRestartTimer()

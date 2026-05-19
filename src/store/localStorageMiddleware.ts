@@ -5,6 +5,7 @@ import {
   saveElapsed,
   saveBrushPrefs,
 } from '../utils/gameStorage'
+import { PUZZLE_GENERATION_COUNT_STORAGE_KEY } from '../utils/puzzleGeneration'
 
 const GAME_PERSIST_ACTIONS = new Set([
   'game/setCurrent',
@@ -72,6 +73,7 @@ function persistSettings(state: RootState) {
   try { localStorage.setItem('pencilMode', s.pencilMode ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
   try { localStorage.setItem('coordinateLabels', s.coordinateLabels) } catch { /* Ignore storage errors. */ }
   try { localStorage.setItem('firstColorFlag', s.firstColorFlag ? 'true' : 'false') } catch { /* Ignore storage errors. */ }
+  try { localStorage.setItem(PUZZLE_GENERATION_COUNT_STORAGE_KEY, String(s.puzzleGenerationCount)) } catch { /* Ignore storage errors. */ }
   if (s.difficulty) {
     try { localStorage.setItem('difficulty', s.difficulty) } catch { /* Ignore storage errors. */ }
   } else {

@@ -62,11 +62,18 @@ async function loadQueueModule({
     getNextDifficulty: vi.fn(() => nextDifficulty),
     hasCapacity: vi.fn(() => hasCapacity),
     reset: vi.fn(),
+    setQueueTargetSize: vi.fn(),
     start: vi.fn(),
     stop: vi.fn(),
     subscribe: vi.fn(),
     take: vi.fn(),
   }
+  let generationEnabled = hasCapacity
+  manager.getNextDifficulty.mockImplementation(() => (generationEnabled ? nextDifficulty : null))
+  manager.hasCapacity.mockImplementation(() => generationEnabled)
+  manager.setQueueTargetSize.mockImplementation((size: number) => {
+    generationEnabled = size > 0 && hasCapacity
+  })
   const generate = vi.fn(generateImpl)
 
   vi.doMock('./puzzleQueue', () => ({
@@ -210,6 +217,29 @@ describe('appPuzzleQueue debug hook', () => {
     expect(window.__sudokuGeneratorStatus?.()).toMatchObject({
       generatedCounts: createAvailability(0),
       totalGenerated: 0,
+    })
+  })
+
+  it('stops background generation when the queue target size is set to 0', async () => {
+    vi.useFakeTimers()
+    const { module, manager, generate } = await loadQueueModule({
+      hasCapacity: true,
+      availability: createAvailability(0),
+    })
+
+    module.startPuzzleQueueDaemon()
+    await vi.runOnlyPendingTimersAsync()
+    expect(generate).toHaveBeenCalledOnce()
+
+    module.setPuzzleQueueTargetSize(0)
+
+    expect(manager.setQueueTargetSize).toHaveBeenCalledWith(0)
+    expect(window.__sudokuGeneratorStatus?.()).toMatchObject({
+      status: 'idle',
+      daemonStarted: true,
+      isGenerating: false,
+      isGenerationScheduled: false,
+      hasCapacity: false,
     })
   })
 })

@@ -21,6 +21,7 @@ const appPuzzleQueueMocks = vi.hoisted(() => {
     availability,
     getPuzzleQueueAvailability: vi.fn(() => availability),
     resetPuzzleQueueDaemon: vi.fn(),
+    setPuzzleQueueTargetSize: vi.fn(),
     startPuzzleQueueDaemon: vi.fn(),
     subscribePuzzleQueueAvailability: vi.fn((listener: (availability: typeof availability) => void) => {
       listener(availability)
@@ -68,6 +69,7 @@ vi.mock('./utils/sudoku', async (importOriginal) => {
 vi.mock('./utils/appPuzzleQueue', () => ({
   getPuzzleQueueAvailability: appPuzzleQueueMocks.getPuzzleQueueAvailability,
   resetPuzzleQueueDaemon: appPuzzleQueueMocks.resetPuzzleQueueDaemon,
+  setPuzzleQueueTargetSize: appPuzzleQueueMocks.setPuzzleQueueTargetSize,
   startPuzzleQueueDaemon: appPuzzleQueueMocks.startPuzzleQueueDaemon,
   subscribePuzzleQueueAvailability: appPuzzleQueueMocks.subscribePuzzleQueueAvailability,
   takeQueuedGame: appPuzzleQueueMocks.takeQueuedGame,
@@ -148,6 +150,7 @@ beforeEach(() => {
   })
   appPuzzleQueueMocks.takeQueuedGame.mockResolvedValue({ puzzle, solution, score: null, difficulty: 'MEDIUM' })
   appPuzzleQueueMocks.resetPuzzleQueueDaemon.mockClear()
+  appPuzzleQueueMocks.setPuzzleQueueTargetSize.mockClear()
   appPuzzleQueueMocks.startPuzzleQueueDaemon.mockClear()
   hodokuMocks.evaluate.mockReset()
   hodokuMocks.evaluate.mockResolvedValue([{
@@ -389,6 +392,16 @@ describe('App', () => {
     // default is true (enabled), clicking turns it off
     await user.click(toggle)
     expect(localStorage.getItem('autoCheck')).toBe('false')
+  })
+
+  it('saves background generation preference and updates the queue target size', async () => {
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /menu/i }))
+    await user.click(screen.getByRole('menuitem', { name: /settings/i }))
+    await user.selectOptions(screen.getByRole('combobox', { name: /background puzzle generation/i }), '0')
+    expect(localStorage.getItem('puzzleGenerationCount')).toBe('0')
+    expect(appPuzzleQueueMocks.setPuzzleQueueTargetSize).toHaveBeenLastCalledWith(0)
   })
 
   it('saves theme preference to localStorage', async () => {
