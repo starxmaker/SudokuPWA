@@ -55,7 +55,7 @@
   "settings.autoRemoveDescription": "Remove notes from same row, column & box",
   "settings.toggleAutoRemove": "Toggle auto-remove candidates",
   "settings.hapticFeedback": "Haptic feedback",
-  "settings.hapticDescription": "Vibration when tapping cells & numbers",
+  "settings.hapticDescription": "Only supported on browsers with the Vibration API",
   "settings.toggleHaptic": "Toggle haptic feedback",
   "settings.stylusMode": "Stylus mode",
   "settings.stylusDescription": "Draw digits with your finger or stylus",
