@@ -15,6 +15,7 @@ import type {
   ToolTrayTransition,
   ToolTrayView,
 } from './boardUtils'
+import { BRUSH_COLORS } from './boardUtils'
 import ColorPad from './ColorPad'
 import NumberPad from './NumberPad'
 import ToolActionsPad from './ToolActionsPad'
@@ -73,6 +74,9 @@ type Props = {
   applyBrushColor: (colorId: BrushColorId) => void
   clearSelectedBrushColors: () => boolean
   clearAllColors: () => boolean
+  eraserColorPickerMode: boolean
+  onToggleEraserColorPicker: () => void
+  onClearSingleColor: (colorId: BrushColorId) => boolean
   undo: () => boolean
   redo: () => boolean
   fillAllCandidates: () => boolean
@@ -169,6 +173,9 @@ export default function BoardControlsPanel({
   applyBrushColor,
   clearSelectedBrushColors,
   clearAllColors,
+  eraserColorPickerMode,
+  onToggleEraserColorPicker,
+  onClearSingleColor,
   undo,
   redo,
   fillAllCandidates,
@@ -589,36 +596,62 @@ export default function BoardControlsPanel({
         </div>
       ) : eraserMode ? (
         <div className="input-pad-switcher input-pad-switcher--eraser-actions">
-          <div
-            className="eraser-action-pad"
-            role="toolbar"
-            aria-label={t('board.eraserActions')}
-          >
-            <ToolActionsPad
-              mode="eraser"
-              paused={paused}
-              won={won}
-              hasAnyColors={hasAnyColors}
-              undoDisabled={undoDisabled}
-              redoDisabled={redoDisabled}
-              hasAnyFillableCell={hasAnyFillableCell}
-              hasSingleCandidates={hasSingleCandidates}
-              requiredTechniquesLoading={requiredTechniquesLoading}
-              requiredTechniquesOpen={requiredTechniquesOpen}
-              haptic={haptic ?? false}
-              onTriggerHaptic={onTriggerHaptic}
-              onClearAllColors={clearAllColors}
-              onUndo={undo}
-              onRedo={redo}
-              onFillAllCandidates={fillAllCandidates}
-              onApplySingleCandidates={applySingleCandidatesToDigits}
-              onShowRequiredTechniques={showRequiredTechniques}
-              onToggleHistoryTools={toggleHistoryTools}
-              onMomentaryButtonClick={onMomentaryButtonClick}
-              onModeButtonClick={onModeButtonClick}
-              t={t}
-            />
-          </div>
+          {eraserColorPickerMode ? (
+            <div className="number-pad brush-color-pad" role="toolbar" aria-label={t('board.eraserColorPicker')}>
+              <button
+                type="button"
+                className="brush-color-button brush-color-button--clear"
+                aria-label={t('board.backToEraserActions')}
+                disabled={paused || won}
+                onClick={(event) => onModeButtonClick(event, onToggleEraserColorPicker)}
+              >
+                <MdArrowBack size={20} />
+              </button>
+              {BRUSH_COLORS.map((color, index) => (
+                <button
+                  key={color.id}
+                  type="button"
+                  className="brush-color-button"
+                  aria-label={t('board.brushColor', { index: index + 1 })}
+                  disabled={paused || won}
+                  onClick={(event) => onMomentaryButtonClick(event, () => { onClearSingleColor(color.id as BrushColorId); onToggleEraserColorPicker() }, true)}
+                  style={{ '--annotation-color': color.fill, '--swatch-color': color.swatch } as React.CSSProperties}
+                />
+              ))}
+            </div>
+          ) : (
+            <div
+              className="eraser-action-pad"
+              role="toolbar"
+              aria-label={t('board.eraserActions')}
+            >
+              <ToolActionsPad
+                mode="eraser"
+                paused={paused}
+                won={won}
+                hasAnyColors={hasAnyColors}
+                undoDisabled={undoDisabled}
+                redoDisabled={redoDisabled}
+                hasAnyFillableCell={hasAnyFillableCell}
+                hasSingleCandidates={hasSingleCandidates}
+                requiredTechniquesLoading={requiredTechniquesLoading}
+                requiredTechniquesOpen={requiredTechniquesOpen}
+                haptic={haptic ?? false}
+                onTriggerHaptic={onTriggerHaptic}
+                onClearAllColors={clearAllColors}
+                onUndo={undo}
+                onRedo={redo}
+                onFillAllCandidates={fillAllCandidates}
+                onApplySingleCandidates={applySingleCandidatesToDigits}
+                onShowRequiredTechniques={showRequiredTechniques}
+                onToggleHistoryTools={toggleHistoryTools}
+                onToggleEraserColorPicker={onToggleEraserColorPicker}
+                onMomentaryButtonClick={onMomentaryButtonClick}
+                onModeButtonClick={onModeButtonClick}
+                t={t}
+              />
+            </div>
+          )}
         </div>
       ) : candidateToolMode ? (
         <div className="input-pad-switcher input-pad-switcher--candidate-actions">

@@ -1,5 +1,5 @@
 import React from 'react'
-import { MdUndo, MdRedo, MdOutlineInvertColorsOff, MdLightbulbOutline, MdHistory } from 'react-icons/md'
+import { MdUndo, MdRedo, MdOutlineInvertColorsOff, MdLightbulbOutline, MdHistory, MdPalette } from 'react-icons/md'
 import { FaWandMagicSparkles } from 'react-icons/fa6'
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
@@ -24,6 +24,7 @@ type Props = {
   onApplySingleCandidates: () => void
   onShowRequiredTechniques: () => Promise<unknown>
   onToggleHistoryTools: () => void
+  onToggleEraserColorPicker: () => void
   onMomentaryButtonClick: (event: React.MouseEvent<HTMLButtonElement>, action: () => boolean | void, alwaysHaptic?: boolean) => void
   onModeButtonClick: (event: React.MouseEvent<HTMLButtonElement>, action: () => void) => void
   tabIndex?: number
@@ -40,6 +41,7 @@ export default function ToolActionsPad({
   onUndo, onRedo,
   onFillAllCandidates, onApplySingleCandidates, onShowRequiredTechniques,
   onToggleHistoryTools,
+  onToggleEraserColorPicker,
   onMomentaryButtonClick, onModeButtonClick, tabIndex, t,
 }: Props) {
   if (mode === 'eraser') {
@@ -50,6 +52,12 @@ export default function ToolActionsPad({
           onClick={(event) => onMomentaryButtonClick(event, onClearAllColors, true)} tabIndex={tabIndex}>
           <span className="eraser-action-button__icon" aria-hidden="true"><MdOutlineInvertColorsOff size={20} /></span>
           <span className="eraser-action-button__label">{t('board.cleanColors')}</span>
+        </button>
+        <button type="button" className="eraser-action-button" aria-label={t('board.cleanSingleColor')}
+          disabled={paused || won || !hasAnyColors}
+          onClick={(event) => onModeButtonClick(event, onToggleEraserColorPicker)} tabIndex={tabIndex}>
+          <span className="eraser-action-button__icon" aria-hidden="true"><MdPalette size={20} /></span>
+          <span className="eraser-action-button__label">{t('board.cleanSingleColor')}</span>
         </button>
       </>
     )

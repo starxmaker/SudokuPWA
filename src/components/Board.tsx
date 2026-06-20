@@ -121,6 +121,7 @@ export default function Board({
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null)
   const [notesMode, setNotesMode] = useState(false)
   const [eraserMode, setEraserMode] = useState(false)
+  const [eraserColorPickerMode, setEraserColorPickerMode] = useState(false)
   const [pencilOverlayCell, setPencilOverlayCell] = useState<{ r: number; c: number; rect: { top: number; left: number; width: number; height: number }; initialPointer?: { clientX: number; clientY: number; pointerId: number } } | null>(null)
   const [notes, setNotes] = useState<number[][][]>(() => {
     const saved = loadSaved()
@@ -390,6 +391,7 @@ export default function Board({
     setMoreToolMode(false)
     setBrushMode(false)
     setCandidateToolMode(false)
+    setEraserColorPickerMode(false)
     setCandidateOverlay(null)
     setToolTrayTransition(null)
     setToolTraySequence(null)
@@ -434,6 +436,7 @@ export default function Board({
     setMoreToolMode(false)
     setBrushMode(false)
     setCandidateToolMode(false)
+    setEraserColorPickerMode(false)
     setCandidateOverlay(null)
     setToolTrayTransition(null)
     setToolTraySequence(null)
@@ -619,6 +622,7 @@ export default function Board({
     closeCandidateOverlay()
     setNotesMode(next)
     setEraserMode(false)
+    setEraserColorPickerMode(false)
     setCandidateToolMode(false)
     setHistoryToolMode(false)
     setMoreToolMode(false)
@@ -632,6 +636,7 @@ export default function Board({
     const next = !brushMode
     setBrushMode(next)
     setEraserMode(false)
+    setEraserColorPickerMode(false)
     setCandidateToolMode(false)
     setHistoryToolMode(false)
     setMoreToolMode(false)
@@ -650,6 +655,7 @@ export default function Board({
     closeCandidateOverlay()
     setCandidateToolMode(next)
     setEraserMode(false)
+    setEraserColorPickerMode(false)
     setHistoryToolMode(false)
     setMoreToolMode(false)
     if (next) {
@@ -670,6 +676,7 @@ export default function Board({
     setHistoryToolMode(false)
     setCandidateToolMode(false)
     setEraserMode(false)
+    setEraserColorPickerMode(false)
     setMoreToolMode(prev => !prev)
   }
 
@@ -678,6 +685,7 @@ export default function Board({
     setHistoryToolMode(false)
     setCandidateToolMode(false)
     setMoreToolMode(false)
+    setEraserColorPickerMode(false)
     setEraserMode(prev => !prev)
   }
 
@@ -1130,6 +1138,46 @@ export default function Board({
     return true
   }
 
+  function clearColorFromBoard(colorId: BrushColorId) {
+    const hasColor = cellColorsRef.current.some(row => row.some(cell => cell.includes(colorId)))
+      || candidateColorsRef.current.some(row => row.some(cell => cell.some(candidate => candidate.includes(colorId))))
+    if (!hasColor) return false
+
+    const historyEntry = makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+      flaggedColorCellRef.current,
+    )
+    pushHistoryEntry(historyEntry)
+
+    const nextCellColors: CellColorGrid = cellColorsRef.current.map(row =>
+      row.map(cell => cell.filter(c => c !== colorId))
+    )
+    const nextCandidateColors: CandidateColorGrid = candidateColorsRef.current.map(row =>
+      row.map(cell => cell.map(candidate => candidate.filter(c => c !== colorId)))
+    )
+
+    const nextFlaggedColorCell = resolveFlaggedColorCell(
+      flaggedColorCellRef.current,
+      nextCellColors,
+      nextCandidateColors,
+      false,
+      null,
+      firstColorFlagEnabled,
+    )
+    flaggedColorCellRef.current = nextFlaggedColorCell
+    setCellColors(nextCellColors)
+    setCandidateColors(nextCandidateColors)
+    setFlaggedColorCell(nextFlaggedColorCell)
+    return true
+  }
+
+  function toggleEraserColorPicker() {
+    setEraserColorPickerMode(prev => !prev)
+  }
+
   function undo() {
     const entry = history[history.length - 1]
     if (!entry) return false
@@ -1336,6 +1384,9 @@ export default function Board({
           applyBrushColor={applyBrushColor}
           clearSelectedBrushColors={clearSelectedBrushColors}
           clearAllColors={clearAllColors}
+          eraserColorPickerMode={eraserColorPickerMode}
+          onToggleEraserColorPicker={toggleEraserColorPicker}
+          onClearSingleColor={clearColorFromBoard}
           undo={undo}
           redo={redo}
           fillAllCandidates={fillAllCandidates}
