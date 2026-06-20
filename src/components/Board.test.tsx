@@ -732,6 +732,58 @@ describe('Board component', () => {
     await waitFor(() => expect(view.container.querySelector('.cell-color-layer')).toBeNull())
   })
 
+  it('shows remove all candidates button in eraser mode disabled when no notes exist', async () => {
+    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+
+    const removeCandidatesBtn = screen.getByRole('button', { name: /remove all candidates/i })
+    expect(removeCandidatesBtn).toBeInTheDocument()
+    expect(removeCandidatesBtn).toBeDisabled()
+  })
+
+  it('enables and clears all notes when remove all candidates is clicked', async () => {
+    const notes = emptyNotesGrid()
+    notes[0][2] = [1, 2, 3]
+    notes[4][4] = [5, 9]
+    saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
+
+    const view = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    expect(view.container.querySelectorAll('.cell-note').length).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    const removeCandidatesBtn = screen.getByRole('button', { name: /remove all candidates/i })
+    expect(removeCandidatesBtn).toBeEnabled()
+
+    await user.click(removeCandidatesBtn)
+    await waitFor(() => expect(view.container.querySelectorAll('.cell-note').length).toBe(0))
+  })
+
+  it('undo restores notes cleared by remove all candidates', async () => {
+    const notes = emptyNotesGrid()
+    notes[0][2] = [1, 2, 3]
+    saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
+
+    const view = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    await waitForBoard()
+    const user = userEvent.setup()
+
+    const initialNoteCount = view.container.querySelectorAll('.cell-note').length
+    expect(initialNoteCount).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('button', { name: /eraser mode/i }))
+    await user.click(screen.getByRole('button', { name: /remove all candidates/i }))
+    await waitFor(() => expect(view.container.querySelectorAll('.cell-note').length).toBe(0))
+
+    await user.click(screen.getByRole('button', { name: /^undo$/i }))
+    await waitFor(() => expect(view.container.querySelectorAll('.cell-note').length).toBe(initialNoteCount))
+  })
+
   it('keeps icons in the main tool tray', async () => {
     render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
     await waitForBoard()

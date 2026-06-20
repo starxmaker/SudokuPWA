@@ -138,6 +138,7 @@
   "board.candidateActions": "Acciones de candidatos",
   "board.cleanColors": "Limpiar pintura",
   "board.cleanSingleColor": "Quitar un color",
+  "board.cleanAllNotes": "Quitar todos los candidatos",
   "board.eraserColorPicker": "Selecciona el color a quitar",
   "board.backToEraserActions": "Volver al borrador",
   "board.showAllBasicCandidates": "Mostrar todos los candidatos básicos",

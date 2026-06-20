@@ -1,5 +1,5 @@
 import React from 'react'
-import { MdUndo, MdRedo, MdOutlineInvertColorsOff, MdLightbulbOutline, MdHistory, MdPalette } from 'react-icons/md'
+import { MdUndo, MdRedo, MdOutlineInvertColorsOff, MdLightbulbOutline, MdHistory, MdPalette, MdEditOff } from 'react-icons/md'
 import { FaWandMagicSparkles } from 'react-icons/fa6'
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
@@ -9,6 +9,7 @@ type Props = {
   paused: boolean
   won: boolean
   hasAnyColors: boolean
+  hasAnyNotes?: boolean
   undoDisabled: boolean
   redoDisabled: boolean
   hasAnyFillableCell: boolean
@@ -18,13 +19,14 @@ type Props = {
   haptic: boolean
   onTriggerHaptic?: () => void
   onClearAllColors: () => boolean | void
+  onClearAllNotes?: () => boolean | void
   onUndo: () => boolean | void
   onRedo: () => boolean | void
   onFillAllCandidates: () => boolean | void
   onApplySingleCandidates: () => void
   onShowRequiredTechniques: () => Promise<unknown>
   onToggleHistoryTools: () => void
-  onToggleEraserColorPicker: () => void
+  onToggleEraserColorPicker?: () => void
   onMomentaryButtonClick: (event: React.MouseEvent<HTMLButtonElement>, action: () => boolean | void, alwaysHaptic?: boolean) => void
   onModeButtonClick: (event: React.MouseEvent<HTMLButtonElement>, action: () => void) => void
   tabIndex?: number
@@ -34,10 +36,12 @@ type Props = {
 export default function ToolActionsPad({
   mode, paused, won,
   hasAnyColors,
+  hasAnyNotes,
   undoDisabled, redoDisabled,
   hasAnyFillableCell, hasSingleCandidates,
   requiredTechniquesLoading, requiredTechniquesOpen, haptic, onTriggerHaptic,
   onClearAllColors,
+  onClearAllNotes,
   onUndo, onRedo,
   onFillAllCandidates, onApplySingleCandidates, onShowRequiredTechniques,
   onToggleHistoryTools,
@@ -55,9 +59,15 @@ export default function ToolActionsPad({
         </button>
         <button type="button" className="eraser-action-button" aria-label={t('board.cleanSingleColor')}
           disabled={paused || won || !hasAnyColors}
-          onClick={(event) => onModeButtonClick(event, onToggleEraserColorPicker)} tabIndex={tabIndex}>
+          onClick={(event) => onModeButtonClick(event, onToggleEraserColorPicker ?? (() => {}))} tabIndex={tabIndex}>
           <span className="eraser-action-button__icon" aria-hidden="true"><MdPalette size={20} /></span>
           <span className="eraser-action-button__label">{t('board.cleanSingleColor')}</span>
+        </button>
+        <button type="button" className="eraser-action-button" aria-label={t('board.cleanAllNotes')}
+          disabled={paused || won || !hasAnyNotes}
+          onClick={(event) => onMomentaryButtonClick(event, onClearAllNotes ?? (() => false), true)} tabIndex={tabIndex}>
+          <span className="eraser-action-button__icon" aria-hidden="true"><MdEditOff size={20} /></span>
+          <span className="eraser-action-button__label">{t('board.cleanAllNotes')}</span>
         </button>
       </>
     )

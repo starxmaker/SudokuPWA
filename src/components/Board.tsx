@@ -1138,6 +1138,39 @@ export default function Board({
     return true
   }
 
+  function clearAllNotes() {
+    const hasNotes = notesRef.current.some(row => row.some(cell => cell.length > 0))
+    if (!hasNotes) return false
+
+    const historyEntry = makeHistoryEntry(
+      internalPuzzle,
+      notesRef.current,
+      cellColorsRef.current,
+      candidateColorsRef.current,
+      flaggedColorCellRef.current,
+    )
+    pushHistoryEntry(historyEntry)
+
+    const emptyNotesGrid: number[][][] = Array.from({ length: 9 }, () =>
+      Array.from({ length: 9 }, () => [])
+    )
+    const nextCandidateColors = emptyCandidateColors()
+
+    const nextFlaggedColorCell = resolveFlaggedColorCell(
+      flaggedColorCellRef.current,
+      cellColorsRef.current,
+      nextCandidateColors,
+      false,
+      null,
+      firstColorFlagEnabled,
+    )
+    flaggedColorCellRef.current = nextFlaggedColorCell
+    setNotes(emptyNotesGrid)
+    setCandidateColors(nextCandidateColors)
+    setFlaggedColorCell(nextFlaggedColorCell)
+    return true
+  }
+
   function clearColorFromBoard(colorId: BrushColorId) {
     const hasColor = cellColorsRef.current.some(row => row.some(cell => cell.includes(colorId)))
       || candidateColorsRef.current.some(row => row.some(cell => cell.some(candidate => candidate.includes(colorId))))
@@ -1202,6 +1235,7 @@ export default function Board({
     row.some((n, c) => !isClue(r, c) && n === 0 && notes[r][c].length === 0)
   )
   const hasAnyColors = hasAnyBrushColorsOnBoard(cellColors, candidateColors)
+  const hasAnyNotes = notes.some(row => row.some(cell => cell.length > 0))
   useEffect(() => {
     onClearPaintingAvailabilityChange?.(hasAnyColors)
   }, [hasAnyColors, onClearPaintingAvailabilityChange])
@@ -1367,6 +1401,7 @@ export default function Board({
           measureNotesButtonRef={measureNotesButtonRef}
           measureBrushButtonRef={measureBrushButtonRef}
           hasAnyColors={hasAnyColors}
+          hasAnyNotes={hasAnyNotes}
           undoDisabled={undoDisabled}
           redoDisabled={redoDisabled}
           hasAnyFillableCell={hasAnyFillableCell}
@@ -1384,6 +1419,7 @@ export default function Board({
           applyBrushColor={applyBrushColor}
           clearSelectedBrushColors={clearSelectedBrushColors}
           clearAllColors={clearAllColors}
+          onClearAllNotes={clearAllNotes}
           eraserColorPickerMode={eraserColorPickerMode}
           onToggleEraserColorPicker={toggleEraserColorPicker}
           onClearSingleColor={clearColorFromBoard}
