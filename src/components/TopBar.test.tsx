@@ -86,11 +86,10 @@ describe('TopBar', () => {
     expect(onOpenInfo).toHaveBeenCalledOnce()
   })
 
-  it('does not show clean painting or clean drawings in the side menu', async () => {
+  it('does not show clean painting in the side menu', async () => {
     render(<TopBar onOpenSettings={vi.fn()} onOpenInfo={vi.fn()} onShare={vi.fn()} onRestart={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /menu/i }))
     expect(screen.queryByRole('menuitem', { name: /clean painting/i })).toBeNull()
-    expect(screen.queryByRole('menuitem', { name: /clean drawings/i })).toBeNull()
   })
 
   it('keeps icons for the remaining side menu items', async () => {

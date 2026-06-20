@@ -12,7 +12,6 @@ const GAME_PERSIST_ACTIONS = new Set([
   'game/setNotes',
   'game/setCellColors',
   'game/setCandidateColors',
-  'game/setDrawingStrokes',
   'game/setFlaggedColorCell',
   'game/setInitial',
   'game/setSolution',
@@ -20,7 +19,6 @@ const GAME_PERSIST_ACTIONS = new Set([
   'game/startNewGame',
   'game/handleRetry',
   'game/clearAllColors',
-  'game/clearAllDrawings',
   'game/undo',
   'game/redo',
   'game/applyDigit',
@@ -83,7 +81,6 @@ function persistSettings(state: RootState) {
   saveBrushPrefs(
     s.brushPrefs?.activeColors ?? [],
     s.paintingScope === 'candidate',
-    s.brushPrefs?.activeDrawingColors ?? [],
     s.firstColorFlag,
   )
 }
@@ -99,7 +96,6 @@ function persistGame(state: RootState) {
     g.notes,
     g.cellColors,
     g.candidateColors,
-    g.drawingStrokes,
     g.flaggedColorCell,
     g.puzzleMetadata,
   )

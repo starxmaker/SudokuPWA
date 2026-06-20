@@ -7,7 +7,7 @@ import NewGameModal from './components/NewGameModal'
 import PuzzleInfoModal from './components/PuzzleInfoModal'
 import PuzzleCreator from './components/PuzzleCreator'
 import { loadSaved, loadCompleted, encodeGrid } from './utils/gameStorage'
-import { initHaptic, triggerHaptic, triggerErrorHaptic } from './utils/haptic'
+import { triggerHaptic, triggerErrorHaptic } from './utils/haptic'
 import type { Grid } from './utils/sudoku'
 import {
   getPuzzleQueueAvailability,
@@ -77,8 +77,6 @@ export default function App(){
     if (theme === 'dark') root.classList.add('dark')
     else root.classList.remove('dark')
   }, [theme])
-
-  useEffect(() => { initHaptic() }, [])
 
   const [puzzleAvailability, setPuzzleAvailability] = useState<PuzzleQueueAvailability>(() => getPuzzleQueueAvailability())
   useEffect(() => {

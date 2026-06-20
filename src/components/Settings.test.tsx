@@ -19,7 +19,7 @@ const BASE_SETTINGS: SettingsState = {
   paintingScope: 'digit',
   puzzleGenerationCount: 1,
   difficulty: null,
-  brushPrefs: { activeColors: [], activeDrawingColors: [], candidateMode: false, firstColorFlagEnabled: true },
+  brushPrefs: { activeColors: [], candidateMode: false, firstColorFlagEnabled: true },
 }
 
 function renderSettings(open = true) {

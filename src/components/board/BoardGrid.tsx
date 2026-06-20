@@ -20,7 +20,6 @@ type Props = {
   won: boolean
   autoCheck?: boolean
   brushMode: boolean
-  drawingMode: boolean
   eraserMode: boolean
   pencilMode?: boolean
   candidateBrushMode: boolean
@@ -70,7 +69,6 @@ export default function BoardGrid({
   won,
   autoCheck,
   brushMode,
-  drawingMode,
   eraserMode,
   pencilMode,
   candidateBrushMode,
@@ -152,7 +150,7 @@ export default function BoardGrid({
               return
             }
 
-            if (pencilMode && brushMode && !drawingMode && !paused && !won) {
+            if (pencilMode && brushMode && !paused && !won) {
               e.preventDefault()
               closeCandidateOverlay()
               focusCell(r, c)
@@ -173,7 +171,7 @@ export default function BoardGrid({
               return
             }
 
-            if (pencilMode && !brushMode && !drawingMode && !paused && !won) {
+            if (pencilMode && !brushMode && !paused && !won) {
               e.preventDefault()
               if (haptic) onTriggerHaptic?.()
               if (!clue && internalPuzzle[r][c] === 0) {

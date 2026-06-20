@@ -1,6 +1,5 @@
 import React from 'react'
-import { MdUndo, MdRedo, MdOutlineInvertColorsOff, MdLightbulbOutline, MdHistory, MdDraw } from 'react-icons/md'
-import { PiPencilSlash } from 'react-icons/pi'
+import { MdUndo, MdRedo, MdOutlineInvertColorsOff, MdLightbulbOutline, MdHistory, MdPalette } from 'react-icons/md'
 import { FaWandMagicSparkles } from 'react-icons/fa6'
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
@@ -10,7 +9,6 @@ type Props = {
   paused: boolean
   won: boolean
   hasAnyColors: boolean
-  hasAnyDrawings: boolean
   undoDisabled: boolean
   redoDisabled: boolean
   hasAnyFillableCell: boolean
@@ -20,14 +18,13 @@ type Props = {
   haptic: boolean
   onTriggerHaptic?: () => void
   onClearAllColors: () => boolean | void
-  onClearAllDrawings: () => boolean | void
   onUndo: () => boolean | void
   onRedo: () => boolean | void
   onFillAllCandidates: () => boolean | void
   onApplySingleCandidates: () => void
   onShowRequiredTechniques: () => Promise<unknown>
   onToggleHistoryTools: () => void
-  onToggleDrawingTools: () => void
+  onToggleEraserColorPicker: () => void
   onMomentaryButtonClick: (event: React.MouseEvent<HTMLButtonElement>, action: () => boolean | void, alwaysHaptic?: boolean) => void
   onModeButtonClick: (event: React.MouseEvent<HTMLButtonElement>, action: () => void) => void
   tabIndex?: number
@@ -36,14 +33,15 @@ type Props = {
 
 export default function ToolActionsPad({
   mode, paused, won,
-  hasAnyColors, hasAnyDrawings,
+  hasAnyColors,
   undoDisabled, redoDisabled,
   hasAnyFillableCell, hasSingleCandidates,
   requiredTechniquesLoading, requiredTechniquesOpen, haptic, onTriggerHaptic,
-  onClearAllColors, onClearAllDrawings,
+  onClearAllColors,
   onUndo, onRedo,
   onFillAllCandidates, onApplySingleCandidates, onShowRequiredTechniques,
-  onToggleHistoryTools, onToggleDrawingTools,
+  onToggleHistoryTools,
+  onToggleEraserColorPicker,
   onMomentaryButtonClick, onModeButtonClick, tabIndex, t,
 }: Props) {
   if (mode === 'eraser') {
@@ -55,11 +53,11 @@ export default function ToolActionsPad({
           <span className="eraser-action-button__icon" aria-hidden="true"><MdOutlineInvertColorsOff size={20} /></span>
           <span className="eraser-action-button__label">{t('board.cleanColors')}</span>
         </button>
-        <button type="button" className="eraser-action-button" aria-label={t('board.cleanDrawings')}
-          disabled={paused || won || !hasAnyDrawings}
-          onClick={(event) => onMomentaryButtonClick(event, onClearAllDrawings, true)} tabIndex={tabIndex}>
-          <span className="eraser-action-button__icon" aria-hidden="true"><PiPencilSlash size={20} /></span>
-          <span className="eraser-action-button__label">{t('board.cleanDrawings')}</span>
+        <button type="button" className="eraser-action-button" aria-label={t('board.cleanSingleColor')}
+          disabled={paused || won || !hasAnyColors}
+          onClick={(event) => onModeButtonClick(event, onToggleEraserColorPicker)} tabIndex={tabIndex}>
+          <span className="eraser-action-button__icon" aria-hidden="true"><MdPalette size={20} /></span>
+          <span className="eraser-action-button__label">{t('board.cleanSingleColor')}</span>
         </button>
       </>
     )
@@ -92,12 +90,6 @@ export default function ToolActionsPad({
           onClick={(event) => onModeButtonClick(event, onToggleHistoryTools)} tabIndex={tabIndex}>
           <span className="eraser-action-button__icon" aria-hidden="true"><MdHistory size={20} /></span>
           <span className="eraser-action-button__label">{t('board.historyShort')}</span>
-        </button>
-        <button type="button" className="eraser-action-button" aria-label={t('board.freeDrawingShort')}
-          disabled={paused || won}
-          onClick={(event) => onModeButtonClick(event, onToggleDrawingTools)} tabIndex={tabIndex}>
-          <span className="eraser-action-button__icon" aria-hidden="true"><MdDraw size={20} /></span>
-          <span className="eraser-action-button__label">{t('board.freeDrawingShort')}</span>
         </button>
       </>
     )

@@ -1,12 +1,10 @@
 import {
-  cloneDrawingStrokes,
   cloneNotes,
   cloneCellColors as cloneCellColorsStorage,
   cloneCandidateColors as cloneCandidateColorsStorage,
   cloneFlaggedColorCell as cloneFlaggedColorCellStorage,
   type CellColorGrid,
   type CandidateColorGrid,
-  type DrawingStroke,
   type FlaggedColorCell,
 } from '../../utils/gameStorage'
 import type { Grid } from '../../utils/sudoku'
@@ -26,10 +24,6 @@ export function cloneCellColorsGrid(colors: CellColorGrid): CellColorGrid {
 
 export function cloneCandidateColorsGrid(colors: CandidateColorGrid): CandidateColorGrid {
   return cloneCandidateColorsStorage(colors)
-}
-
-export function cloneDrawingStrokesGrid(strokes: DrawingStroke[]) {
-  return cloneDrawingStrokes(strokes)
 }
 
 export function cloneFlaggedColorCell(cell: FlaggedColorCell): FlaggedColorCell {
@@ -91,7 +85,6 @@ export function makeHistoryEntry(
   notes: number[][][],
   cellColors: CellColorGrid,
   candidateColors: CandidateColorGrid,
-  drawingStrokes: DrawingStroke[],
   flaggedColorCell: FlaggedColorCell,
 ): BoardHistoryEntry {
   return {
@@ -99,7 +92,6 @@ export function makeHistoryEntry(
     notes: cloneNotesGrid(notes),
     cellColors: cloneCellColorsGrid(cellColors),
     candidateColors: cloneCandidateColorsGrid(candidateColors),
-    drawingStrokes: cloneDrawingStrokesGrid(drawingStrokes),
     flaggedColorCell: cloneFlaggedColorCell(flaggedColorCell),
   }
 }
@@ -125,8 +117,6 @@ export const BRUSH_SWATCH_MAP: Record<BrushColorId, string> = Object.fromEntries
 
 export const DEFAULT_BRUSH_COLOR: BrushColorId = BRUSH_COLORS[0].id
 
-export const DRAWING_STROKE_WIDTH = 0.018
-
 export const COORDINATE_ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
 
 export const COORDINATE_COLUMN_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
@@ -150,7 +140,7 @@ export function buildBrushFill(colorIds: readonly string[]) {
   return `linear-gradient(90deg, ${stops.join(', ')})`
 }
 
-export type ToolTrayView = 'main' | 'notes' | 'brush' | 'drawing'
+export type ToolTrayView = 'main' | 'notes' | 'brush'
 export type ToolTrayTransition = {
   from: ToolTrayView
   to: ToolTrayView

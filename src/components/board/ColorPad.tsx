@@ -5,9 +5,7 @@ import type { BrushColorId } from '../../store/gameTypes'
 type TFunc = (key: string, params?: Record<string, string | number>) => string
 
 type Props = {
-  drawingMode: boolean
   activeBrushColor: BrushColorId
-  activeDrawingColor: BrushColorId
   paused: boolean
   won: boolean
   selectedHasAnyColors: boolean
@@ -19,12 +17,12 @@ type Props = {
 }
 
 export default function ColorPad({
-  drawingMode, activeBrushColor, activeDrawingColor,
+  activeBrushColor,
   paused, won, selectedHasAnyColors,
   applyBrushColor, clearSelectedBrushColors, onMomentaryButtonClick,
   tabIndex, t,
 }: Props) {
-  const activePaletteColor = drawingMode ? activeDrawingColor : activeBrushColor
+  const activePaletteColor = activeBrushColor
   return (
     <>
       {BRUSH_COLORS.map((color, index) => (

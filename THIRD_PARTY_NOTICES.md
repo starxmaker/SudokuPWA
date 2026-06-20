@@ -16,7 +16,6 @@ Sudoku PWA is distributed under the GNU General Public License, version 3 or any
 | `react` | `18.3.1` | UI runtime | MIT | <https://github.com/facebook/react> |
 | `react-dom` | `18.3.1` | DOM renderer for the React app | MIT | <https://github.com/facebook/react> |
 | `@khmyznikov/pwa-install` | `0.6.3` | Install prompt custom element used on the home screen | MIT | <https://github.com/khmyznikov/pwa-install> |
-| `web-haptics` | `0.0.6` | Haptic feedback support | MIT | <https://github.com/lochie/web-haptics> |
 | `react-icons` | `5.6.0` | React wrapper that ships the icon component code used by the UI | MIT | <https://github.com/react-icons/react-icons> |
 | `workbox-sw` / `workbox-window` and related Workbox runtime modules | `7.4.0` | Service worker runtime files emitted into `dist\` by `vite-plugin-pwa` | MIT | <https://github.com/GoogleChrome/workbox> |
 
@@ -34,7 +33,7 @@ The app uses `react-icons@5.6.0` as an MIT-licensed wrapper that exposes icon se
 
 | Import path | Upstream icon family | License | Used icons in this app | Source |
 | --- | --- | --- | --- | --- |
-| `react-icons/md` | Material Design Icons | Apache-2.0 | `MdArrowBack`, `MdContentCopy`, `MdDraw`, `MdHistory`, `MdLightbulbOutline`, `MdMoreHoriz`, `MdOutlineInvertColorsOff`, `MdPause`, `MdPlayArrow`, `MdRedo`, `MdUndo` | <https://github.com/google/material-design-icons> |
+| `react-icons/md` | Material Design Icons | Apache-2.0 | `MdArrowBack`, `MdContentCopy`, `MdHistory`, `MdLightbulbOutline`, `MdMoreHoriz`, `MdOutlineInvertColorsOff`, `MdPalette`, `MdPause`, `MdPlayArrow`, `MdRedo`, `MdUndo` | <https://github.com/google/material-design-icons> |
 | `react-icons/bs` | Bootstrap Icons | MIT | `BsThreeDots` | <https://icons.getbootstrap.com/> |
 | `react-icons/im` | IcoMoon Free | CC BY 4.0 | `ImNewTab` | <https://github.com/Keyamoon/IcoMoon-Free> |
 | `react-icons/fa` | Font Awesome 5 | CC BY 4.0 | `FaEraser`, `FaGithub` | <https://fontawesome.com/> |
@@ -74,7 +73,6 @@ npm pack react@18.3.1
 npm pack react-dom@18.3.1
 npm pack @khmyznikov/pwa-install@0.6.3
 npm pack react-icons@5.6.0
-npm pack web-haptics@0.0.6
 npm pack workbox-window@7.4.0
 npm pack workbox-sw@7.4.0
 npm pack browser-handwritten-digit-recognition@1.0.1

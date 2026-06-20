@@ -4,7 +4,6 @@ import { DEFAULT_PUZZLE_GENERATION_COUNT, normalizePuzzleGenerationCount } from 
 
 type BrushPrefs = {
   activeColors: string[]
-  activeDrawingColors: string[]
   candidateMode: boolean
   firstColorFlagEnabled: boolean
 }
@@ -45,7 +44,6 @@ export const settingsSlice = createSlice({
     difficulty: null as string | null,
     brushPrefs: {
       activeColors: [] as string[],
-      activeDrawingColors: [] as string[],
       candidateMode: false as boolean,
       firstColorFlagEnabled: true as boolean,
     } as BrushPrefs,
@@ -94,7 +92,7 @@ export const settingsSlice = createSlice({
       state.firstColorFlag = false
       state.paintingScope = 'digit'
       state.puzzleGenerationCount = DEFAULT_PUZZLE_GENERATION_COUNT
-      state.brushPrefs = { activeColors: [], activeDrawingColors: [], candidateMode: false, firstColorFlagEnabled: true }
+      state.brushPrefs = { activeColors: [], candidateMode: false, firstColorFlagEnabled: true }
       state.difficulty = null
     },
   },

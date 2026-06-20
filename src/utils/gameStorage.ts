@@ -9,12 +9,6 @@ export type CandidateColorCell = CellColorValue[]
 export type CellColorGrid = CellColorValue[][]
 export type CandidateColorGrid = CandidateColorCell[][]
 export type FlaggedColorCell = { r: number; c: number } | null
-export type DrawingPoint = [number, number]
-export type DrawingStroke = {
-  color: string
-  points: DrawingPoint[]
-}
-export type DrawingStrokes = DrawingStroke[]
 export type PuzzleSource = 'generated' | 'preloaded' | 'imported' | 'created'
 export type PuzzleMetadata = {
   source: PuzzleSource
@@ -30,7 +24,6 @@ type SavedV9 = {
   notes: number[][][]
   cellColors: CellColorGrid
   candidateColors: CandidateColorGrid
-  drawingStrokes: DrawingStrokes
   flaggedColorCell: FlaggedColorCell
   puzzleMetadata: PuzzleMetadata | null
 }
@@ -66,17 +59,6 @@ function clonePuzzleMetadata(metadata: PuzzleMetadata | null | undefined): Puzzl
   }
 }
 
-function cloneDrawingPoint([x, y]: DrawingPoint): DrawingPoint {
-  return [x, y]
-}
-
-export function cloneDrawingStrokes(strokes: DrawingStrokes): DrawingStrokes {
-  return strokes.map(stroke => ({
-    color: stroke.color,
-    points: stroke.points.map(cloneDrawingPoint),
-  }))
-}
-
 function emptyNotes(): number[][][] {
   return Array.from({length: 9}, () => Array.from({length: 9}, () => []))
 }
@@ -90,10 +72,6 @@ export function emptyCandidateColors(): CandidateColorGrid {
     { length: 9 },
     () => Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as string[])),
   )
-}
-
-export function emptyDrawingStrokes(): DrawingStrokes {
-  return []
 }
 
 function normalizeColorValue(value: unknown): string[] {
@@ -126,40 +104,6 @@ function normalizeCandidateColors(colors: unknown): CandidateColorGrid {
       ? row.map(cell => normalizeCandidateCell(cell))
       : Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as string[])),
   )
-}
-
-function normalizeDrawingPoint(point: unknown): DrawingPoint | null {
-  if (!Array.isArray(point) || point.length !== 2) return null
-  const [x, y] = point
-  if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) {
-    return null
-  }
-  return [
-    Math.max(0, Math.min(1, x)),
-    Math.max(0, Math.min(1, y)),
-  ]
-}
-
-function normalizeDrawingStroke(stroke: unknown): DrawingStroke | null {
-  if (!stroke || typeof stroke !== 'object') {
-    return null
-  }
-  const candidate = stroke as { color?: unknown; points?: unknown }
-  if (typeof candidate.color !== 'string' || !Array.isArray(candidate.points)) {
-    return null
-  }
-  const points = candidate.points
-    .map(point => normalizeDrawingPoint(point))
-    .filter((point): point is DrawingPoint => point !== null)
-  if (points.length === 0) return null
-  return { color: candidate.color, points }
-}
-
-function normalizeDrawingStrokes(strokes: unknown): DrawingStrokes {
-  if (!Array.isArray(strokes)) return emptyDrawingStrokes()
-  return strokes
-    .map(stroke => normalizeDrawingStroke(stroke))
-    .filter((stroke): stroke is DrawingStroke => stroke !== null)
 }
 
 function normalizeFlaggedColorCell(cell: unknown): FlaggedColorCell {
@@ -208,7 +152,6 @@ export function loadSaved(): {
   notes: number[][][]
   cellColors: CellColorGrid
   candidateColors: CandidateColorGrid
-  drawingStrokes: DrawingStrokes
   flaggedColorCell: FlaggedColorCell
   puzzleMetadata: PuzzleMetadata | null
 } | null {
@@ -226,7 +169,6 @@ export function loadSaved(): {
             notes: emptyNotes(),
             cellColors: emptyCellColors(),
             candidateColors: emptyCandidateColors(),
-            drawingStrokes: emptyDrawingStrokes(),
             flaggedColorCell: null,
             puzzleMetadata: null,
           }
@@ -240,7 +182,6 @@ export function loadSaved(): {
             notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
             cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
-            drawingStrokes: parsed.drawingStrokes ? normalizeDrawingStrokes(parsed.drawingStrokes) : emptyDrawingStrokes(),
             flaggedColorCell: normalizeFlaggedColorCell(parsed.flaggedColorCell),
             puzzleMetadata: normalizePuzzleMetadata(parsed.puzzleMetadata),
           }
@@ -253,7 +194,6 @@ export function loadSaved(): {
             notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
             cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
-            drawingStrokes: parsed.drawingStrokes ? normalizeDrawingStrokes(parsed.drawingStrokes) : emptyDrawingStrokes(),
             flaggedColorCell: normalizeFlaggedColorCell(parsed.flaggedColorCell),
             puzzleMetadata: null,
           }
@@ -266,7 +206,6 @@ export function loadSaved(): {
             notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
             cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
-            drawingStrokes: parsed.drawingStrokes ? normalizeDrawingStrokes(parsed.drawingStrokes) : emptyDrawingStrokes(),
             flaggedColorCell: null,
             puzzleMetadata: null,
           }
@@ -279,7 +218,6 @@ export function loadSaved(): {
             notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
             cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
-            drawingStrokes: emptyDrawingStrokes(),
             flaggedColorCell: null,
             puzzleMetadata: null,
           }
@@ -292,7 +230,6 @@ export function loadSaved(): {
             notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
             cellColors: parsed.cellColors ? normalizeCellColors(parsed.cellColors) : emptyCellColors(),
             candidateColors: parsed.candidateColors ? normalizeCandidateColors(parsed.candidateColors) : emptyCandidateColors(),
-            drawingStrokes: emptyDrawingStrokes(),
             flaggedColorCell: null,
             puzzleMetadata: null,
           }
@@ -305,7 +242,6 @@ export function loadSaved(): {
             notes: parsed.notes ? cloneNotes(parsed.notes) : emptyNotes(),
             cellColors: emptyCellColors(),
             candidateColors: emptyCandidateColors(),
-            drawingStrokes: emptyDrawingStrokes(),
             flaggedColorCell: null,
             puzzleMetadata: null,
           }
@@ -319,7 +255,6 @@ export function loadSaved(): {
             notes: emptyNotes(),
             cellColors: emptyCellColors(),
             candidateColors: emptyCandidateColors(),
-            drawingStrokes: emptyDrawingStrokes(),
             flaggedColorCell: null,
             puzzleMetadata: null,
           }
@@ -350,7 +285,6 @@ export const BRUSH_PREFS_KEY = 'sudoku-pwa-brush-prefs'
 
 type BrushPrefs = {
   activeColors: string[]
-  activeDrawingColors: string[]
   candidateMode: boolean
   firstColorFlagEnabled: boolean
 }
@@ -374,13 +308,11 @@ export function clearElapsed(): void {
 export function saveBrushPrefs(
   activeColors: string[],
   candidateMode: boolean,
-  activeDrawingColors: string[],
   firstColorFlagEnabled = true,
 ): void {
   try {
     const payload: BrushPrefs = {
       activeColors: [...activeColors],
-      activeDrawingColors: [...activeDrawingColors],
       candidateMode,
       firstColorFlagEnabled,
     }
@@ -403,15 +335,9 @@ export function loadBrushPrefs(): BrushPrefs | null {
         : typeof parsed.activeColor === 'string'
           ? [parsed.activeColor]
           : []
-      const activeDrawingColors = Array.isArray(parsed.activeDrawingColors)
-        ? parsed.activeDrawingColors.filter((entry): entry is string => typeof entry === 'string')
-        : typeof parsed.activeDrawingColor === 'string'
-          ? [parsed.activeDrawingColor]
-          : []
 
       return {
         activeColors,
-        activeDrawingColors,
         candidateMode: parsed.candidateMode,
         firstColorFlagEnabled: parsed.firstColorFlagEnabled !== false,
       }
@@ -427,7 +353,6 @@ export function saveGame(
   notes: number[][][] = emptyNotes(),
   cellColors: CellColorGrid = emptyCellColors(),
   candidateColors: CandidateColorGrid = emptyCandidateColors(),
-  drawingStrokes: DrawingStrokes = emptyDrawingStrokes(),
   flaggedColorCell: FlaggedColorCell = null,
   puzzleMetadata: PuzzleMetadata | null = null,
 ): void {
@@ -440,7 +365,6 @@ export function saveGame(
       notes: cloneNotes(notes),
       cellColors: cloneCellColors(cellColors),
       candidateColors: cloneCandidateColors(candidateColors),
-      drawingStrokes: cloneDrawingStrokes(drawingStrokes),
       flaggedColorCell: cloneFlaggedColorCell(flaggedColorCell),
       puzzleMetadata: clonePuzzleMetadata(puzzleMetadata),
     }
