@@ -5,7 +5,6 @@ import PencilOverlay from './PencilOverlay'
 import {
   type CandidateColorGrid,
   type CellColorGrid,
-  type DrawingStroke,
   type FlaggedColorCell,
   type PuzzleMetadata,
   loadSaved,
@@ -18,15 +17,14 @@ import {
   saveBrushPrefs,
   emptyCellColors,
   emptyCandidateColors,
-  emptyDrawingStrokes,
 } from '../utils/gameStorage'
 import { useI18n } from '../utils/i18n'
 import type { RequiredTechniques } from '../utils/generators/hodoku'
 import type { BoardHistoryEntry, BrushColorId } from '../store/gameTypes'
 import {
   cloneGrid, cloneNotesGrid, cloneCellColorsGrid, cloneCandidateColorsGrid,
-  cloneDrawingStrokesGrid, cloneFlaggedColorCell, makeHistoryEntry,
-  BRUSH_COLORS, BRUSH_SWATCH_MAP, DEFAULT_BRUSH_COLOR,
+  cloneFlaggedColorCell, makeHistoryEntry,
+  BRUSH_COLORS, DEFAULT_BRUSH_COLOR,
   toggleColorInSelection,
   type ToolTrayView, type ToolTrayTransition, type LowerPadView,
   type LowerPadTransition,
@@ -61,10 +59,8 @@ type Props = {
   firstColorFlag?: boolean
   restartRef?: React.MutableRefObject<(() => void) | null>
   clearColorsRef?: React.MutableRefObject<(() => void) | null>
-  clearDrawingsRef?: React.MutableRefObject<(() => void) | null>
   identifyCandidatesRef?: React.MutableRefObject<(() => void) | null>
   onClearPaintingAvailabilityChange?: (available: boolean) => void
-  onClearDrawingsAvailabilityChange?: (available: boolean) => void
   onIdentifyCandidatesAvailabilityChange?: (available: boolean) => void
   paintingScope?: 'digit' | 'candidate'
   puzzleMetadata?: PuzzleMetadata | null
@@ -90,10 +86,8 @@ export default function Board({
   firstColorFlag,
   restartRef,
   clearColorsRef,
-  clearDrawingsRef,
   identifyCandidatesRef,
   onClearPaintingAvailabilityChange,
-  onClearDrawingsAvailabilityChange,
   onIdentifyCandidatesAvailabilityChange,
   paintingScope,
   puzzleMetadata,
@@ -147,12 +141,6 @@ export default function Board({
   })
   const candidateColorsRef = React.useRef(candidateColors)
   candidateColorsRef.current = candidateColors
-  const [drawingStrokes, setDrawingStrokes] = useState<DrawingStroke[]>(() => {
-    const saved = loadSaved()
-    return saved?.drawingStrokes ? saved.drawingStrokes : emptyDrawingStrokes()
-  })
-  const drawingStrokesRef = React.useRef(drawingStrokes)
-  drawingStrokesRef.current = drawingStrokes
   const [flaggedColorCell, setFlaggedColorCell] = useState<FlaggedColorCell>(() => {
     const saved = loadSaved()
     return saved?.flaggedColorCell ? saved.flaggedColorCell : null
@@ -161,9 +149,6 @@ export default function Board({
   const activePuzzleMetadata = puzzleMetadata ?? savedPuzzleMetadata
   const flaggedColorCellRef = React.useRef(flaggedColorCell)
   flaggedColorCellRef.current = flaggedColorCell
-  const [drawingDraft, setDrawingDraft] = useState<DrawingStroke | null>(null)
-  const drawingDraftRef = React.useRef(drawingDraft)
-  drawingDraftRef.current = drawingDraft
   const [history, setHistory] = useState<BoardHistoryEntry[]>([])
   const [redoHistory, setRedoHistory] = useState<BoardHistoryEntry[]>([])
   // Guards against touch ghost-click: onPointerDown applies immediately, and onClick skips re-applying.
@@ -178,17 +163,11 @@ export default function Board({
   const [finalTime, setFinalTime] = useState(0)
   // shareCopied → VictoryOverlay component
   const [brushMode, setBrushMode] = useState(false)
-  const [drawingMode, setDrawingMode] = useState(false)
   const [candidateToolMode, setCandidateToolMode] = useState(false)
   const [historyToolMode, setHistoryToolMode] = useState(false)
   const [moreToolMode, setMoreToolMode] = useState(false)
   const [activeBrushColor, setActiveBrushColor] = useState<BrushColorId>(() => {
     const savedColors = savedBrushPrefs?.activeColors
-      ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
-    return savedColors && savedColors.length > 0 ? savedColors[0] : DEFAULT_BRUSH_COLOR
-  })
-  const [activeDrawingColor, setActiveDrawingColor] = useState<BrushColorId>(() => {
-    const savedColors = savedBrushPrefs?.activeDrawingColors
       ?.filter((color): color is BrushColorId => BRUSH_COLORS.some(brushColor => brushColor.id === color))
     return savedColors && savedColors.length > 0 ? savedColors[0] : DEFAULT_BRUSH_COLOR
   })
@@ -206,7 +185,6 @@ export default function Board({
   const [visibleLowerPad, setVisibleLowerPad] = useState<LowerPadView>('numbers')
   const [lowerPadTransition, setLowerPadTransition] = useState<LowerPadTransition | null>(null)
   const lowerPadTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
-  const drawingPointerIdRef = React.useRef<number | null>(null)
   const boardRef = React.useRef<HTMLDivElement | null>(null)
   const techniquesRef = React.useRef<TechniquesSidebarHandle>(null)
   const toolTrayRef = React.useRef<HTMLDivElement | null>(null)
@@ -222,16 +200,14 @@ export default function Board({
   )
   const mainNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const mainBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
-  const mainDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
+  const mainMoreButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const activeNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const activeBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
-  const activeDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const measureMainNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const measureMainBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
-  const measureMainDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
+  const measureMainMoreButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const measureNotesButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const measureBrushButtonRef = React.useRef<HTMLButtonElement | null>(null)
-  const measureDrawingButtonRef = React.useRef<HTMLButtonElement | null>(null)
 
   const closeCandidateOverlay = React.useCallback((preserveSelectedDigit = false) => {
     setCandidateOverlay(null)
@@ -241,17 +217,9 @@ export default function Board({
     }
   }, [])
 
-  function disableDrawingMode() {
-    setDrawingDraft(null)
-    drawingPointerIdRef.current = null
-    setDrawingMode(false)
-  }
-
   const updatePaused = React.useCallback((next: boolean) => {
     if (next) {
       closeCandidateOverlay()
-      setDrawingDraft(null)
-      drawingPointerIdRef.current = null
     }
     setPaused(next)
   }, [closeCandidateOverlay])
@@ -311,8 +279,8 @@ export default function Board({
   }, [])
 
   useEffect(() => {
-    saveBrushPrefs([activeBrushColor], activePaintingScope === 'candidate', [activeDrawingColor], false)
-  }, [activeBrushColor, activeDrawingColor, activePaintingScope])
+    saveBrushPrefs([activeBrushColor], activePaintingScope === 'candidate', false)
+  }, [activeBrushColor, activePaintingScope])
 
   useEffect(() => () => {
     techniquesRef.current?.reset()
@@ -346,8 +314,8 @@ export default function Board({
 
   useEffect(() => {
     if (internalPuzzle.length !== 9 || !initialGrid) return
-    saveGame(initialGrid, internalPuzzle, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell, activePuzzleMetadata)
-  }, [internalPuzzle, initialGrid, solutionGrid, notes, cellColors, candidateColors, drawingStrokes, flaggedColorCell, activePuzzleMetadata])
+    saveGame(initialGrid, internalPuzzle, solutionGrid, notes, cellColors, candidateColors, flaggedColorCell, activePuzzleMetadata)
+  }, [internalPuzzle, initialGrid, solutionGrid, notes, cellColors, candidateColors, flaggedColorCell, activePuzzleMetadata])
 
   useEffect(() => {
     if (initialProp && initialProp.length === 9) return
@@ -408,23 +376,19 @@ export default function Board({
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setCellColors(emptyCellColors())
     setCandidateColors(emptyCandidateColors())
-    setDrawingStrokes(emptyDrawingStrokes())
     flaggedColorCellRef.current = null
     setFlaggedColorCell(null)
-    setDrawingDraft(null)
     setCandidateSelectedDigit(null)
     setHistory([])
     setRedoHistory([])
     setElapsed(0)
     clearElapsed()
-    drawingPointerIdRef.current = null
     updatePaused(false)
     setManualPause(false)
     setWon(false)
     setHistoryToolMode(false)
     setMoreToolMode(false)
     setBrushMode(false)
-    setDrawingMode(false)
     setCandidateToolMode(false)
     setCandidateOverlay(null)
     setToolTrayTransition(null)
@@ -445,7 +409,7 @@ export default function Board({
       lowerPadTimerRef.current = null
     }
     if(setPuzzleProp) setPuzzleProp(p)
-    saveGame(initial, p, s, undefined, undefined, undefined, emptyDrawingStrokes(), null, activePuzzleMetadata)
+    saveGame(initial, p, s, undefined, undefined, undefined, null, activePuzzleMetadata)
     setSelected(null)
   }
 
@@ -456,23 +420,19 @@ export default function Board({
     setNotes(Array.from({length: 9}, () => Array.from({length: 9}, () => [])))
     setCellColors(emptyCellColors())
     setCandidateColors(emptyCandidateColors())
-    setDrawingStrokes(emptyDrawingStrokes())
     flaggedColorCellRef.current = null
     setFlaggedColorCell(null)
-    setDrawingDraft(null)
     setCandidateSelectedDigit(null)
     setHistory([])
     setRedoHistory([])
     setElapsed(0)
     clearElapsed()
-    drawingPointerIdRef.current = null
     updatePaused(false)
     setManualPause(false)
     setWon(false)
     setHistoryToolMode(false)
     setMoreToolMode(false)
     setBrushMode(false)
-    setDrawingMode(false)
     setCandidateToolMode(false)
     setCandidateOverlay(null)
     setToolTrayTransition(null)
@@ -493,12 +453,11 @@ export default function Board({
       lowerPadTimerRef.current = null
     }
     setSelected(null)
-    saveGame(initialGrid, cloneGrid(initialGrid), solutionGrid, undefined, undefined, undefined, emptyDrawingStrokes(), null, activePuzzleMetadata)
+    saveGame(initialGrid, cloneGrid(initialGrid), solutionGrid, undefined, undefined, undefined, null, activePuzzleMetadata)
   }
 
   if (restartRef) restartRef.current = handleRetry
   if (clearColorsRef) clearColorsRef.current = () => { clearAllColors() }
-  if (clearDrawingsRef) clearDrawingsRef.current = () => { clearAllDrawings() }
   if (identifyCandidatesRef) identifyCandidatesRef.current = () => { fillAllCandidates() }
 
   function isClue(r: number, c: number): boolean {
@@ -565,7 +524,6 @@ export default function Board({
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
-      drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
     pushHistoryEntry(historyEntry)
@@ -599,7 +557,6 @@ export default function Board({
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
-      drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
     pushHistoryEntry(historyEntry)
@@ -637,7 +594,6 @@ export default function Board({
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
-      drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
   }
@@ -647,7 +603,6 @@ export default function Board({
     const restoredNotes = cloneNotesGrid(entry.notes)
     const restoredCellColors = cloneCellColorsGrid(entry.cellColors)
     const restoredCandidateColors = cloneCandidateColorsGrid(entry.candidateColors)
-    const restoredDrawingStrokes = cloneDrawingStrokesGrid(entry.drawingStrokes)
     const restoredFlaggedColorCell = cloneFlaggedColorCell(entry.flaggedColorCell)
     closeCandidateOverlay()
     setInternalPuzzle(restoredPuzzle)
@@ -655,9 +610,6 @@ export default function Board({
     setNotes(restoredNotes)
     setCellColors(restoredCellColors)
     setCandidateColors(restoredCandidateColors)
-    drawingPointerIdRef.current = null
-    setDrawingDraft(null)
-    setDrawingStrokes(restoredDrawingStrokes)
     flaggedColorCellRef.current = restoredFlaggedColorCell
     setFlaggedColorCell(restoredFlaggedColorCell)
   }
@@ -672,7 +624,6 @@ export default function Board({
     setMoreToolMode(false)
     if (next) {
       setBrushMode(false)
-      disableDrawingMode()
       switchLowerPad('numbers', 'backward')
     }
   }
@@ -687,28 +638,9 @@ export default function Board({
     if (next) {
       closeCandidateOverlay()
       setNotesMode(false)
-      disableDrawingMode()
       switchLowerPad('colors', 'forward')
     } else {
       closeCandidateOverlay()
-      switchLowerPad('numbers', 'backward')
-    }
-  }
-
-  function toggleDrawingTools() {
-    const next = !drawingMode
-    closeCandidateOverlay()
-    setEraserMode(false)
-    setCandidateToolMode(false)
-    setHistoryToolMode(false)
-    setMoreToolMode(false)
-    if (next) {
-      setDrawingMode(true)
-      setNotesMode(false)
-      setBrushMode(false)
-      switchLowerPad('colors', 'forward')
-    } else {
-      disableDrawingMode()
       switchLowerPad('numbers', 'backward')
     }
   }
@@ -723,7 +655,6 @@ export default function Board({
     if (next) {
       setNotesMode(false)
       setBrushMode(false)
-      disableDrawingMode()
       switchLowerPad('numbers', 'backward')
     }
   }
@@ -791,7 +722,6 @@ export default function Board({
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
-      drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
     const nextCellColors = cloneCellColorsGrid(cellColorsRef.current)
@@ -849,7 +779,6 @@ export default function Board({
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
-      drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
     const nextCandidateColors = cloneCandidateColorsGrid(candidateColorsRef.current)
@@ -906,7 +835,7 @@ export default function Board({
     const { r, c } = target
     if (isClue(r, c)) return false
     if (remaining[d] === 0) return false
-    if (brushMode || drawingMode) return false
+    if (brushMode) return false
     const existingDigit = internalPuzzle[r][c]
     if (existingDigit !== 0 && solutionGrid !== null && existingDigit === solutionGrid[r][c]) return false
     if (notesMode) {
@@ -916,7 +845,6 @@ export default function Board({
         notesRef.current,
         cellColorsRef.current,
         candidateColorsRef.current,
-        drawingStrokesRef.current,
         flaggedColorCellRef.current,
       )
       const nextCandidateColors = cloneCandidateColorsGrid(candidateColorsRef.current)
@@ -951,7 +879,6 @@ export default function Board({
         notesRef.current,
         cellColorsRef.current,
         candidateColorsRef.current,
-        drawingStrokesRef.current,
         flaggedColorCellRef.current,
       )
       const nextNotes = cloneNotesGrid(notesRef.current)
@@ -1017,7 +944,6 @@ export default function Board({
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
-      drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
     const nextCandidateColors = cloneCandidateColorsGrid(candidateColorsRef.current)
@@ -1049,7 +975,6 @@ export default function Board({
   function clearCell() {
     if (!selected) return false
     const { r, c } = selected
-    if (drawingMode) return false
     return clearCellAt(r, c)
   }
 
@@ -1076,7 +1001,6 @@ export default function Board({
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
-      drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
     const nextCandidateColors = cloneCandidateColorsGrid(candidateColorsRef.current)
@@ -1113,7 +1037,6 @@ export default function Board({
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
-      drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
     const nextPuzzle = cloneGrid(internalPuzzle)
@@ -1182,10 +1105,6 @@ export default function Board({
   }
 
   function applyBrushColor(colorId: BrushColorId) {
-    if (drawingMode) {
-      setActiveDrawingColor(colorId)
-      return
-    }
     setActiveBrushColor(colorId)
   }
 
@@ -1201,7 +1120,6 @@ export default function Board({
       notesRef.current,
       cellColorsRef.current,
       candidateColorsRef.current,
-      drawingStrokesRef.current,
       flaggedColorCellRef.current,
     )
     pushHistoryEntry(historyEntry)
@@ -1210,91 +1128,6 @@ export default function Board({
     setCandidateColors(emptyCandidateColors())
     setFlaggedColorCell(null)
     return true
-  }
-
-  function clearAllDrawings() {
-    if (drawingStrokesRef.current.length === 0) return false
-    const historyEntry = makeHistoryEntry(
-      internalPuzzle,
-      notesRef.current,
-      cellColorsRef.current,
-      candidateColorsRef.current,
-      drawingStrokesRef.current,
-      flaggedColorCellRef.current,
-    )
-    pushHistoryEntry(historyEntry)
-    drawingPointerIdRef.current = null
-    setDrawingDraft(null)
-    setDrawingStrokes(emptyDrawingStrokes())
-    return true
-  }
-
-  function getDrawingPoint(event: React.PointerEvent<SVGSVGElement>) {
-    const rect = event.currentTarget.getBoundingClientRect()
-    if (rect.width === 0 || rect.height === 0) return null
-    const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
-    const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height))
-    return [x, y] as [number, number]
-  }
-
-  function startDrawing(event: React.PointerEvent<SVGSVGElement>) {
-    if (!drawingMode || paused || won) return
-    if (event.pointerType === 'mouse' && event.button !== 0) return
-    const point = getDrawingPoint(event)
-    if (point === null) return
-    closeCandidateOverlay()
-    setSelected(null)
-    drawingPointerIdRef.current = event.pointerId
-    event.currentTarget.setPointerCapture?.(event.pointerId)
-    setDrawingDraft({
-      color: BRUSH_SWATCH_MAP[activeDrawingColor] ?? activeDrawingColor,
-      points: [point],
-    })
-  }
-
-  function moveDrawing(event: React.PointerEvent<SVGSVGElement>) {
-    if (!drawingMode || drawingPointerIdRef.current !== event.pointerId) return
-    const point = getDrawingPoint(event)
-    if (point === null) return
-    setDrawingDraft(prev => {
-      if (prev === null) return prev
-      const lastPoint = prev.points[prev.points.length - 1]
-      if (lastPoint && lastPoint[0] === point[0] && lastPoint[1] === point[1]) return prev
-      return {
-        ...prev,
-        points: [...prev.points, point],
-      }
-    })
-  }
-
-  function stopDrawing(event: React.PointerEvent<SVGSVGElement>) {
-    if (drawingPointerIdRef.current !== event.pointerId) return
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture?.(event.pointerId)
-    }
-    drawingPointerIdRef.current = null
-    const stroke = drawingDraftRef.current
-    setDrawingDraft(null)
-    if (stroke === null || stroke.points.length === 0) return
-    const historyEntry = makeHistoryEntry(
-      internalPuzzle,
-      notesRef.current,
-      cellColorsRef.current,
-      candidateColorsRef.current,
-      drawingStrokesRef.current,
-      flaggedColorCellRef.current,
-    )
-    pushHistoryEntry(historyEntry)
-    setDrawingStrokes(prev => [...prev, ...cloneDrawingStrokesGrid([stroke])])
-    if (haptic) onTriggerHaptic?.()
-  }
-
-  function cancelDrawing(event?: React.PointerEvent<SVGSVGElement>) {
-    if (event && drawingPointerIdRef.current === event.pointerId && event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture?.(event.pointerId)
-    }
-    drawingPointerIdRef.current = null
-    setDrawingDraft(null)
   }
 
   function undo() {
@@ -1321,13 +1154,9 @@ export default function Board({
     row.some((n, c) => !isClue(r, c) && n === 0 && notes[r][c].length === 0)
   )
   const hasAnyColors = hasAnyBrushColorsOnBoard(cellColors, candidateColors)
-  const hasAnyDrawings = drawingStrokes.length > 0
   useEffect(() => {
     onClearPaintingAvailabilityChange?.(hasAnyColors)
   }, [hasAnyColors, onClearPaintingAvailabilityChange])
-  useEffect(() => {
-    onClearDrawingsAvailabilityChange?.(hasAnyDrawings)
-  }, [hasAnyDrawings, onClearDrawingsAvailabilityChange])
   useEffect(() => {
     onIdentifyCandidatesAvailabilityChange?.(hasAnyFillableCell)
   }, [hasAnyFillableCell, onIdentifyCandidatesAvailabilityChange])
@@ -1383,7 +1212,6 @@ export default function Board({
     hasCellBrushColorsAt(cellColors, candidateColors, flaggedColorCell.r, flaggedColorCell.c)
       ? flaggedColorCell
       : null
-  const renderedDrawingStrokes = drawingDraft === null ? drawingStrokes : [...drawingStrokes, drawingDraft]
 
   function toggleReferenceDigitHighlight(d: number) {
     setCandidateOverlay(null)
@@ -1419,8 +1247,6 @@ export default function Board({
           pencilMode={pencilMode}
           coordinateLabels={coordinateLabels}
           boardRef={boardRef}
-          drawingMode={drawingMode}
-          renderedDrawingStrokes={renderedDrawingStrokes}
           onTogglePause={() => {
             const next = !paused
             setManualPause(next)
@@ -1430,10 +1256,6 @@ export default function Board({
             setManualPause(false)
             updatePaused(false)
           }}
-          startDrawing={startDrawing}
-          moveDrawing={moveDrawing}
-          stopDrawing={stopDrawing}
-          cancelDrawing={cancelDrawing}
           t={t}
         >
           <BoardGrid
@@ -1449,7 +1271,6 @@ export default function Board({
             won={won}
             autoCheck={autoCheck}
             brushMode={brushMode}
-            drawingMode={drawingMode}
             eraserMode={eraserMode}
             pencilMode={pencilMode}
             candidateBrushMode={candidateBrushMode}
@@ -1479,7 +1300,6 @@ export default function Board({
           eraserMode={eraserMode}
           notesMode={notesMode}
           brushMode={brushMode}
-          drawingMode={drawingMode}
           pencilMode={pencilMode}
           candidateToolMode={candidateToolMode}
           visibleToolTray={visibleToolTray}
@@ -1490,18 +1310,15 @@ export default function Board({
           toolTrayRef={toolTrayRef}
           mainNotesButtonRef={mainNotesButtonRef}
           mainBrushButtonRef={mainBrushButtonRef}
-          mainDrawingButtonRef={mainDrawingButtonRef}
+          mainMoreButtonRef={mainMoreButtonRef}
           activeNotesButtonRef={activeNotesButtonRef}
           activeBrushButtonRef={activeBrushButtonRef}
-          activeDrawingButtonRef={activeDrawingButtonRef}
           measureMainNotesButtonRef={measureMainNotesButtonRef}
           measureMainBrushButtonRef={measureMainBrushButtonRef}
-          measureMainDrawingButtonRef={measureMainDrawingButtonRef}
+          measureMainMoreButtonRef={measureMainMoreButtonRef}
           measureNotesButtonRef={measureNotesButtonRef}
           measureBrushButtonRef={measureBrushButtonRef}
-          measureDrawingButtonRef={measureDrawingButtonRef}
           hasAnyColors={hasAnyColors}
-          hasAnyDrawings={hasAnyDrawings}
           undoDisabled={undoDisabled}
           redoDisabled={redoDisabled}
           hasAnyFillableCell={hasAnyFillableCell}
@@ -1513,14 +1330,12 @@ export default function Board({
           candidateSelectedDigit={candidateSelectedDigit}
           selectedHasAnyColors={selectedHasAnyColors}
           activeBrushColor={activeBrushColor}
-          activeDrawingColor={activeDrawingColor}
           touchFiredRef={touchFiredRef}
           applyDigit={applyDigit}
           toggleReferenceDigitHighlight={toggleReferenceDigitHighlight}
           applyBrushColor={applyBrushColor}
           clearSelectedBrushColors={clearSelectedBrushColors}
           clearAllColors={clearAllColors}
-          clearAllDrawings={clearAllDrawings}
           undo={undo}
           redo={redo}
           fillAllCandidates={fillAllCandidates}
@@ -1533,7 +1348,6 @@ export default function Board({
           toggleEraserMode={toggleEraserMode}
           toggleNotesTools={toggleNotesTools}
           toggleBrushTools={toggleBrushTools}
-          toggleDrawingTools={toggleDrawingTools}
           toggleCandidateTools={toggleCandidateTools}
           onMomentaryButtonClick={handleMomentaryButtonClick}
           onModeButtonClick={handleModeButtonClick}

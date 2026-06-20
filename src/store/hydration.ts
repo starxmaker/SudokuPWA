@@ -6,11 +6,9 @@ import {
   type PuzzleMetadata,
   type CellColorGrid,
   type CandidateColorGrid,
-  type DrawingStrokes,
   type FlaggedColorCell,
   emptyCellColors,
   emptyCandidateColors,
-  emptyDrawingStrokes,
 } from '../utils/gameStorage'
 import { parseCoordinateLabelMode, type CoordinateLabelMode } from '../utils/coordinateLabels'
 import {
@@ -27,7 +25,6 @@ type HydratedGameState = {
   notes: number[][][]
   cellColors: CellColorGrid
   candidateColors: CandidateColorGrid
-  drawingStrokes: DrawingStrokes
   flaggedColorCell: FlaggedColorCell
   puzzleMetadata: PuzzleMetadata | null
   elapsed: number
@@ -47,7 +44,6 @@ type HydratedSettingsState = {
   difficulty: string | null
   brushPrefs: {
     activeColors: string[]
-    activeDrawingColors: string[]
     candidateMode: boolean
     firstColorFlagEnabled: boolean
   }
@@ -75,7 +71,6 @@ function hydrateGame(): HydratedGameState {
     notes: saved?.notes ?? Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [] as number[])),
     cellColors: saved?.cellColors ?? emptyCellColors(),
     candidateColors: saved?.candidateColors ?? emptyCandidateColors(),
-    drawingStrokes: saved?.drawingStrokes ?? emptyDrawingStrokes(),
     flaggedColorCell: saved?.flaggedColorCell ?? null,
     puzzleMetadata: saved?.puzzleMetadata ?? null,
     elapsed: loadElapsed(),
@@ -172,7 +167,6 @@ function hydrateSettings(): HydratedSettingsState {
     difficulty,
     brushPrefs: brushPrefs ?? {
       activeColors: [],
-      activeDrawingColors: [],
       candidateMode: false,
       firstColorFlagEnabled: true,
     },

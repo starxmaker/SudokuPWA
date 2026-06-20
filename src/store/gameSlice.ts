@@ -6,13 +6,10 @@ import {
   cloneCellColors,
   cloneCandidateColors,
   cloneFlaggedColorCell,
-  cloneDrawingStrokes,
   emptyCellColors,
   emptyCandidateColors,
-  emptyDrawingStrokes,
   type CellColorGrid,
   type CandidateColorGrid,
-  type DrawingStrokes,
   type FlaggedColorCell,
   type PuzzleMetadata,
 } from '../utils/gameStorage'
@@ -26,7 +23,6 @@ export type GameState = {
   notes: number[][][]
   cellColors: CellColorGrid
   candidateColors: CandidateColorGrid
-  drawingStrokes: DrawingStrokes
   flaggedColorCell: FlaggedColorCell
   puzzleMetadata: PuzzleMetadata | null
   elapsed: number
@@ -40,11 +36,9 @@ export type GameState = {
   notesMode: boolean
   eraserMode: boolean
   brushMode: boolean
-  drawingMode: boolean
   candidateToolMode: boolean
   historyToolMode: boolean
   activeBrushColor: BrushColorId
-  activeDrawingColor: BrushColorId
   shareCopied: boolean
   requiredTechniquesOpen: boolean
   requiredTechniquesLoading: boolean
@@ -63,7 +57,6 @@ function makeEntry(
   notes: number[][][],
   cellColors: CellColorGrid,
   candidateColors: CandidateColorGrid,
-  drawingStrokes: DrawingStrokes,
   flaggedColorCell: FlaggedColorCell,
 ): BoardHistoryEntry {
   return {
@@ -71,7 +64,6 @@ function makeEntry(
     notes: cloneNotes(notes),
     cellColors: cloneCellColors(cellColors),
     candidateColors: cloneCandidateColors(candidateColors),
-    drawingStrokes: cloneDrawingStrokes(drawingStrokes),
     flaggedColorCell: cloneFlaggedColorCell(flaggedColorCell),
   }
 }
@@ -85,7 +77,6 @@ export const gameSlice = createSlice({
     notes: emptyNotes() as number[][][],
     cellColors: emptyCellColors() as CellColorGrid,
     candidateColors: emptyCandidateColors() as CandidateColorGrid,
-    drawingStrokes: emptyDrawingStrokes() as DrawingStrokes,
     flaggedColorCell: null as FlaggedColorCell,
     puzzleMetadata: null as PuzzleMetadata | null,
     elapsed: 0 as number,
@@ -99,11 +90,9 @@ export const gameSlice = createSlice({
     notesMode: false as boolean,
     eraserMode: false as boolean,
     brushMode: false as boolean,
-    drawingMode: false as boolean,
     candidateToolMode: false as boolean,
     historyToolMode: false as boolean,
     activeBrushColor: 'rose' as BrushColorId,
-    activeDrawingColor: 'rose' as BrushColorId,
     shareCopied: false as boolean,
     requiredTechniquesOpen: false as boolean,
     requiredTechniquesLoading: false as boolean,
@@ -121,7 +110,6 @@ export const gameSlice = createSlice({
       state.notes = emptyNotes()
       state.cellColors = emptyCellColors()
       state.candidateColors = emptyCandidateColors()
-      state.drawingStrokes = emptyDrawingStrokes()
       state.flaggedColorCell = null
       state.puzzleMetadata = puzzleMetadata
       state.elapsed = 0
@@ -135,7 +123,6 @@ export const gameSlice = createSlice({
       state.notesMode = false
       state.eraserMode = false
       state.brushMode = false
-      state.drawingMode = false
       state.candidateToolMode = false
       state.historyToolMode = false
       state.shareCopied = false
@@ -152,7 +139,6 @@ export const gameSlice = createSlice({
       state.notes = emptyNotes()
       state.cellColors = emptyCellColors()
       state.candidateColors = emptyCandidateColors()
-      state.drawingStrokes = emptyDrawingStrokes()
       state.flaggedColorCell = null
       state.elapsed = 0
       state.paused = false
@@ -165,7 +151,6 @@ export const gameSlice = createSlice({
       state.notesMode = false
       state.eraserMode = false
       state.brushMode = false
-      state.drawingMode = false
       state.candidateToolMode = false
       state.historyToolMode = false
       state.shareCopied = false
@@ -186,9 +171,6 @@ export const gameSlice = createSlice({
     },
     setCandidateColors(state, action: PayloadAction<CandidateColorGrid>) {
       state.candidateColors = action.payload
-    },
-    setDrawingStrokes(state, action: PayloadAction<DrawingStrokes>) {
-      state.drawingStrokes = action.payload
     },
     setFlaggedColorCell(state, action: PayloadAction<FlaggedColorCell>) {
       state.flaggedColorCell = action.payload
@@ -232,7 +214,6 @@ export const gameSlice = createSlice({
         state.notes,
         state.cellColors,
         state.candidateColors,
-        state.drawingStrokes,
         state.flaggedColorCell,
       )
       if (state.redoHistory.length >= 50) state.redoHistory.shift()
@@ -241,7 +222,6 @@ export const gameSlice = createSlice({
       state.notes = entry.notes
       state.cellColors = entry.cellColors
       state.candidateColors = entry.candidateColors
-      state.drawingStrokes = entry.drawingStrokes
       state.flaggedColorCell = entry.flaggedColorCell
     },
     redo(state) {
@@ -252,7 +232,6 @@ export const gameSlice = createSlice({
         state.notes,
         state.cellColors,
         state.candidateColors,
-        state.drawingStrokes,
         state.flaggedColorCell,
       )
       if (state.history.length >= 50) state.history.shift()
@@ -261,7 +240,6 @@ export const gameSlice = createSlice({
       state.notes = entry.notes
       state.cellColors = entry.cellColors
       state.candidateColors = entry.candidateColors
-      state.drawingStrokes = entry.drawingStrokes
       state.flaggedColorCell = entry.flaggedColorCell
     },
     setSelected(state, action: PayloadAction<{ r: number; c: number } | null>) {
@@ -276,9 +254,6 @@ export const gameSlice = createSlice({
     setBrushMode(state, action: PayloadAction<boolean>) {
       state.brushMode = action.payload
     },
-    setDrawingMode(state, action: PayloadAction<boolean>) {
-      state.drawingMode = action.payload
-    },
     setCandidateToolMode(state, action: PayloadAction<boolean>) {
       state.candidateToolMode = action.payload
     },
@@ -287,9 +262,6 @@ export const gameSlice = createSlice({
     },
     setActiveBrushColor(state, action: PayloadAction<BrushColorId>) {
       state.activeBrushColor = action.payload
-    },
-    setActiveDrawingColor(state, action: PayloadAction<BrushColorId>) {
-      state.activeDrawingColor = action.payload
     },
     setShareCopied(state, action: PayloadAction<boolean>) {
       state.shareCopied = action.payload
@@ -313,7 +285,6 @@ export const gameSlice = createSlice({
       state.notesMode = false
       state.eraserMode = false
       state.brushMode = false
-      state.drawingMode = false
       state.candidateToolMode = false
       state.historyToolMode = false
     },
@@ -327,7 +298,6 @@ export const {
   setNotes,
   setCellColors,
   setCandidateColors,
-  setDrawingStrokes,
   setFlaggedColorCell,
   setInitial,
   setSolution,
@@ -344,11 +314,9 @@ export const {
   setNotesMode,
   setEraserMode,
   setBrushMode,
-  setDrawingMode,
   setCandidateToolMode,
   setHistoryToolMode,
   setActiveBrushColor,
-  setActiveDrawingColor,
   setShareCopied,
   setRequiredTechniquesOpen,
   setRequiredTechniquesLoading,

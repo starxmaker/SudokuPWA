@@ -313,7 +313,7 @@ describe('App', () => {
     expect(cells[2].querySelector('.cell-notes')).not.toBeNull()
   })
 
-  it('disables clean colors and clean drawings when there is nothing to clear', async () => {
+  it('disables clean colors when there is nothing to clear', async () => {
     saveGame(PUZZLE_WITH_GAPS, PUZZLE_WITH_GAPS, GRID)
     render(<App />)
     const user = userEvent.setup()
@@ -323,7 +323,6 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /eraser mode/i }))
     expect(screen.getByRole('button', { name: /clean colors/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /clean drawings/i })).toBeDisabled()
   })
 
   it('toggles painting scope from settings and enables candidate painting', async () => {
@@ -639,7 +638,6 @@ describe('App', () => {
       PUZZLE_WITH_GAPS,
       PUZZLE_WITH_GAPS,
       GRID,
-      undefined,
       undefined,
       undefined,
       undefined,

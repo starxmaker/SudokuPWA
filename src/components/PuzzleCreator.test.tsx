@@ -83,7 +83,6 @@ describe('PuzzleCreator', () => {
     expect(screen.getByRole('button', { name: /confirm created puzzle/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /toggle notes mode/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /toggle brush mode/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: /toggle free drawing/i })).toBeNull()
   })
 
   it.each([

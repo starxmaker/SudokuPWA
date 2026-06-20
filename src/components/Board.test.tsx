@@ -112,28 +112,6 @@ async function openHistoryToolsFromMore(user: ReturnType<typeof userEvent.setup>
   await user.click(screen.getByRole('button', { name: /^history$/i }))
 }
 
-async function openDrawingToolsFromMore(user: ReturnType<typeof userEvent.setup>) {
-  await openMoreTools(user)
-  await user.click(screen.getByRole('button', { name: /^free drawing$/i }))
-}
-
-function mockDrawingLayerRect(layer: Element, size = 360) {
-  Object.defineProperty(layer, 'getBoundingClientRect', {
-    configurable: true,
-    value: () => ({
-      x: 0,
-      y: 0,
-      top: 0,
-      left: 0,
-      width: size,
-      height: size,
-      right: size,
-      bottom: size,
-      toJSON: () => '',
-    }),
-  })
-}
-
 function mockCellRect(cell: Element, size = 90, left = 0, top = 0) {
   Object.defineProperty(cell, 'getBoundingClientRect', {
     configurable: true,
@@ -375,21 +353,6 @@ describe('Board component', () => {
     expect(brushBtnFinal.getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('button', { name: /brush color 1/i })).toBeNull()
     expect(screen.getByRole('button', { name: /^4,/ })).toBeInTheDocument()
-  })
-
-  it('drawing toggle shows colors and drawing actions', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
-    await waitForBoard()
-    const user = userEvent.setup()
-    await openMoreTools(user)
-    const moreToolbar = screen.getByRole('toolbar', { name: /more actions/i })
-    const drawingBtn = within(moreToolbar).getByRole('button', { name: /^free drawing$/i })
-
-    expect(screen.queryByRole('button', { name: /clear drawings/i })).toBeNull()
-
-    await user.click(drawingBtn)
-    expect(screen.getByRole('button', { name: /brush color 1/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^4,/ })).toBeNull()
   })
 
   it('candidate tool shows the basic candidates action and fills candidates', async () => {
@@ -742,12 +705,11 @@ describe('Board component', () => {
     await user.click(screen.getByRole('button', { name: /eraser mode/i }))
 
     expect(screen.getByRole('button', { name: /clean colors/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /clean drawings/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^4,/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /brush color 1/i })).toBeNull()
   })
 
-  it('clears loaded colors and drawings from the eraser action bar', async () => {
+  it('clears loaded colors from the eraser action bar', async () => {
     const cellColors = emptyCellColors()
     cellColors[0][2] = ['rose']
     saveGame(
@@ -756,8 +718,7 @@ describe('Board component', () => {
       SOLUTION,
       emptyNotesGrid(),
       cellColors,
-      emptyCandidateColors(),
-      [{ color: '#111111', points: [[0.1, 0.1], [0.3, 0.3]] }]
+      emptyCandidateColors()
     )
 
     const view = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
@@ -765,14 +726,10 @@ describe('Board component', () => {
     const user = userEvent.setup()
 
     expect(view.container.querySelector('.cell-color-layer')).not.toBeNull()
-    expect(view.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(1)
 
     await user.click(screen.getByRole('button', { name: /eraser mode/i }))
     await user.click(screen.getByRole('button', { name: /clean colors/i }))
     await waitFor(() => expect(view.container.querySelector('.cell-color-layer')).toBeNull())
-
-    await user.click(screen.getByRole('button', { name: /clean drawings/i }))
-    await waitFor(() => expect(view.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(0))
   })
 
   it('keeps icons in the main tool tray', async () => {
@@ -1352,122 +1309,6 @@ describe('Board with fixed puzzle', () => {
     await waitFor(() => expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(false))
   })
 
-  it('persists brush and drawing colors independently between renders', async () => {
-    const user = userEvent.setup()
-    const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
-
-    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
-    await user.click(screen.getByRole('button', { name: /brush color 3/i }))
-    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
-    await openDrawingToolsFromMore(user)
-    await user.click(screen.getByRole('button', { name: /brush color 5/i }))
-
-    firstRender.unmount()
-
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
-    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
-
-    expect(screen.getByRole('button', { name: /brush color 3/i }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: /brush color 1/i }).getAttribute('aria-pressed')).toBe('false')
-
-    await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
-    await openDrawingToolsFromMore(user)
-
-    expect(screen.getByRole('button', { name: /brush color 5/i }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: /brush color 3/i }).getAttribute('aria-pressed')).toBe('false')
-  })
-
-  it('draws a freehand stroke and undo restores the previous board drawing state', async () => {
-    const { container } = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
-    const user = userEvent.setup()
-
-    await openDrawingToolsFromMore(user)
-
-    const drawingLayer = container.querySelector('.board-drawing-layer')
-    expect(drawingLayer).not.toBeNull()
-    mockDrawingLayerRect(drawingLayer!)
-
-    fireEvent.pointerDown(drawingLayer!, { pointerId: 1, clientX: 40, clientY: 60, button: 0 })
-    fireEvent.pointerMove(drawingLayer!, { pointerId: 1, clientX: 120, clientY: 140 })
-    fireEvent.pointerUp(drawingLayer!, { pointerId: 1, clientX: 160, clientY: 180 })
-
-    await waitFor(() =>
-      expect(container.querySelectorAll('.board-drawing-layer polyline').length).toBe(1)
-    )
-
-    await openHistoryToolsFromMore(user)
-    await user.click(within(screen.getByRole('toolbar', { name: /history actions/i })).getByRole('button', { name: /^undo$/i }))
-
-    await waitFor(() =>
-      expect(container.querySelectorAll('.board-drawing-layer polyline').length).toBe(0)
-    )
-  })
-
-  it('persists drawings between renders and clears them from the drawing tray', async () => {
-    const user = userEvent.setup()
-    const firstRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
-
-    await openDrawingToolsFromMore(user)
-
-    const firstLayer = firstRender.container.querySelector('.board-drawing-layer')
-    expect(firstLayer).not.toBeNull()
-    mockDrawingLayerRect(firstLayer!)
-
-    fireEvent.pointerDown(firstLayer!, { pointerId: 7, clientX: 30, clientY: 30, button: 0 })
-    fireEvent.pointerMove(firstLayer!, { pointerId: 7, clientX: 140, clientY: 120 })
-    fireEvent.pointerUp(firstLayer!, { pointerId: 7, clientX: 180, clientY: 160 })
-
-    await waitFor(() =>
-      expect(firstRender.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(1)
-    )
-
-    firstRender.unmount()
-
-    const clearDrawingsRef: React.MutableRefObject<(() => void) | null> = { current: null }
-    const secondRender = render(<Board puzzle={PUZZLE} solution={SOLUTION} clearDrawingsRef={clearDrawingsRef} />)
-    await waitForBoard()
-
-    await waitFor(() =>
-      expect(secondRender.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(1)
-    )
-
-    await act(async () => { clearDrawingsRef.current?.() })
-
-    await waitFor(() =>
-      expect(secondRender.container.querySelectorAll('.board-drawing-layer polyline').length).toBe(0)
-    )
-  })
-
-  it('reports clear drawings availability as strokes are added and cleared', async () => {
-    const onClearDrawingsAvailabilityChange = vi.fn()
-    const clearDrawingsRef: React.MutableRefObject<(() => void) | null> = { current: null }
-    const view = render(
-      <Board
-        puzzle={PUZZLE}
-        solution={SOLUTION}
-        clearDrawingsRef={clearDrawingsRef}
-        onClearDrawingsAvailabilityChange={onClearDrawingsAvailabilityChange}
-      />
-    )
-    const user = userEvent.setup()
-
-    expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(false)
-
-    await openDrawingToolsFromMore(user)
-    const drawingLayer = view.container.querySelector('.board-drawing-layer')
-    expect(drawingLayer).not.toBeNull()
-    mockDrawingLayerRect(drawingLayer!)
-
-    fireEvent.pointerDown(drawingLayer!, { pointerId: 9, clientX: 30, clientY: 30, button: 0 })
-    fireEvent.pointerMove(drawingLayer!, { pointerId: 9, clientX: 140, clientY: 120 })
-    fireEvent.pointerUp(drawingLayer!, { pointerId: 9, clientX: 180, clientY: 160 })
-
-    await waitFor(() => expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(true))
-
-    await act(async () => { clearDrawingsRef.current?.() })
-    await waitFor(() => expect(onClearDrawingsAvailabilityChange).toHaveBeenLastCalledWith(false))
-  })
-
   it('fills simple candidates for all empty cells', async () => {
     const identifyCandidatesRef: React.MutableRefObject<(() => void) | null> = { current: null }
     render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} identifyCandidatesRef={identifyCandidatesRef} />)
@@ -1912,8 +1753,7 @@ describe('Board haptic callbacks', () => {
       SOLUTION,
       emptyNotesGrid(),
       cellColors,
-      emptyCandidateColors(),
-      [{ color: '#111111', points: [[0.1, 0.1], [0.3, 0.3]] }]
+      emptyCandidateColors()
     )
     render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
     const user = userEvent.setup()
@@ -1922,10 +1762,6 @@ describe('Board haptic callbacks', () => {
     onTriggerHaptic.mockClear()
 
     await user.click(screen.getByRole('button', { name: /clean colors/i }))
-    expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
-
-    onTriggerHaptic.mockClear()
-    await user.click(screen.getByRole('button', { name: /clean drawings/i }))
     expect(onTriggerHaptic).toHaveBeenCalledTimes(1)
   })
 

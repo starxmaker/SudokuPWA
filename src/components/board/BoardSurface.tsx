@@ -1,9 +1,7 @@
 import React from 'react'
 import { MdPause, MdPlayArrow } from 'react-icons/md'
-import type { DrawingStroke } from '../../utils/gameStorage'
 import { getCoordinateLabelSets, type CoordinateLabelMode } from '../../utils/coordinateLabels'
 import {
-  DRAWING_STROKE_WIDTH,
   formatTime,
 } from './boardUtils'
 import PauseOverlay from './PauseOverlay'
@@ -20,19 +18,9 @@ type Props = {
   coordinateLabels?: CoordinateLabelMode
   boardRef: React.MutableRefObject<HTMLDivElement | null>
   children: React.ReactNode
-  drawingMode: boolean
-  renderedDrawingStrokes: DrawingStroke[]
   onTogglePause: () => void
   onResume: () => void
-  startDrawing: React.PointerEventHandler<SVGSVGElement>
-  moveDrawing: React.PointerEventHandler<SVGSVGElement>
-  stopDrawing: React.PointerEventHandler<SVGSVGElement>
-  cancelDrawing: React.PointerEventHandler<SVGSVGElement>
   t: TFunc
-}
-
-function buildDrawingPolyline(points: readonly [number, number][]) {
-  return points.map(([x, y]) => `${x},${y}`).join(' ')
 }
 
 export default function BoardSurface({
@@ -45,14 +33,8 @@ export default function BoardSurface({
   coordinateLabels,
   boardRef,
   children,
-  drawingMode,
-  renderedDrawingStrokes,
   onTogglePause,
   onResume,
-  startDrawing,
-  moveDrawing,
-  stopDrawing,
-  cancelDrawing,
   t,
 }: Props) {
   const { rowLabels, columnLabels } = getCoordinateLabelSets(coordinateLabels ?? 'none')
@@ -96,38 +78,6 @@ export default function BoardSurface({
             )}
             <div ref={boardRef} className={`board${paused ? ' board--paused' : ''}`} role="grid" aria-label={t('board.gridLabel')}>
               {children}
-              <svg
-                className={`board-drawing-layer${drawingMode && !paused && !won ? ' board-drawing-layer--interactive' : ''}`}
-                aria-label={t('board.freeDrawingCanvas')}
-                viewBox="0 0 1 1"
-                preserveAspectRatio="none"
-                onPointerDown={startDrawing}
-                onPointerMove={moveDrawing}
-                onPointerUp={stopDrawing}
-                onPointerCancel={cancelDrawing}
-              >
-                {renderedDrawingStrokes.map((stroke, index) =>
-                  stroke.points.length === 1 ? (
-                    <circle
-                      key={`drawing-stroke-${index}`}
-                      className="board-drawing-layer__stroke"
-                      cx={stroke.points[0][0]}
-                      cy={stroke.points[0][1]}
-                      r={DRAWING_STROKE_WIDTH / 2}
-                      fill={stroke.color}
-                    />
-                  ) : (
-                    <polyline
-                      key={`drawing-stroke-${index}`}
-                      className="board-drawing-layer__stroke"
-                      points={buildDrawingPolyline(stroke.points)}
-                      fill="none"
-                      stroke={stroke.color}
-                      strokeWidth={DRAWING_STROKE_WIDTH}
-                    />
-                  )
-                )}
-              </svg>
               <PauseOverlay paused={paused} won={won} onResume={onResume} t={t} />
             </div>
           </div>
