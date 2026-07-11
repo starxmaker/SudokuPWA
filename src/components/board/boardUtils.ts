@@ -8,7 +8,16 @@ import {
   type FlaggedColorCell,
 } from '../../utils/gameStorage'
 import type { Grid } from '../../utils/sudoku'
-import type { BoardHistoryEntry, BrushColorId } from '../../store/gameTypes'
+import {
+  BRUSH_COLORS,
+  BRUSH_COLOR_MAP,
+  BRUSH_SWATCH_MAP,
+  DEFAULT_BRUSH_COLOR,
+  type BrushColorId,
+} from '../../store/gameSlice'
+
+export { BRUSH_COLORS, BRUSH_COLOR_MAP, BRUSH_SWATCH_MAP, DEFAULT_BRUSH_COLOR }
+export type { BrushColorId }
 
 export function cloneGrid(g: Grid): Grid {
   return g.map(row => [...row])
@@ -86,7 +95,7 @@ export function makeHistoryEntry(
   cellColors: CellColorGrid,
   candidateColors: CandidateColorGrid,
   flaggedColorCell: FlaggedColorCell,
-): BoardHistoryEntry {
+): import('../../store/gameSlice').BoardHistoryEntry {
   return {
     puzzle: cloneGrid(puzzle),
     notes: cloneNotesGrid(notes),
@@ -95,27 +104,6 @@ export function makeHistoryEntry(
     flaggedColorCell: cloneFlaggedColorCell(flaggedColorCell),
   }
 }
-
-export const BRUSH_COLORS = [
-  { id: 'rose', fill: 'var(--brush-fill-rose)', swatch: '#f43f5e' },
-  { id: 'orange', fill: 'var(--brush-fill-orange)', swatch: '#f97316' },
-  { id: 'amber', fill: 'var(--brush-fill-amber)', swatch: '#f59e0b' },
-  { id: 'lime', fill: 'var(--brush-fill-lime)', swatch: '#84cc16' },
-  { id: 'emerald', fill: 'var(--brush-fill-emerald)', swatch: '#10b981' },
-  { id: 'sky', fill: 'var(--brush-fill-sky)', swatch: '#0ea5e9' },
-  { id: 'violet', fill: 'var(--brush-fill-violet)', swatch: '#8b5cf6' },
-  { id: 'pink', fill: 'var(--brush-fill-pink)', swatch: '#ec4899' },
-] as const
-
-export const BRUSH_COLOR_MAP: Record<BrushColorId, string> = Object.fromEntries(
-  BRUSH_COLORS.map(color => [color.id, color.fill])
-) as Record<BrushColorId, string>
-
-export const BRUSH_SWATCH_MAP: Record<BrushColorId, string> = Object.fromEntries(
-  BRUSH_COLORS.map(color => [color.id, color.swatch])
-) as Record<BrushColorId, string>
-
-export const DEFAULT_BRUSH_COLOR: BrushColorId = BRUSH_COLORS[0].id
 
 export const COORDINATE_ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
 
@@ -132,7 +120,7 @@ export function buildBrushFill(colorIds: readonly string[]) {
     return fill
   }
   const stops = colorIds.flatMap((colorId, index) => {
-    const fill = BRUSH_COLOR_MAP[colorId as BrushColorId] ?? colorId
+    const fill = BRUSH_COLOR_MAP[colorId as BrushColorId] ?? colorIds[0]
     const start = (index * 100) / colorIds.length
     const end = ((index + 1) * 100) / colorIds.length
     return [`${fill} ${start}%`, `${fill} ${end}%`]

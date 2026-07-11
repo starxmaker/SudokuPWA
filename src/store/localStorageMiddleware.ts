@@ -19,13 +19,19 @@ const GAME_PERSIST_ACTIONS = new Set([
   'game/startNewGame',
   'game/handleRetry',
   'game/clearAllColors',
+  'game/clearAllNotes',
+  'game/clearColorFromBoard',
+  'game/clearSelectedBrushColors',
   'game/undo',
   'game/redo',
-  'game/applyDigit',
-  'game/clearCell',
-  'game/toggleNote',
   'game/writeDigit',
+  'game/toggleNote',
   'game/eraseCell',
+  'game/applyCellBrushColor',
+  'game/applyCandidateBrushColor',
+  'game/removeCandidate',
+  'game/fillAllCandidates',
+  'game/applySingleCandidatesToDigits',
 ])
 
 export const localStorageMiddleware: Middleware<unknown, RootState> = store => next => action => {

@@ -5,6 +5,7 @@ import { render, type RenderOptions } from '@testing-library/react'
 import settingsReducer, { type SettingsState } from './store/settingsSlice'
 import uiReducer, { type UIState } from './store/uiSlice'
 import gameReducer, { type GameState } from './store/gameSlice'
+import boardUiReducer, { type BoardUiState } from './store/boardUiSlice'
 import { localStorageMiddleware } from './store/localStorageMiddleware'
 import { hydrateFromLocalStorage } from './store/hydration'
 
@@ -12,18 +13,19 @@ type TestRootState = {
   settings: SettingsState
   ui: UIState
   game: GameState
+  boardUi: BoardUiState
 }
 
 export function createTestStore(preloadedState?: Partial<TestRootState>) {
   const hydrated = hydrateFromLocalStorage()
   const merged: Partial<TestRootState> = { ...preloadedState }
-  // Only hydrate settings from localStorage (game state is too partial)
   merged.settings = { ...hydrated.settings, ...(merged.settings ?? {}) }
   return configureStore({
     reducer: {
       settings: settingsReducer,
       ui: uiReducer,
       game: gameReducer,
+      boardUi: boardUiReducer,
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(localStorageMiddleware),

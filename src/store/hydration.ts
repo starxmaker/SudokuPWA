@@ -18,6 +18,8 @@ import {
 } from '../utils/puzzleGeneration'
 import type { Grid } from '../utils/sudoku_types'
 
+import type { BrushColorId, BoardHistoryEntry } from './gameSlice'
+
 type HydratedGameState = {
   initial: Grid | null
   current: Grid | null
@@ -28,7 +30,29 @@ type HydratedGameState = {
   flaggedColorCell: FlaggedColorCell
   puzzleMetadata: PuzzleMetadata | null
   elapsed: number
+  paused: boolean
+  manualPause: boolean
   won: boolean
+  finalTime: number
+  history: BoardHistoryEntry[]
+  redoHistory: BoardHistoryEntry[]
+  selected: { r: number; c: number } | null
+  notesMode: boolean
+  eraserMode: boolean
+  eraserColorPickerMode: boolean
+  brushMode: boolean
+  candidateToolMode: boolean
+  historyToolMode: boolean
+  moreToolMode: boolean
+  activeBrushColor: BrushColorId
+  candidateSelectedDigit: number | null
+  shareCopied: boolean
+  requiredTechniquesOpen: boolean
+  requiredTechniquesLoading: boolean
+  requiredTechniquesResult: import('../utils/generators/hodoku').RequiredTechniques | null
+  requiredTechniquesError: string | null
+  expandedTechniqueSteps: number[]
+  gameId: number
 }
 
 type HydratedSettingsState = {
@@ -74,7 +98,29 @@ function hydrateGame(): HydratedGameState {
     flaggedColorCell: saved?.flaggedColorCell ?? null,
     puzzleMetadata: saved?.puzzleMetadata ?? null,
     elapsed: loadElapsed(),
+    paused: false,
+    manualPause: false,
     won: loadCompleted(),
+    finalTime: 0,
+    history: [],
+    redoHistory: [],
+    selected: null,
+    notesMode: false,
+    eraserMode: false,
+    eraserColorPickerMode: false,
+    brushMode: false,
+    candidateToolMode: false,
+    historyToolMode: false,
+    moreToolMode: false,
+    activeBrushColor: 'rose',
+    candidateSelectedDigit: null,
+    shareCopied: false,
+    requiredTechniquesOpen: false,
+    requiredTechniquesLoading: false,
+    requiredTechniquesResult: null,
+    requiredTechniquesError: null,
+    expandedTechniqueSteps: [],
+    gameId: 0,
   }
 }
 

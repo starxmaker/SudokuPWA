@@ -389,7 +389,7 @@ export function encodeGridWithCandidates(grid: Grid, notes: number[][][]): strin
     const c = i % 9
     const cellNotes = notes[r][c]
     if (cellNotes.length > 0) {
-      return `{${cellNotes.sort().join('')}}`
+      return `{${[...cellNotes].sort().join('')}}`
     }
     return '.'
   }).join('')

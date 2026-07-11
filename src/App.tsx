@@ -38,12 +38,16 @@ import {
   setShowHome, setCreatorMode, setSettingsOpen, setInfoOpen,
   setNewGameOpen, showToast, setImportVerificationPending, setHomeError,
 } from './store/uiSlice'
-import { startNewGame, setCurrent, markWon } from './store/gameSlice'
+import { startNewGame, rehydrateFromStorage } from './store/gameSlice'
 
 export default function App(){
   const dispatch = useAppDispatch()
   const { t } = useI18n()
   const preloadedAvailability = getPreloadedPuzzleAvailability()
+
+  useEffect(() => {
+    dispatch(rehydrateFromStorage())
+  }, [dispatch])
 
   const theme = useAppSelector(s => s.settings.theme)
   const autoCheck = useAppSelector(s => s.settings.autoCheck)
@@ -292,24 +296,11 @@ export default function App(){
         ) : (
           <Board
             key={gameId}
-            puzzle={gameCurrent}
-            setPuzzle={(p) => dispatch(setCurrent(p))}
             onBack={handleBackToHome}
-            solution={gameSolution}
-            autoCheck={autoCheck}
-            autoRemove={autoRemove}
-            haptic={haptic}
-            onTriggerHaptic={triggerHaptic}
-            onTriggerErrorHaptic={triggerErrorHaptic}
             onNew={handleNew}
             onShare={handleShare}
-            onWin={() => dispatch(markWon())}
-            difficulty={difficultyLabel}
-            pencilMode={pencilMode}
-            coordinateLabels={coordinateLabels}
-            firstColorFlag={firstColorFlag}
-            paintingScope={paintingScope}
-            puzzleMetadata={gamePuzzleMetadata}
+            onTriggerHaptic={triggerHaptic}
+            onTriggerErrorHaptic={triggerErrorHaptic}
           />
          )}
          <Settings open={settingsOpen} onClose={() => dispatch(setSettingsOpen(false))} onReset={handleResetSettings} />

@@ -7,6 +7,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { emptyCandidateColors, emptyCellColors, saveGame } from '../utils/gameStorage'
 import { analyzeRequiredTechniques } from '../utils/generators/hodoku'
 import { LocalizationProvider, LANGUAGE_STORAGE_KEY } from '../utils/i18n'
+import { renderWithProvider, createTestStore } from '../testUtils'
+import { startNewGame, type GameState, clearAllColors, fillAllCandidates } from '../store/gameSlice'
+import { setPaintingScope } from '../store/settingsSlice'
+import { Provider } from 'react-redux'
+import type { PuzzleMetadata } from '../utils/gameStorage'
 
 const clipboardMocks = vi.hoisted(() => ({
   writeClipboardText: vi.fn(),
@@ -103,6 +108,84 @@ async function waitForBoard() {
   await screen.findAllByRole('gridcell')
 }
 
+function renderBoard(
+  puzzle: number[][],
+  solution: number[][],
+  options?: {
+    puzzleMetadata?: PuzzleMetadata | null
+    pencilMode?: boolean
+    coordinateLabels?: string
+    firstColorFlag?: boolean
+    paintingScope?: 'digit' | 'candidate'
+    autoCheck?: boolean
+    autoRemove?: boolean
+    haptic?: boolean
+    onBack?: () => void
+    onNew?: () => void
+    onShare?: () => void
+    onTriggerHaptic?: () => void
+    onTriggerErrorHaptic?: () => void
+  }
+) {
+  const store = createTestStore({
+    game: {
+      initial: puzzle as any,
+      current: puzzle as any,
+      solution: solution as any,
+      notes: EMPTY_NOTES,
+      cellColors: emptyCellColors(),
+      candidateColors: emptyCandidateColors(),
+      flaggedColorCell: null,
+      puzzleMetadata: options?.puzzleMetadata ?? null,
+      elapsed: 0,
+      paused: false,
+      manualPause: false,
+      won: false,
+      finalTime: 0,
+      history: [],
+      redoHistory: [],
+      selected: null,
+      notesMode: false,
+      eraserMode: false,
+      eraserColorPickerMode: false,
+      brushMode: false,
+      candidateToolMode: false,
+      historyToolMode: false,
+      moreToolMode: false,
+      activeBrushColor: 'rose',
+      candidateSelectedDigit: null,
+      shareCopied: false,
+      requiredTechniquesOpen: false,
+      requiredTechniquesLoading: false,
+      requiredTechniquesResult: null,
+      requiredTechniquesError: null,
+      expandedTechniqueSteps: [],
+      gameId: 1,
+    } as GameState,
+    settings: {
+      pencilMode: options?.pencilMode ?? false,
+      coordinateLabels: (options?.coordinateLabels ?? 'none') as any,
+      firstColorFlag: options?.firstColorFlag ?? false,
+      paintingScope: options?.paintingScope ?? 'digit',
+      autoCheck: options?.autoCheck ?? true,
+      autoRemove: options?.autoRemove ?? true,
+      haptic: options?.haptic ?? false,
+    } as any,
+  })
+  const result = render(
+    <Provider store={store}>
+      <Board
+        onBack={options?.onBack}
+        onNew={options?.onNew}
+        onShare={options?.onShare}
+        onTriggerHaptic={options?.onTriggerHaptic}
+        onTriggerErrorHaptic={options?.onTriggerErrorHaptic}
+      />
+    </Provider>
+  )
+  return { ...result, store }
+}
+
 async function openMoreTools(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: /toggle more tools/i }))
 }
@@ -160,7 +243,7 @@ function mockLandscapeOrientation(matches: boolean) {
 
 describe('Board component', () => {
   it('renders 81 cells and control buttons', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = await screen.findAllByRole('gridcell', undefined, { timeout: 10000 })
     expect(cells.length).toBe(81)
     expect(screen.getByRole('button', { name: /new/i })).toBeInTheDocument()
@@ -173,7 +256,7 @@ describe('Board component', () => {
   })
 
   it('renders number pad with buttons 1–9', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     for (let d = 1; d <= 9; d++) {
       // aria-label is e.g. "3, 7 remaining" — anchor with leading digit + comma
@@ -184,28 +267,28 @@ describe('Board component', () => {
   })
 
   it('does not render coordinate labels by default', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     expect(screen.queryByTestId('board-coordinate-columns')).toBeNull()
     expect(screen.queryByTestId('board-coordinate-rows')).toBeNull()
   })
 
   it('renders coordinate labels when enabled', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels="row-number-column-letter" />)
+    renderBoard(PUZZLE, SOLUTION, { coordinateLabels: "row-number-column-letter" })
     await waitForBoard()
     expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('ABCDEFGHI')
     expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('123456789')
   })
 
   it('renders numeric row and column coordinate labels', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} coordinateLabels="row-number-column-number" />)
+    renderBoard(PUZZLE, SOLUTION, { coordinateLabels: "row-number-column-number" })
     await waitForBoard()
     expect(screen.getByTestId('board-coordinate-columns')).toHaveTextContent('123456789')
     expect(screen.getByTestId('board-coordinate-rows')).toHaveTextContent('123456789')
   })
 
   it('selects a cell on click', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = await screen.findAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[0])
@@ -214,7 +297,7 @@ describe('Board component', () => {
   })
 
   it('history actions are disabled initially', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     expect(screen.getByRole('button', { name: /^undo$/i })).toBeDisabled()
 
@@ -226,7 +309,7 @@ describe('Board component', () => {
   })
 
   it('renders pause button and timer', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument()
     // timer display should show a time string like 0:00
@@ -236,19 +319,13 @@ describe('Board component', () => {
   })
 
   it('uses puzzle metadata difficulty when no explicit difficulty prop is provided', async () => {
-    render(
-      <Board
-        puzzle={PUZZLE}
-        solution={SOLUTION}
-        puzzleMetadata={{ source: 'created', difficultyLabel: 'Very Hard', score: 1700 }}
-      />,
-    )
+    renderBoard(PUZZLE, SOLUTION, { puzzleMetadata: { source: 'created', difficultyLabel: 'Very Hard', score: 1700 } })
     await waitForBoard()
     expect(document.querySelector('.difficulty-label')?.textContent).toBe('Very Hard')
   })
 
   it('pause button toggles aria-label', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
     const pauseBtn = screen.getByRole('button', { name: 'Pause' })
@@ -262,7 +339,7 @@ describe('Board component', () => {
   })
 
   it('auto-pauses when window loses focus (blur)', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
     window.dispatchEvent(new Event('blur'))
@@ -272,7 +349,7 @@ describe('Board component', () => {
   })
 
   it('auto-pauses when tab becomes hidden (visibilitychange)', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
@@ -284,7 +361,7 @@ describe('Board component', () => {
   })
 
   it('does not auto-pause on focusout (mobile tap protection)', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     // The old implementation used document focusout which caused mobile taps to pause.
     // Verify focusout alone no longer triggers pause.
@@ -295,7 +372,7 @@ describe('Board component', () => {
   })
 
   it('notes toggle button changes aria-pressed state', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
     const notesBtn = screen.getByRole('button', { name: /toggle notes mode/i })
@@ -308,7 +385,7 @@ describe('Board component', () => {
   })
 
   it('brush toggle shows and hides brush colors', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
     const brushBtn = screen.getByRole('button', { name: /toggle brush mode/i })
@@ -356,7 +433,7 @@ describe('Board component', () => {
   })
 
   it('candidate tool shows the basic candidates action and fills candidates', async () => {
-    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_MULTIPLE_CANDIDATES, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -370,7 +447,7 @@ describe('Board component', () => {
   })
 
   it('candidate tool promotes single candidates to digits', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -400,11 +477,7 @@ describe('Board component', () => {
     })
 
     localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en')
-    render(
-      <LocalizationProvider>
-        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
-      </LocalizationProvider>
-    )
+    render(<Provider store={createTestStore({ game: { initial: PUZZLE_WITH_7_REMAINING as any, current: PUZZLE_WITH_7_REMAINING as any, solution: SOLUTION as any, notes: EMPTY_NOTES, cellColors: emptyCellColors(), candidateColors: emptyCandidateColors(), flaggedColorCell: null, puzzleMetadata: null, elapsed: 0, paused: false, manualPause: false, won: false, finalTime: 0, history: [], redoHistory: [], selected: null, notesMode: false, eraserMode: false, eraserColorPickerMode: false, brushMode: false, candidateToolMode: false, historyToolMode: false, moreToolMode: false, activeBrushColor: "rose", candidateSelectedDigit: null, shareCopied: false, requiredTechniquesOpen: false, requiredTechniquesLoading: false, requiredTechniquesResult: null, requiredTechniquesError: null, expandedTechniqueSteps: [], gameId: 1 } as GameState })}><LocalizationProvider><Board /></LocalizationProvider></Provider>)
     await waitForBoard()
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
@@ -507,11 +580,7 @@ describe('Board component', () => {
     })
 
     localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en')
-    render(
-      <LocalizationProvider>
-        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
-      </LocalizationProvider>
-    )
+    render(<Provider store={createTestStore({ game: { initial: PUZZLE_WITH_7_REMAINING as any, current: PUZZLE_WITH_7_REMAINING as any, solution: SOLUTION as any, notes: EMPTY_NOTES, cellColors: emptyCellColors(), candidateColors: emptyCandidateColors(), flaggedColorCell: null, puzzleMetadata: null, elapsed: 0, paused: false, manualPause: false, won: false, finalTime: 0, history: [], redoHistory: [], selected: null, notesMode: false, eraserMode: false, eraserColorPickerMode: false, brushMode: false, candidateToolMode: false, historyToolMode: false, moreToolMode: false, activeBrushColor: "rose", candidateSelectedDigit: null, shareCopied: false, requiredTechniquesOpen: false, requiredTechniquesLoading: false, requiredTechniquesResult: null, requiredTechniquesError: null, expandedTechniqueSteps: [], gameId: 1 } as GameState })}><LocalizationProvider><Board /></LocalizationProvider></Provider>)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -566,11 +635,7 @@ describe('Board component', () => {
       ],
     })
 
-    render(
-      <LocalizationProvider>
-        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
-      </LocalizationProvider>
-    )
+    render(<Provider store={createTestStore({ game: { initial: PUZZLE_WITH_7_REMAINING as any, current: PUZZLE_WITH_7_REMAINING as any, solution: SOLUTION as any, notes: EMPTY_NOTES, cellColors: emptyCellColors(), candidateColors: emptyCandidateColors(), flaggedColorCell: null, puzzleMetadata: null, elapsed: 0, paused: false, manualPause: false, won: false, finalTime: 0, history: [], redoHistory: [], selected: null, notesMode: false, eraserMode: false, eraserColorPickerMode: false, brushMode: false, candidateToolMode: false, historyToolMode: false, moreToolMode: false, activeBrushColor: "rose", candidateSelectedDigit: null, shareCopied: false, requiredTechniquesOpen: false, requiredTechniquesLoading: false, requiredTechniquesResult: null, requiredTechniquesError: null, expandedTechniqueSteps: [], gameId: 1 } as GameState })}><LocalizationProvider><Board /></LocalizationProvider></Provider>)
     await waitForBoard()
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
@@ -614,11 +679,7 @@ describe('Board component', () => {
       ],
     })
 
-    render(
-      <LocalizationProvider>
-        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
-      </LocalizationProvider>
-    )
+    render(<Provider store={createTestStore({ game: { initial: PUZZLE_WITH_7_REMAINING as any, current: PUZZLE_WITH_7_REMAINING as any, solution: SOLUTION as any, notes: EMPTY_NOTES, cellColors: emptyCellColors(), candidateColors: emptyCandidateColors(), flaggedColorCell: null, puzzleMetadata: null, elapsed: 0, paused: false, manualPause: false, won: false, finalTime: 0, history: [], redoHistory: [], selected: null, notesMode: false, eraserMode: false, eraserColorPickerMode: false, brushMode: false, candidateToolMode: false, historyToolMode: false, moreToolMode: false, activeBrushColor: "rose", candidateSelectedDigit: null, shareCopied: false, requiredTechniquesOpen: false, requiredTechniquesLoading: false, requiredTechniquesResult: null, requiredTechniquesError: null, expandedTechniqueSteps: [], gameId: 1 } as GameState })}><LocalizationProvider><Board /></LocalizationProvider></Provider>)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -651,7 +712,7 @@ describe('Board component', () => {
       steps: [],
     })
 
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -675,11 +736,7 @@ describe('Board component', () => {
       ],
     })
 
-    render(
-      <LocalizationProvider>
-        <Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />
-      </LocalizationProvider>
-    )
+    render(<Provider store={createTestStore({ game: { initial: PUZZLE_WITH_7_REMAINING as any, current: PUZZLE_WITH_7_REMAINING as any, solution: SOLUTION as any, notes: EMPTY_NOTES, cellColors: emptyCellColors(), candidateColors: emptyCandidateColors(), flaggedColorCell: null, puzzleMetadata: null, elapsed: 0, paused: false, manualPause: false, won: false, finalTime: 0, history: [], redoHistory: [], selected: null, notesMode: false, eraserMode: false, eraserColorPickerMode: false, brushMode: false, candidateToolMode: false, historyToolMode: false, moreToolMode: false, activeBrushColor: "rose", candidateSelectedDigit: null, shareCopied: false, requiredTechniquesOpen: false, requiredTechniquesLoading: false, requiredTechniquesResult: null, requiredTechniquesError: null, expandedTechniqueSteps: [], gameId: 1 } as GameState })}><LocalizationProvider><Board /></LocalizationProvider></Provider>)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -696,7 +753,7 @@ describe('Board component', () => {
   })
 
   it('shows eraser-mode clear actions instead of numbers or colors', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -721,7 +778,7 @@ describe('Board component', () => {
       emptyCandidateColors()
     )
 
-    const view = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const view = renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -733,7 +790,7 @@ describe('Board component', () => {
   })
 
   it('shows remove all candidates button in eraser mode disabled when no notes exist', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -750,7 +807,7 @@ describe('Board component', () => {
     notes[4][4] = [5, 9]
     saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
 
-    const view = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const view = renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -769,7 +826,7 @@ describe('Board component', () => {
     notes[0][2] = [1, 2, 3]
     saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
 
-    const view = render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    const view = renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
     const user = userEvent.setup()
 
@@ -785,7 +842,7 @@ describe('Board component', () => {
   })
 
   it('keeps icons in the main tool tray', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     await waitForBoard()
 
     const toolbar = screen.getByRole('toolbar', { name: /game tools/i })
@@ -802,7 +859,7 @@ describe('Board component', () => {
     notes[0][2] = [4]
     saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
 
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} pencilMode paintingScope="candidate" />)
+    renderBoard(PUZZLE, SOLUTION, { pencilMode: true, paintingScope: "candidate" })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     const referenceNumberBtn = screen.getByRole('button', { name: /^4,/ })
@@ -823,7 +880,7 @@ describe('Board component', () => {
   })
 
   it('highlights matching digits when a reference number is clicked in pencil mode', async () => {
-    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} pencilMode />)
+    renderBoard(PUZZLE_WITH_MULTIPLE_CANDIDATES, SOLUTION, { pencilMode: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -844,7 +901,7 @@ describe('Board component', () => {
   })
 
   it('selects given digits in pencil mode', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} pencilMode />)
+    renderBoard(PUZZLE, SOLUTION, { pencilMode: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -857,7 +914,7 @@ describe('Board component', () => {
 
 describe('Board with fixed puzzle', () => {
   it('enters a digit via numpad and shows it in the cell', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // cell [0][2] is at flat index 2, editable (value 0 in PUZZLE)
@@ -868,7 +925,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('enables undo after digit entry; undo and redo update the cell', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
@@ -887,7 +944,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('clears an entered digit using the eraser button', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
@@ -899,7 +956,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('adds a pencil note when notes mode is active', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /toggle notes/i }))
@@ -909,7 +966,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('applies a brush color layer to a cell on quick tap', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -922,7 +979,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('highlights matching givens when selecting a filled cell in brush mode', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -935,7 +992,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('highlights matching user entries when selecting a filled cell in brush mode', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -950,7 +1007,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('restores brush painting state after toggling history tools off', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -972,7 +1029,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('accumulates brush colors on a cell across multiple paint passes', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -992,7 +1049,7 @@ describe('Board with fixed puzzle', () => {
 
   it('persists the first color flag toggle and keeps the first colored cell flagged', async () => {
     const user = userEvent.setup()
-    const firstRender = render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} firstColorFlag />)
+    const firstRender = renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { firstColorFlag: true })
     const cells = screen.getAllByRole('gridcell')
 
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
@@ -1004,7 +1061,7 @@ describe('Board with fixed puzzle', () => {
 
     firstRender.unmount()
 
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} firstColorFlag />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { firstColorFlag: true })
     await waitForBoard()
     const rerenderedCells = screen.getAllByRole('gridcell')
 
@@ -1014,8 +1071,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('clears and resets the first color flag when board colors are removed', async () => {
-    const clearColorsRef: React.MutableRefObject<(() => void) | null> = { current: null }
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} firstColorFlag clearColorsRef={clearColorsRef} />)
+    const view = renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { firstColorFlag: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1034,7 +1090,7 @@ describe('Board with fixed puzzle', () => {
     expect(cells[2].querySelector('.cell-flag-border')).toBeNull()
     expect(cells[4].querySelector('.cell-flag-border')).toBeNull()
 
-    await act(async () => { clearColorsRef.current?.() })
+    await act(async () => { view.store.dispatch(clearAllColors()) })
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     await user.click(cells[4])
 
@@ -1042,7 +1098,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('removes the cell brush color when a number is entered', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1059,7 +1115,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('opens the candidate overlay when candidate painting mode is enabled and paints an existing candidate', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
+    renderBoard(PUZZLE, SOLUTION, { paintingScope: "candidate" })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1092,7 +1148,7 @@ describe('Board with fixed puzzle', () => {
     notes[0][2] = [4, 7]
     saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
 
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1115,7 +1171,7 @@ describe('Board with fixed puzzle', () => {
     notes[0][2] = [4, 7]
     saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
 
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} pencilMode />)
+    renderBoard(PUZZLE, SOLUTION, { pencilMode: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1133,7 +1189,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('does not open the candidate overlay when candidate painting mode is enabled but the cell has no candidates', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
+    renderBoard(PUZZLE, SOLUTION, { paintingScope: "candidate" })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1146,7 +1202,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('keeps highlighting a filled cell in candidate coloring mode without allowing coloring', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
+    renderBoard(PUZZLE, SOLUTION, { paintingScope: "candidate" })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1160,7 +1216,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('closes the candidate overlay when clicking outside it', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
+    renderBoard(PUZZLE, SOLUTION, { paintingScope: "candidate" })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1177,7 +1233,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('highlights matching digits in the board when previewing a candidate in the overlay', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
+    renderBoard(PUZZLE, SOLUTION, { paintingScope: "candidate" })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1204,7 +1260,7 @@ describe('Board with fixed puzzle', () => {
     notes[0][2] = [4, 7]
     saveGame(PUZZLE, PUZZLE, SOLUTION, notes)
 
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1220,7 +1276,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('does not preview a candidate just because an overlay button receives focus', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
+    renderBoard(PUZZLE, SOLUTION, { paintingScope: "candidate" })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1239,7 +1295,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('keeps matching digits highlighted after painting a candidate from the overlay', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} paintingScope="candidate" />)
+    renderBoard(PUZZLE, SOLUTION, { paintingScope: "candidate" })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1260,7 +1316,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('blocks digit entry in brush mode', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1274,7 +1330,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('remover swatch clears the selected cell color without changing the active color', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1289,7 +1345,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('clear cell removes selected brush colors', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1305,8 +1361,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('clears all brush colors', async () => {
-    const clearColorsRef: React.MutableRefObject<(() => void) | null> = { current: null }
-    const view = render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} clearColorsRef={clearColorsRef} paintingScope="digit" />)
+    const view = renderBoard(PUZZLE_WITH_MULTIPLE_CANDIDATES, SOLUTION, { paintingScope: "digit" })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1323,50 +1378,42 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[2])
     expect(cells[2].querySelector('.cell-color-layer')).not.toBeNull()
 
-    view.rerender(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} clearColorsRef={clearColorsRef} paintingScope="candidate" />)
+    view.store.dispatch(setPaintingScope('candidate'))
 
     await user.click(screen.getByRole('button', { name: /brush color 2/i }))
     await user.click(cells[4])
     await user.click(screen.getByRole('button', { name: /paint candidate 7/i }))
     expect(cells[4].querySelector('.cell-note--colored')).not.toBeNull()
 
-    await act(async () => { clearColorsRef.current?.() })
+    await act(async () => { view.store.dispatch(clearAllColors()) })
 
     expect(cells[2].querySelector('.cell-color-layer')).toBeNull()
     expect(cells[4].querySelector('.cell-note--colored')).toBeNull()
   })
 
   it('reports clear painting availability as colors are added and cleared', async () => {
-    const onClearPaintingAvailabilityChange = vi.fn()
-    const clearColorsRef: React.MutableRefObject<(() => void) | null> = { current: null }
-    render(
-      <Board
-        puzzle={PUZZLE}
-        solution={SOLUTION}
-        clearColorsRef={clearColorsRef}
-        onClearPaintingAvailabilityChange={onClearPaintingAvailabilityChange}
-      />
-    )
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
-    expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(false)
+    await user.click(screen.getByRole('button', { name: /toggle more tools/i }))
+    const clearBtn = screen.getByRole('button', { name: /clear all colors/i })
+    expect(clearBtn).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: /toggle brush mode/i }))
     await user.click(screen.getByRole('button', { name: /brush color 1/i }))
     await user.click(cells[2])
-    await waitFor(() => expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(true))
+    expect(clearBtn).not.toBeDisabled()
 
-    await act(async () => { clearColorsRef.current?.() })
-    await waitFor(() => expect(onClearPaintingAvailabilityChange).toHaveBeenLastCalledWith(false))
+    await user.click(clearBtn)
+    expect(clearBtn).toBeDisabled()
   })
 
   it('fills simple candidates for all empty cells', async () => {
-    const identifyCandidatesRef: React.MutableRefObject<(() => void) | null> = { current: null }
-    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} identifyCandidatesRef={identifyCandidatesRef} />)
+    const view = renderBoard(PUZZLE_WITH_MULTIPLE_CANDIDATES, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
 
-    await act(async () => { identifyCandidatesRef.current?.() })
+    await act(async () => { view.store.dispatch(fillAllCandidates()) })
 
     const cell02Notes = cells[2].querySelectorAll('.cell-note')
     expect(cell02Notes[3].textContent).toBe('4')
@@ -1384,21 +1431,15 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('disables fill-all when there are no empty cells', async () => {
-    const onIdentifyCandidatesAvailabilityChange = vi.fn()
-    render(
-      <Board
-        puzzle={FULL_GRID_NO_EMPTY}
-        solution={null}
-        onIdentifyCandidatesAvailabilityChange={onIdentifyCandidatesAvailabilityChange}
-      />
-    )
-
-    expect(onIdentifyCandidatesAvailabilityChange).toHaveBeenLastCalledWith(false)
+    renderBoard(FULL_GRID_NO_EMPTY, SOLUTION)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /toggle more tools/i }))
+    const fillBtn = screen.getByRole('button', { name: /fill all candidates/i })
+    expect(fillBtn).toBeDisabled()
   })
 
   it('does not replace existing candidates when filling all empty cells', async () => {
-    const identifyCandidatesRef: React.MutableRefObject<(() => void) | null> = { current: null }
-    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} identifyCandidatesRef={identifyCandidatesRef} />)
+    const view = renderBoard(PUZZLE_WITH_MULTIPLE_CANDIDATES, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1406,7 +1447,7 @@ describe('Board with fixed puzzle', () => {
     await user.click(cells[2])
     await user.click(screen.getByRole('button', { name: /^4,/ }))
 
-    await act(async () => { identifyCandidatesRef.current?.() })
+    await act(async () => { view.store.dispatch(fillAllCandidates()) })
 
     const cell02Notes = cells[2].querySelectorAll('.cell-note')
     expect(cell02Notes[3].textContent).toBe('4')
@@ -1417,7 +1458,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('keeps selected reference digits active while history tools are toggled', async () => {
-    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} pencilMode />)
+    renderBoard(PUZZLE_WITH_MULTIPLE_CANDIDATES, SOLUTION, { pencilMode: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1440,7 +1481,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('restores candidates on first undo after a wrong entry', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1461,7 +1502,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('keeps peer candidates on wrong entry when auto-check and auto-remove are enabled', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} autoCheck autoRemove />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { autoCheck: true, autoRemove: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1477,7 +1518,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('removes peer candidates on correct entry when auto-check and auto-remove are enabled', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} autoCheck autoRemove />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { autoCheck: true, autoRemove: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1493,7 +1534,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('disables exhausted digit buttons in entry and notes mode', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     const sevenBtn = screen.getByRole('button', { name: /^7,/ })
@@ -1512,7 +1553,7 @@ describe('Board with fixed puzzle', () => {
   it('highlights matching note candidates when a filled cell with that digit is selected', async () => {
     // PUZZLE has cell [0][2] blank. Add note "3" there, then select cell [0][1]
     // which contains 3 in the puzzle — selectedDigit becomes 3, so the note should be bold.
-    render(<Board puzzle={PUZZLE_WITH_3_REMAINING} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_3_REMAINING, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // Enter note "3" in cell [0][2] (index 2)
@@ -1545,7 +1586,7 @@ describe('Board with fixed puzzle', () => {
       lineJoin: 'round',
     } as unknown as CanvasRenderingContext2D)
 
-    render(<Board puzzle={PUZZLE_WITH_MULTIPLE_CANDIDATES} solution={SOLUTION} pencilMode />)
+    renderBoard(PUZZLE_WITH_MULTIPLE_CANDIDATES, SOLUTION, { pencilMode: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1562,7 +1603,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('removes note highlight when a non-matching cell is selected', async () => {
-    render(<Board puzzle={PUZZLE_WITH_3_REMAINING} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_3_REMAINING, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // Add note "3" in the blank cell
@@ -1577,7 +1618,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('handles digit entry via keyboard', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
@@ -1586,7 +1627,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('handles cell navigation via arrow keys', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // Select first editable cell [0][2] (index 2)
@@ -1597,7 +1638,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('shows victory overlay when puzzle is completed', async () => {
-    render(<Board puzzle={ALMOST_DONE} solution={SOLUTION} />)
+    renderBoard(ALMOST_DONE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // cell [8][8] is at flat index 80, blank in ALMOST_DONE, answer = 9
@@ -1608,7 +1649,7 @@ describe('Board with fixed puzzle', () => {
 
   it('calls onWin callback when puzzle is completed', async () => {
     const onWin = vi.fn()
-    render(<Board puzzle={ALMOST_DONE} solution={SOLUTION} onWin={onWin} />)
+    renderBoard(ALMOST_DONE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[80])
@@ -1618,7 +1659,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('retry button on victory card resets the board', async () => {
-    render(<Board puzzle={ALMOST_DONE} solution={SOLUTION} />)
+    renderBoard(ALMOST_DONE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[80])
@@ -1631,7 +1672,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('applies cross class to cells in the same row and column as selected', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // Select cell [0][0] (flat index 0)
@@ -1647,7 +1688,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('applies cross class to cells in the same 3×3 box as selected', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // Select cell [0][0] (flat index 0) — top-left box: rows 0-2, cols 0-2
@@ -1660,7 +1701,7 @@ describe('Board with fixed puzzle', () => {
   })
 
   it('does not apply cross class to same-digit cells (they get same-digit instead)', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // Select cell [0][0] which contains 5; other 5s should be same-digit, not cross
@@ -1676,7 +1717,7 @@ describe('Board with fixed puzzle', () => {
 describe('Board haptic callbacks', () => {
   it('calls onTriggerHaptic when haptic=true and a cell is clicked', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE, SOLUTION, { haptic: true, onTriggerHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2])
@@ -1685,7 +1726,7 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerHaptic when haptic=true and a numpad button is clicked', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE, SOLUTION, { haptic: true, onTriggerHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2])
@@ -1696,7 +1737,7 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerHaptic once for a regular touch digit entry', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { haptic: true, onTriggerHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2])
@@ -1712,7 +1753,7 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerHaptic on touch when entering the last remaining digit', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE, SOLUTION, { haptic: true, onTriggerHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2])
@@ -1728,7 +1769,7 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerHaptic when erasing a cell via eraser mode', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { haptic: true, onTriggerHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
 
@@ -1745,7 +1786,7 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerHaptic when main tool buttons are pressed', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { haptic: true, onTriggerHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
 
@@ -1777,7 +1818,7 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerHaptic when history subtools are pressed', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { haptic: true, onTriggerHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
 
@@ -1807,7 +1848,7 @@ describe('Board haptic callbacks', () => {
       cellColors,
       emptyCandidateColors()
     )
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE, SOLUTION, { haptic: true, onTriggerHaptic })
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: /eraser mode/i }))
@@ -1819,7 +1860,7 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerHaptic when candidate subtools are pressed', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE, SOLUTION, { haptic: true, onTriggerHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
 
@@ -1837,7 +1878,7 @@ describe('Board haptic callbacks', () => {
 
   it('does not call onTriggerHaptic when haptic=false', async () => {
     const onTriggerHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic={false} onTriggerHaptic={onTriggerHaptic} />)
+    renderBoard(PUZZLE, SOLUTION, { haptic: false, onTriggerHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2])
@@ -1847,7 +1888,7 @@ describe('Board haptic callbacks', () => {
 
   it('calls onTriggerErrorHaptic when haptic=true, autoCheck=true, and a wrong digit is entered', async () => {
     const onTriggerErrorHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic autoCheck onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { haptic: true, autoCheck: true, onTriggerHaptic, onTriggerErrorHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2]) // blank cell, answer = 4
@@ -1857,7 +1898,7 @@ describe('Board haptic callbacks', () => {
 
   it('does not call onTriggerErrorHaptic for a correct digit', async () => {
     const onTriggerErrorHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} haptic autoCheck onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    renderBoard(PUZZLE, SOLUTION, { haptic: true, autoCheck: true, onTriggerHaptic, onTriggerErrorHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2]) // blank cell, answer = 4
@@ -1867,7 +1908,7 @@ describe('Board haptic callbacks', () => {
 
   it('does not call onTriggerErrorHaptic when autoCheck=false even if digit is wrong', async () => {
     const onTriggerErrorHaptic = vi.fn()
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} haptic autoCheck={false} onTriggerErrorHaptic={onTriggerErrorHaptic} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { haptic: true, autoCheck: false, onTriggerErrorHaptic })
     const user = userEvent.setup()
     const cells = screen.getAllByRole('gridcell')
     await user.click(cells[2])
@@ -1885,7 +1926,7 @@ describe('Board numpad touch handling', () => {
   }
 
   it('applies a note exactly once when a touch pointerdown + ghost click arrive', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /toggle notes/i }))
@@ -1899,7 +1940,7 @@ describe('Board numpad touch handling', () => {
   })
 
   it('toggling same note twice via touch removes it', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /toggle notes/i }))
@@ -1913,7 +1954,7 @@ describe('Board numpad touch handling', () => {
   })
 
   it('mouse click still works after a touch interaction', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /toggle notes/i }))
@@ -1930,7 +1971,7 @@ describe('Board numpad touch handling', () => {
   })
 
   it('mouse click still works after a last-remaining touch digit entry', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -1947,7 +1988,7 @@ describe('Board numpad touch handling', () => {
 
 describe('Board pause display', () => {
   it('removes user class from cells with user entries when paused', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
@@ -1958,7 +1999,7 @@ describe('Board pause display', () => {
   })
 
   it('removes selected class when paused', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
@@ -1968,7 +2009,7 @@ describe('Board pause display', () => {
   })
 
   it('removes same-digit class when paused', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     // Select cell [0][0] which has digit 5; other 5s get same-digit
@@ -1980,7 +2021,7 @@ describe('Board pause display', () => {
   })
 
   it('removes cross class when paused', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} />)
+    renderBoard(PUZZLE, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[0])
@@ -1990,7 +2031,7 @@ describe('Board pause display', () => {
   })
 
   it('removes error class when paused', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} autoCheck />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION, { autoCheck: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
@@ -2001,7 +2042,7 @@ describe('Board pause display', () => {
   })
 
   it('hides the first-color flag border when paused and restores it on resume', async () => {
-    render(<Board puzzle={PUZZLE} solution={SOLUTION} firstColorFlag />)
+    renderBoard(PUZZLE, SOLUTION, { firstColorFlag: true })
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
 
@@ -2019,7 +2060,7 @@ describe('Board pause display', () => {
   })
 
   it('restores classes after resuming', async () => {
-    render(<Board puzzle={PUZZLE_WITH_7_REMAINING} solution={SOLUTION} />)
+    renderBoard(PUZZLE_WITH_7_REMAINING, SOLUTION)
     const cells = screen.getAllByRole('gridcell')
     const user = userEvent.setup()
     await user.click(cells[2])
