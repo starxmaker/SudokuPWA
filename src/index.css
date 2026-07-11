@@ -810,7 +810,13 @@ button[disabled]{ background:var(--card); color:var(--muted); cursor:default; bo
 .input-pad__panel--fade-out{
   animation:input-pad-fade-out 0.22s cubic-bezier(0.55, 0, 0.55, 0.2) both;
 }
-.eraser-action-pad,
+.eraser-action-pad{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  width:100%;
+  max-width:720px;
+}
 .history-action-pad,
 .candidate-action-pad{
   display:grid;

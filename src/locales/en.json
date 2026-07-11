@@ -138,6 +138,7 @@
   "board.candidateActions": "Candidate actions",
   "board.cleanColors": "Clean colors",
   "board.cleanSingleColor": "Remove single color",
+  "board.cleanAllNotes": "Remove all candidates",
   "board.eraserColorPicker": "Select color to remove",
   "board.backToEraserActions": "Back to eraser",
   "board.showAllBasicCandidates": "Show all basic candidates",

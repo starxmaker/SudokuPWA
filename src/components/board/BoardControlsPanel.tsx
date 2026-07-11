@@ -57,6 +57,7 @@ type Props = {
   measureNotesButtonRef: React.MutableRefObject<HTMLButtonElement | null>
   measureBrushButtonRef: React.MutableRefObject<HTMLButtonElement | null>
   hasAnyColors: boolean
+  hasAnyNotes: boolean
   undoDisabled: boolean
   redoDisabled: boolean
   hasAnyFillableCell: boolean
@@ -74,6 +75,7 @@ type Props = {
   applyBrushColor: (colorId: BrushColorId) => void
   clearSelectedBrushColors: () => boolean
   clearAllColors: () => boolean
+  onClearAllNotes: () => boolean
   eraserColorPickerMode: boolean
   onToggleEraserColorPicker: () => void
   onClearSingleColor: (colorId: BrushColorId) => boolean
@@ -156,6 +158,7 @@ export default function BoardControlsPanel({
   measureNotesButtonRef,
   measureBrushButtonRef,
   hasAnyColors,
+  hasAnyNotes,
   undoDisabled,
   redoDisabled,
   hasAnyFillableCell,
@@ -173,6 +176,7 @@ export default function BoardControlsPanel({
   applyBrushColor,
   clearSelectedBrushColors,
   clearAllColors,
+  onClearAllNotes,
   eraserColorPickerMode,
   onToggleEraserColorPicker,
   onClearSingleColor,
@@ -630,6 +634,7 @@ export default function BoardControlsPanel({
                 paused={paused}
                 won={won}
                 hasAnyColors={hasAnyColors}
+                hasAnyNotes={hasAnyNotes}
                 undoDisabled={undoDisabled}
                 redoDisabled={redoDisabled}
                 hasAnyFillableCell={hasAnyFillableCell}
@@ -639,6 +644,7 @@ export default function BoardControlsPanel({
                 haptic={haptic ?? false}
                 onTriggerHaptic={onTriggerHaptic}
                 onClearAllColors={clearAllColors}
+                onClearAllNotes={onClearAllNotes}
                 onUndo={undo}
                 onRedo={redo}
                 onFillAllCandidates={fillAllCandidates}
