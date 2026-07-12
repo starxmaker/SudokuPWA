@@ -43,11 +43,6 @@ export function useDigitInput() {
     const { r, c } = target
     const isWrongEntry = settings.autoCheck && game.solution !== null && d !== game.solution[r][c]
 
-    if (game.notesMode) {
-      dispatch(toggleNote({ r, c, d, pencilMode: settings.pencilMode }))
-      return false
-    }
-
     dispatch(writeDigit({
       d,
       overrideCell: target,

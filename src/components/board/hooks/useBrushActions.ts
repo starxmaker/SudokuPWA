@@ -14,6 +14,7 @@ import {
 export function useBrushActions() {
   const dispatch = useAppDispatch()
   const game = useAppSelector(s => s.game)
+  const settings = useAppSelector(s => s.settings)
 
   const applyCellBrushColorAt = useCallback((r: number, c: number, colorId?: BrushColorId): boolean => {
     const id = colorId ?? game.activeBrushColor
@@ -23,9 +24,9 @@ export function useBrushActions() {
     const currentColors = game.cellColors[r][c]
     const wouldChange = !currentColors.includes(id) || currentColors.length > 1
     if (!wouldChange && currentColors.length === 1 && currentColors[0] === id) return false
-    dispatch(applyCellBrushColor({ r, c, colorId: id, firstColorFlagEnabled: game.candidateSelectedDigit !== null }))
+    dispatch(applyCellBrushColor({ r, c, colorId: id, firstColorFlagEnabled: settings.firstColorFlag }))
     return true
-  }, [dispatch, game])
+  }, [dispatch, game, settings.firstColorFlag])
 
   const applyCandidateBrushColorAt = useCallback((r: number, c: number, d: number): boolean => {
     if (game.cellColors[r][c].length > 0) return false
@@ -33,9 +34,9 @@ export function useBrushActions() {
     const currentColors = game.candidateColors[r][c][d - 1]
     const wouldChange = !currentColors.includes(game.activeBrushColor) || currentColors.length > 1
     if (!wouldChange && currentColors.length === 1 && currentColors[0] === game.activeBrushColor) return false
-    dispatch(applyCandidateBrushColor({ r, c, d, colorId: game.activeBrushColor, firstColorFlagEnabled: false }))
+    dispatch(applyCandidateBrushColor({ r, c, d, colorId: game.activeBrushColor, firstColorFlagEnabled: settings.firstColorFlag }))
     return true
-  }, [dispatch, game])
+  }, [dispatch, game, settings.firstColorFlag])
 
   const clearSelectedBrushColorsFn = useCallback((): boolean => {
     if (!game.selected) return false

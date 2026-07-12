@@ -7,6 +7,7 @@ import {
   setCandidateToolMode,
   setHistoryToolMode,
   setMoreToolMode,
+  setCandidateSelectedDigit,
 } from '../../../store/gameSlice'
 import {
   closeCandidateOverlay,
@@ -30,6 +31,9 @@ export function useToolTray() {
 
   const closeOverlay = useCallback((preserveSelectedDigit = false) => {
     dispatch(closeCandidateOverlay({ preserveSelectedDigit }))
+    if (!preserveSelectedDigit) {
+      dispatch(setCandidateSelectedDigit(null))
+    }
   }, [dispatch])
 
   const switchLowerPad = useCallback((next: LowerPadView, direction: 'forward' | 'backward') => {

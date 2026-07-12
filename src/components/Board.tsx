@@ -99,7 +99,7 @@ export default function Board({
 
   const selectedDigit =
     game.selected !== null ? game.current[game.selected.r][game.selected.c] : 0
-  const highlightedDigit = overlay.candidateOverlayPreviewDigit ?? overlay.candidateSelectedDigit ?? selectedDigit
+  const highlightedDigit = overlay.candidateOverlayPreviewDigit ?? overlay.candidateSelectedDigit ?? game.candidateSelectedDigit ?? selectedDigit
   const selectedHasCellColor =
     game.selected !== null && game.cellColors[game.selected.r][game.selected.c].length > 0
   const selectedHasCandidateColors =
