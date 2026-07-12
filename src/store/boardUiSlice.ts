@@ -95,6 +95,9 @@ export const boardUiSlice = createSlice({
     dismissPortraitTechniquesSummary(state) {
       state.portraitTechniquesSummaryDismissed = true
     },
+    resetPortraitTechniquesSummary(state) {
+      state.portraitTechniquesSummaryDismissed = false
+    },
     setTechniquesOpen(state, action: PayloadAction<boolean>) {
       state.techniquesOpen = action.payload
     },
@@ -131,6 +134,7 @@ export const {
   setVisibleLowerPad,
   setLowerPadTransition,
   dismissPortraitTechniquesSummary,
+  resetPortraitTechniquesSummary,
   setTechniquesOpen,
   setTechniquesDockedOpen,
   resetBoardUi,

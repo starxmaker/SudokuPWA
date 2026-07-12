@@ -7,18 +7,15 @@ import {
 } from '../../../store/gameSlice'
 import {
   dismissPortraitTechniquesSummary,
+  resetPortraitTechniquesSummary,
   setTechniquesOpen,
   setTechniquesDockedOpen,
 } from '../../../store/boardUiSlice'
 import type { TechniquesSidebarHandle } from '../TechniquesSidebar'
 import type { RequiredTechniques } from '../../../utils/generators/hodoku'
 
-export function useTechniques(internalPuzzle: number[][], notes: number[][][]) {
+export function useTechniques(internalPuzzle: number[][], notes: number[][][], isLandscape: boolean) {
   const dispatch = useAppDispatch()
-  const isLandscape = useAppSelector(s => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(orientation: landscape)').matches
-  })
   const techniquesOpen = useAppSelector(s => s.boardUi.techniquesOpen)
   const techniquesDockedOpen = useAppSelector(s => s.boardUi.techniquesDockedOpen)
   const portraitDismissed = useAppSelector(s => s.boardUi.portraitTechniquesSummaryDismissed)
@@ -28,7 +25,7 @@ export function useTechniques(internalPuzzle: number[][], notes: number[][][]) {
   const techniquesRef = useRef<TechniquesSidebarHandle>(null)
 
   const showRequiredTechniques = useCallback(async () => {
-    dispatch(dismissPortraitTechniquesSummary())
+    dispatch(resetPortraitTechniquesSummary())
     dispatch(setRequiredTechniquesLoading(true))
     try {
       if (typeof window !== 'undefined') {
@@ -61,6 +58,15 @@ export function useTechniques(internalPuzzle: number[][], notes: number[][][]) {
         }
       : null
 
+  const setTechniquesOpenCb = useCallback(
+    (v: boolean) => dispatch(setTechniquesOpen(v)), [dispatch])
+  const setTechniquesDockedOpenCb = useCallback(
+    (v: boolean) => dispatch(setTechniquesDockedOpen(v)), [dispatch])
+  const setRequiredTechniquesResultCb = useCallback(
+    (v: RequiredTechniques | null) => dispatch(setRequiredTechniquesResult(v)), [dispatch])
+  const setRequiredTechniquesErrorCb = useCallback(
+    (v: string | null) => dispatch(setRequiredTechniquesError(v)), [dispatch])
+
   return {
     techniquesRef,
     showRequiredTechniques,
@@ -72,9 +78,9 @@ export function useTechniques(internalPuzzle: number[][], notes: number[][][]) {
     requiredTechniquesSummary,
     techniquesOpen,
     techniquesDockedOpen,
-    setTechniquesOpen: (v: boolean) => dispatch(setTechniquesOpen(v)),
-    setTechniquesDockedOpen: (v: boolean) => dispatch(setTechniquesDockedOpen(v)),
-    setRequiredTechniquesResult: (v: RequiredTechniques | null) => dispatch(setRequiredTechniquesResult(v)),
-    setRequiredTechniquesError: (v: string | null) => dispatch(setRequiredTechniquesError(v)),
+    setTechniquesOpen: setTechniquesOpenCb,
+    setTechniquesDockedOpen: setTechniquesDockedOpenCb,
+    setRequiredTechniquesResult: setRequiredTechniquesResultCb,
+    setRequiredTechniquesError: setRequiredTechniquesErrorCb,
   }
 }

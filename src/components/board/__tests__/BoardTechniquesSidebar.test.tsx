@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor, within, act } from '@testing-library/react'
+import { render, screen, waitFor, within, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {mockedAnalyzeRequiredTechniques,
@@ -7,6 +7,7 @@ import {mockedAnalyzeRequiredTechniques,
   waitForBoard,
   mockLandscapeOrientation,
   createBoardTestStore,
+  EMPTY_NOTES,
   PUZZLE_WITH_7_REMAINING,
   SOLUTION,
 } from './boardTestUtils'
@@ -49,7 +50,7 @@ vi.mock('../../../utils/clipboard', () => ({
   writeClipboardText: clipboardMocks.writeClipboardText,
 }))
 
-describe.skip('Board techniques sidebar', () => {
+describe('Board techniques sidebar', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     localStorage.clear()

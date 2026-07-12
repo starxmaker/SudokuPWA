@@ -54,7 +54,7 @@ export default function Board({
   const overlay = useCandidateOverlay()
   const history = useHistoryControls()
   const tray = useToolTray()
-  const techniques = useTechniques(game.current ?? [], game.notes)
+  const techniques = useTechniques(game.current ?? [], game.notes, isLandscape)
   const newGameActions = useNewGameActions(techniques.techniquesRef)
 
   useKeyboardInput(digit.applyDigit, digit.clearCell)
