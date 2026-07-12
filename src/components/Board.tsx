@@ -1,10 +1,8 @@
 import React, { useRef } from 'react'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
-import { setSelected, fillAllCandidates, applySingleCandidatesToDigits } from '../store/gameSlice'
 import { selectCell as selectCellAction, focusCell as focusCellAction } from '../store/gameSlice'
-import { setCandidateOverlayPreviewDigit, setBoardUiCandidateSelectedDigit, closeCandidateOverlay } from '../store/boardUiSlice'
 import { useI18n } from '../utils/i18n'
-import { hasCellBrushColorsAt, hasAnyBrushColorsOnBoard, formatTime } from './board/boardUtils'
+import { hasCellBrushColorsAt, formatTime } from './board/boardUtils'
 import PencilOverlay from './PencilOverlay'
 import BoardControlsPanel from './board/BoardControlsPanel'
 import BoardGrid from './board/BoardGrid'
@@ -19,8 +17,6 @@ import {
   useDigitInput,
   useBrushActions,
   useCandidateOverlay,
-  useHistoryControls,
-  useToolTray,
   useTechniques,
   useNewGameActions,
   useAvailabilityCallbacks,
@@ -44,7 +40,6 @@ export default function Board({
   const { localizeDifficultyLabel, t } = useI18n()
   const dispatch = useAppDispatch()
   const game = useAppSelector(s => s.game)
-  const boardUi = useAppSelector(s => s.boardUi)
   const settings = useAppSelector(s => s.settings)
 
   const { paused, won, updatePaused, elapsed } = useGameLifecycle()
@@ -52,8 +47,6 @@ export default function Board({
   const digit = useDigitInput()
   const brush = useBrushActions()
   const overlay = useCandidateOverlay()
-  const history = useHistoryControls()
-  const tray = useToolTray()
   const techniques = useTechniques(game.current ?? [], game.notes, isLandscape)
   const newGameActions = useNewGameActions(techniques.techniquesRef)
 
@@ -73,25 +66,6 @@ export default function Board({
   const measureNotesButtonRef = useRef<HTMLButtonElement | null>(null)
   const measureBrushButtonRef = useRef<HTMLButtonElement | null>(null)
 
-  function handleMomentaryButtonClick(
-    event: React.MouseEvent<HTMLButtonElement>,
-    action: () => boolean,
-    alwaysHaptic = false,
-  ) {
-    const changed = action()
-    event.currentTarget.blur()
-    if (settings.haptic && (alwaysHaptic || changed)) onTriggerHaptic?.()
-  }
-
-  function handleModeButtonClick(
-    event: React.MouseEvent<HTMLButtonElement>,
-    action: () => void,
-  ) {
-    action()
-    event.currentTarget.blur()
-    if (settings.haptic) onTriggerHaptic?.()
-  }
-
   if (!game.current || game.current.length === 0) return null
 
   const isClue = (r: number, c: number): boolean =>
@@ -100,20 +74,9 @@ export default function Board({
   const selectedDigit =
     game.selected !== null ? game.current[game.selected.r][game.selected.c] : 0
   const highlightedDigit = overlay.candidateOverlayPreviewDigit ?? overlay.candidateSelectedDigit ?? game.candidateSelectedDigit ?? selectedDigit
-  const selectedHasCellColor =
-    game.selected !== null && game.cellColors[game.selected.r][game.selected.c].length > 0
-  const selectedHasCandidateColors =
-    game.selected !== null && game.candidateColors[game.selected.r][game.selected.c].some(color => color.length > 0)
-  const selectedHasAnyColors = selectedHasCellColor || selectedHasCandidateColors
   const overlayCellNotes = overlay.candidateOverlay ? game.notes[overlay.candidateOverlay.r][overlay.candidateOverlay.c] : []
   const overlayHasCellColor =
     overlay.candidateOverlay !== null && game.cellColors[overlay.candidateOverlay.r][overlay.candidateOverlay.c].length > 0
-  const hasSingleCandidates = game.notes.some((row, r) =>
-    row.some((cell, c) => !isClue(r, c) && game.current![r][c] === 0 && cell.length === 1)
-  )
-  const hasAnyFillableCell = game.current.some((row, r) =>
-    row.some((n, c) => !isClue(r, c) && n === 0 && game.notes[r][c].length === 0)
-  )
   const activeFlaggedColorCell =
     settings.firstColorFlag &&
     game.flaggedColorCell !== null &&
@@ -181,23 +144,8 @@ export default function Board({
           />
         </BoardSurface>
         <BoardControlsPanel
-          paused={paused}
-          won={won}
-          haptic={settings.haptic}
           onTriggerHaptic={onTriggerHaptic}
           onTriggerErrorHaptic={onTriggerErrorHaptic}
-          historyToolMode={game.historyToolMode}
-          moreToolMode={game.moreToolMode}
-          eraserMode={game.eraserMode}
-          notesMode={game.notesMode}
-          brushMode={game.brushMode}
-          pencilMode={settings.pencilMode}
-          candidateToolMode={game.candidateToolMode}
-          visibleToolTray={tray.visibleToolTray}
-          toolTrayTransition={tray.toolTrayTransition}
-          toolTraySequence={tray.toolTraySequence}
-          visibleLowerPad={tray.visibleLowerPad}
-          lowerPadTransition={tray.lowerPadTransition}
           toolTrayRef={toolTrayRef}
           mainNotesButtonRef={mainNotesButtonRef}
           mainBrushButtonRef={mainBrushButtonRef}
@@ -209,62 +157,10 @@ export default function Board({
           measureMainMoreButtonRef={measureMainMoreButtonRef}
           measureNotesButtonRef={measureNotesButtonRef}
           measureBrushButtonRef={measureBrushButtonRef}
-          hasAnyColors={brush.hasAnyColors}
-          hasAnyNotes={brush.hasAnyNotes}
-          undoDisabled={history.undoDisabled}
-          redoDisabled={history.redoDisabled}
-          hasAnyFillableCell={hasAnyFillableCell}
-          hasSingleCandidates={hasSingleCandidates}
-          requiredTechniquesLoading={techniques.requiredTechniquesLoading}
-          requiredTechniquesOpen={techniques.techniquesOpen}
-          requiredTechniquesSummary={techniques.requiredTechniquesSummary}
-          remaining={digit.remaining}
-          candidateSelectedDigit={overlay.candidateSelectedDigit}
-          selectedHasAnyColors={selectedHasAnyColors}
-          activeBrushColor={game.activeBrushColor}
           touchFiredRef={touchFiredRef}
-          applyDigit={digit.applyDigit}
-          toggleReferenceDigitHighlight={(d) => {
-            overlay.closeCandidateOverlay()
-            overlay.setCandidateOverlayPreviewDigit(null)
-            overlay.setCandidateSelectedDigit(overlay.candidateSelectedDigit === d ? null : d)
-          }}
-          applyBrushColor={brush.applyBrushColor}
-          clearSelectedBrushColors={brush.clearSelectedBrushColors}
-          clearAllColors={brush.clearAllColors}
-          onClearAllNotes={brush.clearAllNotes}
-          eraserColorPickerMode={tray.eraserColorPickerMode}
-          onToggleEraserColorPicker={tray.toggleEraserColorPicker}
-          onClearSingleColor={brush.clearColorFromBoard}
-          undo={history.undo}
-          redo={history.redo}
-          fillAllCandidates={() => {
-            const hasFillable = game.current!.some((row, r) =>
-              row.some((n, c) => game.initial![r][c] === 0 && n === 0 && game.notes[r][c].length === 0)
-            )
-            if (!hasFillable) return false
-            dispatch(fillAllCandidates())
-            return true
-          }}
-          applySingleCandidatesToDigits={() => {
-            const hasSingle = game.current!.some((row, r) =>
-              row.some((n, c) => game.initial![r][c] === 0 && n === 0 && game.notes[r][c].length === 1)
-            )
-            if (!hasSingle) return false
-            dispatch(applySingleCandidatesToDigits({ autoCheck: settings.autoCheck, autoRemove: settings.autoRemove }))
-            return true
-          }}
           showRequiredTechniques={techniques.showRequiredTechniques}
           openRequiredTechniquesSidebar={techniques.openRequiredTechniquesSidebar}
-          hideRequiredTechniquesSummary={techniques.hideRequiredTechniquesSummary}
-          toggleHistoryTools={tray.toggleHistoryTools}
-          toggleMoreTools={tray.toggleMoreTools}
-          toggleEraserMode={tray.toggleEraserMode}
-          toggleNotesTools={tray.toggleNotesTools}
-          toggleBrushTools={tray.toggleBrushTools}
-          toggleCandidateTools={tray.toggleCandidateTools}
-          onMomentaryButtonClick={handleMomentaryButtonClick}
-          onModeButtonClick={handleModeButtonClick}
+          requiredTechniquesSummary={techniques.requiredTechniquesSummary}
           t={t}
         />
         <TechniquesSidebar
